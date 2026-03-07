@@ -10,7 +10,7 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import Login from './Login';
+import Login from '../screens/Login';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
