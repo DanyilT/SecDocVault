@@ -19,6 +19,13 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     color: '#474646',
   },
+  inputFieldDescription: {
+    fontSize: 16,
+    textAlign: 'left',
+    marginBottom: 10,
+    marginLeft: 5,
+    color: '#6c757e',
+  },
   input: {
     height: 50,
     borderColor: '#ddd',
@@ -29,15 +36,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     fontSize: 16,
   },
-  submitButton: {
+  buttonPrimary: {
     height: 50,
     backgroundColor: '#3597ff',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  buttonSecondary: {
+    height: 50,
+    backgroundColor: '#6c757e',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 20,
   },
-  submitButtonText: {
+  buttonLink: {
+    color: '#007AFF',
+    fontSize: 14,
+    marginTop: 25,
+    marginBottom: 20,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
+  },
+  buttonPrimaryText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
