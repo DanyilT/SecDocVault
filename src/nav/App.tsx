@@ -14,11 +14,13 @@ import {
 import Login from '../screens/Login';
 import CreateAccount from '../screens/CreateAccount';
 import ForgotPassword from '../screens/ForgotPassword';
+import Main from '../screens/Main';
 
 export type RootStackParamList = {
   Login: undefined;
   CreateAccount: undefined;
   ForgotPassword: undefined;
+  Main: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -38,6 +40,7 @@ function App() {
           <Stack.Screen name="Login" component={Login} />
           <Stack.Screen name="CreateAccount" component={CreateAccount} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+          <Stack.Screen name="Main" component={Main} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

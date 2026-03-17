@@ -9,11 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import styles from '../design/Styles.tsx';
-
-type RootStackParamList = {
-  Login: undefined;
-  CreateAccount: undefined;
-};
+import { RootStackParamList } from '../nav/App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateAccount'>;
 

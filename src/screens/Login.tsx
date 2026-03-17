@@ -9,12 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import styles from '../design/Styles.tsx';
-
-type RootStackParamList = {
-  Login: undefined;
-  CreateAccount: undefined;
-  ForgotPassword: undefined;
-};
+import { RootStackParamList } from '../nav/App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -28,6 +23,7 @@ const Login: React.FC<Props> = ({ navigation }) => {
       return;
     }
     // proceed with login
+    navigation.navigate('Main')
   };
 
   return (
