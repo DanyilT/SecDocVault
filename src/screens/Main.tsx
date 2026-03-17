@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../nav/App';
 import styles from '../design/Styles';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
@@ -27,8 +28,10 @@ const initialRecords: Record[] = [
 ];
 
 const Main: React.FC<Props> = () => {
+  const { signOut } = useAuth();
   const [records, setRecords] = useState<Record[]>(initialRecords);
   const [newRecordExpanded, setNewRecordExpanded] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   const toggleRecord = (id: string) => {
     // decryption logic would go here
@@ -53,11 +56,19 @@ const Main: React.FC<Props> = () => {
           <TouchableOpacity>
             <Image source={require('../assets/reloadIcon.png')} style={styles.headerIcon} />
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => setAccountMenuOpen(prev => !prev)}>
             <Image source={require('../assets/userIcon.png')} style={styles.headerIcon} />
           </TouchableOpacity>
         </View>
       </View>
+
+      {accountMenuOpen && (
+        <View style={styles.accountMenu}>
+          <TouchableOpacity style={styles.accountMenuItem} onPress={signOut}>
+            <Text style={styles.accountMenuText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Record List */}
