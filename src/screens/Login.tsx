@@ -1,10 +1,12 @@
 import React from 'react';
+import { getAuth, signInWithEmailAndPassword } from '@react-native-firebase/auth';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -16,15 +18,24 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 const Login: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const handleLogin = () => {
+  async function handleLogin() {
     if (!email || !password) {
       Alert.alert('Error', 'All fields are required.');
       return;
     }
-    // proceed with login
-    navigation.navigate('Main')
-  };
+
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(getAuth(), email, password);
+      // AuthContext will detect user and redirect to Main
+    } catch (error: any) {
+      Alert.alert('Provided credentials are incorrect. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -49,8 +60,9 @@ const Login: React.FC<Props> = ({ navigation }) => {
           onChangeText={setPassword}
         />
 
-        <TouchableOpacity style={styles.buttonPrimary} onPress={handleLogin}>
-          <Text style={styles.buttonPrimaryText}>Login</Text>
+        <TouchableOpacity style={styles.buttonPrimary} onPress={handleLogin} disabled={loading}>
+          {loading ? (<ActivityIndicator color="#fff" />) : 
+          (<Text style={styles.buttonPrimaryText}>Login</Text>)}
         </TouchableOpacity>
 
         <TouchableOpacity

@@ -5,11 +5,13 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import styles from '../design/Styles.tsx';
 import { RootStackParamList } from '../nav/App';
+import { createAccount } from '../firebase/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateAccount'>;
 
@@ -19,16 +21,35 @@ const CreateAccount: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [passphrase, setPassphrase] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = async () => {
     if (!username || !email || !password || !confirmPassword || !passphrase) {
       Alert.alert('Error', 'All fields are required.');
       return;
-    } else if (password !== confirmPassword) {
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match.');
       return;
     }
-    // proceed with account creation
+
+    setLoading(true);
+    try { //TODO: ensure no user with same username exists
+      await createAccount(username, email, password);
+      // AuthContext will detect user and redirect to Main
+    } catch (error: any) {
+      Alert.alert('Specified email is already in use');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -86,8 +107,10 @@ const CreateAccount: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity 
           style={styles.buttonPrimary} 
           onPress={handleCreateAccount}
+          disabled={loading}
         >
-          <Text style={styles.buttonPrimaryText}>Create Account</Text>
+          {loading ? (<ActivityIndicator color="#fff" />) : 
+          (<Text style={styles.buttonPrimaryText}>Create Account</Text>)}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.goBack()}>

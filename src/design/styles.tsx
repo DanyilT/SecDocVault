@@ -176,6 +176,29 @@ const styles = StyleSheet.create({
     color: '#474646',
     fontWeight: '500',
   },
+  accountMenu: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    zIndex: 100,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  accountMenuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  accountMenuText: {
+    fontSize: 16,
+    color: '#e53935',
+  },
 });
 
 export default styles;

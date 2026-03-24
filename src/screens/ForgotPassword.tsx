@@ -10,18 +10,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import styles from '../design/Styles.tsx';
 import { RootStackParamList } from '../nav/App';
+import { sendPasswordReset } from '../firebase/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
 
 const ForgotPassword: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email) {
       Alert.alert('Error', 'Email is required.');
       return;
     }
-    // send reset link to email
+    setLoading(true);
+    try {
+      await sendPasswordReset(email);
+      Alert.alert('Success', 'Password reset link sent. Check your email.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Failed to send reset email.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,8 +51,8 @@ const ForgotPassword: React.FC<Props> = ({ navigation }) => {
           onChangeText={setEmail}
         />
 
-        <TouchableOpacity style={styles.buttonPrimary} onPress={handleLogin}>
-          <Text style={styles.buttonPrimaryText}>Reset Password</Text>
+        <TouchableOpacity style={styles.buttonPrimary} onPress={handleLogin} disabled={loading}>
+          <Text style={styles.buttonPrimaryText}>{loading ? 'Sending...' : 'Reset Password'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.goBack()}>
