@@ -199,6 +199,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e53935',
   },
+  /*upload document*/
+  uploadHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  uploadHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#474646',
+  },
+  uploadContent: {
+    flex: 1,
+    padding: 20,
+  },
+  uploadArea: {
+    borderWidth: 2,
+    borderColor: '#3597ff',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f8ff',
+    marginBottom: 24,
+    gap: 8,
+  },
+  uploadAreaIcon: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    tintColor: '#3597ff',
+  },
+  uploadAreaText: {
+    fontSize: 16,
+    color: '#3597ff',
+    fontWeight: '500',
+  },
+  uploadAreaSubtext: {
+    fontSize: 13,
+    color: '#6c757e',
+  },
+  buttonDisabled: {
+    backgroundColor: '#aaa',
+  },
 });
 
 export default styles;

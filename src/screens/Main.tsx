@@ -27,7 +27,7 @@ const initialRecords: Record[] = [
   { id: '3', name: 'Insurance', expanded: false, images: ['placeholder', 'placeholder'] },
 ];
 
-const Main: React.FC<Props> = () => {
+const Main: React.FC<Props> = ({ navigation }) => {
   const { signOut } = useAuth();
   const [records, setRecords] = useState<Record[]>(initialRecords);
   const [newRecordExpanded, setNewRecordExpanded] = useState(false);
@@ -117,7 +117,7 @@ const Main: React.FC<Props> = () => {
 
           {newRecordExpanded && (
             <View style={styles.newRecordButtons}>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('UploadDocument')}>
                 <Image source={require('../assets/uploadIcon.png')} style={styles.actionButtonIcon} />
                 <Text style={styles.actionButtonText}>Upload</Text>
               </TouchableOpacity>
