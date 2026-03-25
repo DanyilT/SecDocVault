@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import styles from '../design/Styles.tsx';
 import { RootStackParamList } from '../nav/App';
 import { createAccount } from '../firebase/auth';
+import { savePassphrase } from '../keystore/Keystore.ts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateAccount'>;
 
@@ -43,6 +44,7 @@ const CreateAccount: React.FC<Props> = ({ navigation }) => {
 
     setLoading(true);
     try { //TODO: ensure no user with same username exists
+      await savePassphrase(passphrase);
       await createAccount(username, email, password);
       // AuthContext will detect user and redirect to Main
     } catch (error: any) {
