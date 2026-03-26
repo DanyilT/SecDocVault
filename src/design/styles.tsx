@@ -249,6 +249,57 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: '#aaa',
   },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
+  },
+  imageGridAddCell: {
+    width: '47%',
+    height: 36,
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#3597ff',
+    borderStyle: 'dashed',
+    backgroundColor: '#f0f8ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageGridAddIcon: {
+    width: 36,
+    height: 36,
+    resizeMode: 'contain',
+    tintColor: '#3597ff',
+  },
+  imageGridCell: {
+    width: '47%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  imageGridThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  imageGridDeleteButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageGridDeleteText: {
+    color: '#ffffff',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: 'bold',
+  },
 });
 
 export default styles;

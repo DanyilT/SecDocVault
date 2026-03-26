@@ -5,23 +5,47 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { RootStackParamList } from '../nav/App';
 import styles from '../design/Styles';
+
+type SelectedImage = { uri: string; fileName: string };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'UploadDocument'>;
 
 const UploadDocument: React.FC<Props> = ({ navigation }) => {
   const [recordName, setRecordName] = useState('');
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
 
-  const handlePickFile = () => {
+  const handlePickImages = () => {
+    launchImageLibrary(
+      { mediaType: 'photo', quality: 1, selectionLimit: 0 },
+      (response) => {
+        if (response.didCancel) { return; }
+        if (response.errorCode) {
+          Alert.alert('Error', response.errorMessage ?? 'Failed to pick images');
+          return;
+        }
+        const newImages: SelectedImage[] = (response.assets ?? [])
+          .map(a => ({
+            uri: a.uri!,
+            fileName: a.fileName ?? a.uri!.split('/').pop() ?? 'image',
+          }));
+        setSelectedImages(prev => [...prev, ...newImages]);
+      },
+    );
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleUpload = () => {
-    
     navigation.goBack();
   };
 
@@ -36,7 +60,7 @@ const UploadDocument: React.FC<Props> = ({ navigation }) => {
         <View style={styles.headerIcon} />
       </View>
 
-      <View style={styles.uploadContent}>
+      <ScrollView contentContainerStyle={styles.uploadContent}>
         {/* Record Name */}
         <Text style={styles.inputFieldDescription}>Document Name</Text>
         <TextInput
@@ -46,24 +70,34 @@ const UploadDocument: React.FC<Props> = ({ navigation }) => {
           onChangeText={setRecordName}
         />
 
-        {/* File Picker Area */}
+        {/* Image Grid */}
         <Text style={styles.inputFieldDescription}>Document</Text>
-        <TouchableOpacity style={styles.uploadArea} onPress={handlePickFile}>
-          <Image source={require('../assets/uploadIcon.png')} style={styles.uploadAreaIcon} />
-          <Text style={styles.uploadAreaText}>
-            {selectedFile ? selectedFile : 'Tap to select a file'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.imageGrid}>
+          <TouchableOpacity style={styles.imageGridAddCell} onPress={handlePickImages}>
+            <Image source={require('../assets/uploadIcon.png')} style={styles.imageGridAddIcon} />
+          </TouchableOpacity>
+          {selectedImages.map((img, index) => (
+            <View key={index} style={styles.imageGridCell}>
+              <Image source={{ uri: img.uri }} style={styles.imageGridThumb} />
+              <TouchableOpacity
+                style={styles.imageGridDeleteButton}
+                onPress={() => handleRemoveImage(index)}
+              >
+                <Text style={styles.imageGridDeleteText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
 
         {/* Upload Button */}
         <TouchableOpacity
-          style={[styles.buttonPrimary, (!recordName || !selectedFile) && styles.buttonDisabled]}
+          style={[styles.buttonPrimary, (!recordName || selectedImages.length === 0) && styles.buttonDisabled]}
           onPress={handleUpload}
-          disabled={!recordName || !selectedFile}
+          disabled={!recordName || selectedImages.length === 0}
         >
           <Text style={styles.buttonPrimaryText}>Upload</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

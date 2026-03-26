@@ -25,12 +25,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
+
     const subscription = AppState.addEventListener('change', nextState => {
-      if (nextState === 'background' || nextState === 'inactive') {
-        firebaseSignOut(getAuth()).catch(console.error);
+      if (nextState === 'background') {
+        backgroundTimer = setTimeout(() => {
+          firebaseSignOut(getAuth()).catch(console.error);
+        }, 30000);
+      } else if (nextState === 'active') {
+        if (backgroundTimer) {
+          clearTimeout(backgroundTimer);
+          backgroundTimer = null;
+        }
       }
     });
-    return () => subscription.remove();
+
+    return () => {
+      subscription.remove();
+      if (backgroundTimer) { clearTimeout(backgroundTimer); }
+    };
   }, []);
 
   const signOut = async () => {
