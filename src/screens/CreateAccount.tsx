@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import styles from '../design/Styles.tsx';
+import styles from '../design/Styles';
 import { RootStackParamList } from '../nav/App';
 import { createAccount } from '../firebase/auth';
 import { savePassphrase } from '../keystore/Keystore.ts';

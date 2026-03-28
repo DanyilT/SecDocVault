@@ -32,6 +32,20 @@ export function encryptImage(base64Data: string, keyHex: string,):
   };
 }
 
+// Decrypts an AES-256-CBC encrypted image and returns base64 image data
+export function decryptImage(ciphertext: string, ivHex: string, keyHex: string): string {
+  const key = Buffer.from(keyHex, 'hex');
+  const iv = Buffer.from(ivHex, 'hex');
+
+  const decipher = createDecipheriv('aes-256-cbc', key, iv);
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(ciphertext, 'base64')) as Buffer,
+    decipher.final() as Buffer,
+  ]);
+
+  return decrypted.toString('base64');
+}
+
 // Derives a 256 bit AES key from a passphrase using PBKDF2-SHA256
 export function deriveKey(passphrase: string, keySalt: Buffer): Buffer {
   return pbkdf2Sync(passphrase, keySalt, 100000, 32, 'sha256') as Buffer;

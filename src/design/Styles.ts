@@ -199,6 +199,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e53935',
   },
+      loadingCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordImagesLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  imageGridExpanded: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
   /*upload document*/
   uploadHeader: {
     flexDirection: 'row',
@@ -216,8 +232,8 @@ const styles = StyleSheet.create({
     color: '#474646',
   },
   uploadContent: {
-    flex: 1,
     padding: 20,
+    paddingBottom: 40,
   },
   uploadArea: {
     borderWidth: 2,
