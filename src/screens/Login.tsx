@@ -15,6 +15,8 @@ import { RootStackParamList } from '../nav/App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
+// TODO: Check for internet connection
+
 const Login: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
