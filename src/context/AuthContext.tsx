@@ -25,9 +25,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    let backgroundedAt: number | null = null;
+    const TIMEOUT_MS = 30000;
+
     const subscription = AppState.addEventListener('change', nextState => {
       if (nextState === 'background' || nextState === 'inactive') {
-        firebaseSignOut(getAuth()).catch(console.error);
+        backgroundedAt = Date.now();
+      } else if (nextState === 'active') {
+        const elapsed = backgroundedAt !== null ? Date.now() - backgroundedAt : null;
+        if (backgroundedAt !== null && elapsed! >= TIMEOUT_MS) {
+          firebaseSignOut(getAuth()).catch(console.error);
+        }
+        backgroundedAt = null;
       }
     });
     return () => subscription.remove();

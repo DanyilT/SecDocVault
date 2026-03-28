@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import styles from '../design/Styles.tsx';
+import styles from '../design/Styles';
 import { RootStackParamList } from '../nav/App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+
+// TODO: Check for internet connection
 
 const Login: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = React.useState('');

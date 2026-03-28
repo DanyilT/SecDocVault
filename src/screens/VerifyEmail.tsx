@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import styles from '../design/Styles.tsx';
+import styles from '../design/Styles';
 import { useAuth } from '../context/AuthContext';
 
 const VerifyEmail: React.FC = () => {

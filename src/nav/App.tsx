@@ -7,6 +7,7 @@ import CreateAccount from '../screens/CreateAccount';
 import ForgotPassword from '../screens/ForgotPassword';
 import Main from '../screens/Main';
 import VerifyEmail from '../screens/VerifyEmail';
+import UploadDocument from '../screens/UploadDocument';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
 export type RootStackParamList = {
@@ -15,6 +16,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   VerifyEmail: undefined;
   Main: undefined;
+  UploadDocument: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -36,7 +38,10 @@ function Navigator() {
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user && user.emailVerified ? (
-          <Stack.Screen name="Main" component={Main} />
+          <>
+            <Stack.Screen name="Main" component={Main} />
+            <Stack.Screen name="UploadDocument" component={UploadDocument} />
+          </>
         ) : user ? (
           <Stack.Screen name="VerifyEmail" component={VerifyEmail} />
         ) : (
