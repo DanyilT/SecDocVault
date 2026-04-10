@@ -1,0 +1,37 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerUid) {
+      return isSignedIn() && request.auth.uid == ownerUid;
+    }
+
+    function hasActiveShare(docId) {
+      return isSignedIn()
+        && exists(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid))
+        && (
+          !('revokedAt' in get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data)
+          || get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.revokedAt == null
+        )
+        && get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.expiresAt > request.time;
+    }
+
+    function belowSizeLimit() {
+      return request.resource.size <= 10 * 1024 * 1024; // 10 MB limit
+    }
+
+    function isEncryptedJson() {
+      return request.resource.contentType == 'application/json';
+    }
+
+    match /vault/{ownerUid}/{docId}/{fileName} {
+      allow create: if isOwner(ownerUid) && belowSizeLimit() && isEncryptedJson();
+      allow get: if isOwner(ownerUid) || hasActiveShare(docId);
+      allow update: if isOwner(ownerUid) && belowSizeLimit() && isEncryptedJson();
+      allow delete: if isOwner(ownerUid);
+    }
+  }
+}
