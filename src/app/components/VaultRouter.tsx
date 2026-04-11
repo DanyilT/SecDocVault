@@ -1,9 +1,7 @@
 import React from 'react';
 
 import {
-  BackupScreen,
   DocumentRecoveryScreen,
-  KeyBackupScreen,
   KeyRecoveryScreen,
   MainScreen,
   PreviewScreen,
@@ -108,23 +106,7 @@ type VaultRouterProps = {
   onOpenShareOptions: () => void;
   onRevokeShareForRecipient: (recipient: string) => void;
 
-  backupCloud: boolean;
-  backupLocal: boolean;
-  backupStatus: string;
-  setBackupCloud: (value: boolean) => void;
-  setBackupLocal: (value: boolean) => void;
-  runBackup: () => void;
-  onOpenKeyBackup: () => void;
-
   keyBackupStatus: string;
-  recoverableDocsCount: number;
-  totalDocsCount: number;
-  displayPassphrase: string | null;
-  onBackupKeys: () => Promise<void>;
-  onClearPassphrase: () => void;
-  onCopyPassphrase: (passphrase: string) => Promise<void>;
-  onDownloadPassphrase: (passphrase: string) => Promise<void>;
-  onDownloadBackupFile: (passphrase: string) => Promise<void>;
   onRestoreKeys: (passphrase: string) => Promise<void>;
 
   onToggleDocBackupFromSettings: (docId: string, enabled: boolean) => Promise<void>;
@@ -297,36 +279,6 @@ export function VaultRouter(props: VaultRouterProps) {
           expiresInDays={props.shareExpiryDays}
           onOpenShareOptions={props.onOpenShareOptions}
           onRevokeShareForRecipient={props.onRevokeShareForRecipient}
-        />
-      ) : null}
-
-      {screen === 'backup' ? (
-        <BackupScreen
-          isGuest={isGuest}
-          backupCloud={props.backupCloud}
-          backupLocal={props.backupLocal}
-          backupStatus={props.backupStatus}
-          setBackupCloud={props.setBackupCloud}
-          setBackupLocal={props.setBackupLocal}
-          runBackup={props.runBackup}
-          onOpenKeyBackup={props.onOpenKeyBackup}
-        />
-      ) : null}
-
-      {screen === 'keybackup' ? (
-        <KeyBackupScreen
-          isGuest={isGuest}
-          isSubmitting={props.isSubmitting}
-          onBackupKeys={props.onBackupKeys}
-          onRestoreKeys={props.onRestoreKeys}
-          backupStatus={props.keyBackupStatus}
-          recoverableDocsCount={props.recoverableDocsCount}
-          totalDocsCount={props.totalDocsCount}
-          displayPassphrase={props.displayPassphrase}
-          onClearPassphrase={props.onClearPassphrase}
-          onCopyPassphrase={props.onCopyPassphrase}
-          onDownloadPassphrase={props.onDownloadPassphrase}
-          onDownloadBackupFile={props.onDownloadBackupFile}
         />
       ) : null}
 

@@ -87,7 +87,7 @@ jest.mock('../../../src/storage/localVault', () => ({
   saveVaultPreferences: jest.fn(async () => undefined),
 }));
 
-jest.mock('../../../src/services/documentUpload', () => ({
+jest.mock('../../../src/services/documentVault', () => ({
   canCurrentUserExportDocument: jest.fn(() => true),
   createDocumentShareGrant: jest.fn(async (doc: unknown) => doc),
   deleteDocumentFromFirebase: jest.fn(async () => undefined),
@@ -97,7 +97,9 @@ jest.mock('../../../src/services/documentUpload', () => ({
     fileOrder: 0,
     fileName: 'mock.png',
   })),
-  documentSaveLocal: jest.fn(async () => ({document: {id: '1', references: []}})),
+  documentSaveLocal: jest.fn(async () => ({
+    document: { id: '1', references: [] },
+  })),
   ensureCurrentUserSharePublicKey: jest.fn(async () => undefined),
   enforceExpiredShareRevocations: jest.fn(async (doc: unknown) => doc),
   exportDocumentToDevice: jest.fn(async () => '/tmp/mock.png'),
@@ -105,7 +107,10 @@ jest.mock('../../../src/services/documentUpload', () => ({
   listVaultDocumentsFromFirebase: jest.fn(async () => []),
   listVaultDocumentsSharedWithUser: jest.fn(async () => []),
   removeFirebaseReferences: jest.fn(() => null),
-  removeLocalDocumentCopy: jest.fn(async (doc: any) => ({...doc, references: []})),
+  removeLocalDocumentCopy: jest.fn(async (doc: any) => ({
+    ...doc,
+    references: [],
+  })),
   revokeDocumentShareGrant: jest.fn(async (doc: unknown) => doc),
   saveDocumentOffline: jest.fn(async (doc: unknown) => doc),
   updateDocumentRecoveryPreference: jest.fn(async (doc: unknown) => doc),
@@ -115,7 +120,9 @@ jest.mock('../../../src/services/documentUpload', () => ({
   scanDocumentForUpload: jest.fn(async () => {
     throw new Error('mock');
   }),
-  uploadDocumentToFirebase: jest.fn(async () => ({document: {id: '1', references: []}})),
+  uploadDocumentToFirebase: jest.fn(async () => ({
+    document: { id: '1', references: [] },
+  })),
 }));
 
 jest.mock('../../../src/services/keyBackup', () => ({

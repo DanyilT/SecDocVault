@@ -50,7 +50,7 @@ jest.mock('@react-native-firebase/firestore/lib/modular/FieldValue', () => ({
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
 }));
 
-jest.mock('../../../src/services/documentUpload', () => ({
+jest.mock('../../../src/services/documentVault', () => ({
   clearDocumentKeychainEntries: jest.fn(async () => undefined),
   deleteDocumentFromFirebase: jest.fn(async () => undefined),
   listVaultDocumentsFromFirebase: jest.fn(async () => []),

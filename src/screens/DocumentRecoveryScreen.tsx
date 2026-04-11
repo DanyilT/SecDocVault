@@ -102,5 +102,3 @@ export function DocumentRecoveryScreen({
     </ScrollView>
   );
 }
-
-

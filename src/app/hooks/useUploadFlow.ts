@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { UploadableDocumentDraft, UploadProgressEvent } from '../../services/documentUpload.ts';
+import { UploadableDocumentDraft, UploadProgressEvent } from '../../services/documentVault';
 import { VaultDocument } from '../../types/vault.ts';
 
 type UseUploadFlowParams = {

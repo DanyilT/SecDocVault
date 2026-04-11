@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 
-jest.mock('../../../src/services/documentUpload', () => ({}));
+jest.mock('../../../src/services/documentVault', () => ({}));
 jest.mock('../../../src/services/keyBackup', () => ({}));
 
 import { SettingsScreen } from '../../../src/screens';

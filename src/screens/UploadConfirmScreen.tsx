@@ -16,7 +16,7 @@ import {
 
 import { PrimaryButton, SecondaryButton } from '../components/ui';
 import { styles } from '../theme/styles';
-import { UploadableDocument, toSizeLabel } from '../services/documentUpload';
+import { UploadableDocument, toSizeLabel } from '../services/documentVault';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -478,4 +478,3 @@ export function UploadConfirmScreen({
     </View>
   );
 }
-

@@ -151,7 +151,7 @@ export function SettingsScreen({
           Session: {sessionMode ?? 'Not signed in'}
         </Text>
         <Text style={styles.cardMeta}>
-          {isGuest ? 'Guest mode is local-only' : 'Firebase account active'}
+          {isGuest ? 'Guest mode is local-only' : 'Cloud account active'}
         </Text>
         {isGuest ? (
           <>

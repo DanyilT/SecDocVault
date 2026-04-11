@@ -13,7 +13,7 @@ import * as Keychain from 'react-native-keychain';
 
 import { FIREBASE_AUTH_EMAIL_LINK_URL } from '../firebase/project';
 import { AuthProtection, AuthSessionMode } from '../types/vault';
-import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, listVaultDocumentsFromFirebase } from '../services/documentUpload';
+import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, listVaultDocumentsFromFirebase } from '../services/documentVault';
 import { clearKeyBackupData, deleteKeyBackupFromFirebase } from '../services/keyBackup';
 import { clearLocalVaultData, getLocalDocuments } from '../storage/localVault';
 
@@ -564,7 +564,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(firebaseAuth, nextUser => {
       setUser(nextUser);
       if (nextUser) {
-        setSessionMode('firebase');
+        setSessionMode('cloud');
       }
     });
 
@@ -610,7 +610,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
       await reloadUser(credential.user);
-      setSessionMode('firebase');
+      setSessionMode('cloud');
       return true;
     } catch (error) {
       setAuthError(mapAuthError(error));
@@ -648,7 +648,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
       await AsyncStorage.removeItem(PENDING_EMAIL_LINK_REGISTRATION_KEY);
-      setSessionMode('firebase');
+      setSessionMode('cloud');
       return true;
     } catch (error) {
       setAuthError(mapAuthError(error));
@@ -989,7 +989,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!credentials) return false;
 
     if (!shouldReauthenticate) {
-      setSessionMode('firebase');
+      setSessionMode('cloud');
       return true;
     }
 
@@ -998,7 +998,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       credentials.username,
       credentials.password,
     );
-    setSessionMode('firebase');
+    setSessionMode('cloud');
     return true;
   };
 
@@ -1059,7 +1059,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      if (prefs.mode === 'firebase') {
+      if (prefs.mode === 'cloud') {
         return await unlockFirebasePasskey(!user);
       }
 
@@ -1114,7 +1114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsSubmitting(true);
     setAuthError(null);
     try {
-      const mode = sessionMode ?? (user ? 'firebase' : 'guest');
+      const mode = sessionMode ?? (user ? 'cloud' : 'guest');
       const nextProtection = protection === 'biometric' ? 'pin' : protection;
 
       if (nextProtection === 'none') {

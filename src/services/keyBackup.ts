@@ -11,7 +11,6 @@ import { serverTimestamp } from '@react-native-firebase/firestore/lib/modular/Fi
 import * as Keychain from 'react-native-keychain';
 import RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
-import { Buffer } from 'buffer';
 
 import {
   getRecoveryPassphrase,
@@ -21,39 +20,14 @@ import {
   toBase64,
   unwrapDocumentKey,
   wrapDocumentKey,
-} from './documentCrypto';
+} from './crypto/documentCrypto.ts';
 import { VaultDocument, VaultEncryptedKeyEnvelope } from '../types/vault';
+import { normalizeDocumentKeyB64 } from './documentVault/formatters.ts';
 
 const KEY_BACKUP_COLLECTION = 'vaultKeyBackups';
 const DOC_KEY_SERVICE_PREFIX = 'secdocvault.docKey';
 const AUTO_SYNC_KEYS_ENABLED = 'secdocvault.keys.autoSync.enabled';
 const AUTO_SYNC_KEYS_PASSPHRASE = 'secdocvault.keys.autoSync.passphrase';
-
-function normalizeDocumentKeyB64(value: string | null | undefined): string | null {
-  const input = value?.trim();
-  if (!input) {
-    return null;
-  }
-
-  if (/^[A-Fa-f0-9]{64}$/.test(input)) {
-    return Buffer.from(input, 'hex').toString('base64');
-  }
-
-  const base64Like = /^[A-Za-z0-9+/]+={0,2}$/.test(input) && input.length % 4 === 0;
-  if (base64Like) {
-    const bytes = Buffer.from(input, 'base64');
-    if (bytes.length === 32) {
-      return bytes.toString('base64');
-    }
-  }
-
-  const utf8Bytes = Buffer.from(input, 'utf8');
-  if (utf8Bytes.length === 32) {
-    return utf8Bytes.toString('base64');
-  }
-
-  return null;
-}
 
 type SerializedBackupEntry = {
   docId: string;

@@ -35,7 +35,7 @@ import {
   listVaultDocumentsFromFirebase,
   listVaultDocumentsSharedWithUser,
   updateDocumentRecoveryPreference,
-} from '../../services/documentUpload';
+} from '../../services/documentVault';
 import {
   backupKeysToFirebase,
   deleteKeyBackupFromFirebase,

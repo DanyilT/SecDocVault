@@ -5,9 +5,7 @@ export type AppScreen =
   | 'upload'
   | 'preview'
   | 'share'
-  | 'backup'
   | 'settings'
-  | 'keybackup'
   | 'recoverkeys'
   | 'recoverydocs'
   | 'sharedetails';
@@ -21,6 +19,4 @@ export const APP_SCREEN_TITLES: Record<AppScreen, string> = {
   preview: 'Preview Document',
   upload: 'Upload Document',
   share: 'Share Document',
-  keybackup: 'Backup & Restore Keys',
-  backup: 'Backup Files',
 };

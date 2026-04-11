@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Animated } from 'react-native';
 
-import { UploadableDocumentDraft } from '../../services/documentUpload';
+import { UploadableDocumentDraft } from '../../services/documentVault';
 import { AuthMode, VaultDocument } from '../../types/vault';
 
 export function useAppControllerState() {

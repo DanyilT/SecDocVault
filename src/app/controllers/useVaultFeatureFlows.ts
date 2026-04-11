@@ -24,7 +24,7 @@ import {
   scanDocumentForUpload,
   uploadDocumentToFirebase,
   UploadableDocumentDraft,
-} from '../../services/documentUpload';
+} from '../../services/documentVault';
 import { hasInternetAccess } from '../../services/connectivity';
 import { getLocalDocuments, saveLocalDocuments } from '../../storage/localVault';
 import { VaultDocument } from '../../types/vault';

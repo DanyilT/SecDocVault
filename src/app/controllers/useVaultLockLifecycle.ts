@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppScreen } from '../navigation/constants';
 import { AuthGateStage, getBackTargetScreen } from '../navigation/routingReducer';
 import { AuthProtection } from '../../types/vault';
-import { UploadableDocumentDraft } from '../../services/documentUpload';
+import { UploadableDocumentDraft } from '../../services/documentVault';
 
 type UseVaultLockLifecycleParams = {
   completeAuthPendingKey: string;

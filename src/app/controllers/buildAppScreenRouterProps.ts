@@ -2,7 +2,7 @@ import React from 'react';
 
 import { AppScreenRouter } from '../components/AppScreenRouter';
 import { AppScreen } from '../navigation/constants';
-import { UploadableDocumentDraft } from '../../services/documentUpload';
+import { UploadableDocumentDraft } from '../../services/documentVault';
 import { VaultDocument } from '../../types/vault';
 
 type RouterProps = React.ComponentProps<typeof AppScreenRouter>;
@@ -19,7 +19,6 @@ type BuildAppScreenRouterPropsInput = Omit<
   | 'onRequestEnableKeyBackup'
   | 'onOpenShareOptions'
   | 'onRevokeShareForRecipient'
-  | 'onOpenKeyBackup'
 > & {
   handleBiometricUnlock: RouterProps['onUnlock'];
   handlePasskeyUnlock: RouterProps['onUnlock'];
@@ -94,6 +93,5 @@ export function buildAppScreenRouterProps(input: BuildAppScreenRouterPropsInput)
       setShareTarget(recipient);
       void handleRevokeShareForRecipient(recipient);
     },
-    onOpenKeyBackup: () => setScreen('keybackup'),
   };
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import {
   ArrowDownTrayIcon,
+  ChevronUpIcon,
   CloudArrowDownIcon,
   CloudArrowUpIcon,
   KeyIcon,
@@ -344,8 +345,7 @@ export function MainScreen({
             doc.owner === normalizedUserId &&
             hasFirebase;
           const canManageOfflineCopy = !(
-            documentView === 'sharedWithMe' &&
-            doc.owner !== normalizedUserId
+            documentView === 'sharedWithMe' && doc.owner !== normalizedUserId
           );
           const showActions = expandedDocId === doc.id;
 
@@ -460,23 +460,27 @@ export function MainScreen({
                           )}
                         </View>
                         <View style={styles.cardActions}>
-                          {canManageOfflineCopy
-                            ? renderCompactAction({
-                                label: hasLocal ? 'Delete Offline' : 'Save Offline',
-                                icon: hasLocal
-                                  ? MinusCircleIcon
-                                  : CloudArrowDownIcon,
-                                tone: hasLocal ? 'danger' : 'default',
-                                onPress: () => {
-                                  if (hasLocal) {
-                                    onDeleteLocal(doc);
-                                    return;
-                                  }
+                          {canManageOfflineCopy ? (
+                            renderCompactAction({
+                              label: hasLocal
+                                ? 'Delete Offline'
+                                : 'Save Offline',
+                              icon: hasLocal
+                                ? MinusCircleIcon
+                                : CloudArrowDownIcon,
+                              tone: hasLocal ? 'danger' : 'default',
+                              onPress: () => {
+                                if (hasLocal) {
+                                  onDeleteLocal(doc);
+                                  return;
+                                }
 
-                                  onSaveOffline(doc);
-                                },
-                              })
-                            : <View style={{ flex: 1 }} />}
+                                onSaveOffline(doc);
+                              },
+                            })
+                          ) : (
+                            <View style={{ flex: 1 }} />
+                          )}
                           {renderCompactAction({
                             label: hasFirebase
                               ? 'Delete from Cloud'
@@ -565,9 +569,7 @@ export function MainScreen({
             elevation: 4,
           }}
         >
-          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>
-            ↑
-          </Text>
+          <ChevronUpIcon />
         </Pressable>
       ) : null}
     </View>

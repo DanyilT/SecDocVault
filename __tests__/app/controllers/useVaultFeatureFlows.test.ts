@@ -1,6 +1,6 @@
 import { useVaultFeatureFlows } from '../../../src/app/controllers/useVaultFeatureFlows';
 
-jest.mock('../../../src/services/documentUpload', () => ({
+jest.mock('../../../src/services/documentVault', () => ({
   canCurrentUserExportDocument: jest.fn(() => true),
   createDocumentShareGrant: jest.fn(),
   deleteDocumentFromFirebase: jest.fn(),

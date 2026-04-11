@@ -25,4 +25,3 @@ export async function assertInternetAccess(timeoutMs = 1500): Promise<void> {
 	throw new Error(NO_INTERNET_MESSAGE);
   }
 }
-

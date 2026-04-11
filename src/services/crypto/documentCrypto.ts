@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
 import * as Keychain from 'react-native-keychain';
-import {Buffer} from 'buffer';
+import { Buffer } from 'buffer';
 
-import {encodeBase64} from './base64';
+import { encodeBase64 } from './base64';
 
 type CryptoRuntime = {
   randomBytes: (size: number) => Buffer;
@@ -228,6 +228,8 @@ export async function encryptBase64Payload(base64Payload: string, keyB64?: strin
  * @param cipherB64 - Base64\-encoded ciphertext.
  * @param ivB64 - Base64\-encoded IV used for encryption.
  * @param keyB64 - Base64\-encoded 32\-byte AES key.
+ * @param algorithm
+ * @param authTagB64
  * @returns Decrypted payload as a UTF\-8 string.
  */
 export async function decryptBase64Payload(
@@ -253,6 +255,7 @@ export async function decryptBase64Payload(
  * @param documentKeyB64 - Base64-encoded document key to wrap.
  * @param passphrase - Passphrase used for key derivation.
  * @param salt - Base64-encoded PBKDF2 salt.
+ * @param options
  * @returns Metadata and ciphertext for the wrapped document key.
  */
 export async function wrapDocumentKey(
@@ -292,6 +295,9 @@ export async function wrapDocumentKey(
  * @param wrappedIvB64 - Base64-encoded IV used during key wrapping.
  * @param passphrase - Passphrase used for PBKDF2 key derivation.
  * @param salt - Base64-encoded PBKDF2 salt.
+ * @param algorithm
+ * @param iterations
+ * @param authTagB64
  * @returns The original Base64 document key as a UTF-8 string.
  */
 export async function unwrapDocumentKey(
@@ -433,4 +439,3 @@ export async function unwrapDocumentKeyFromShareEnvelope(
 
   return plain.toString('utf8');
 }
-
