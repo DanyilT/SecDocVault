@@ -1,9 +1,9 @@
 import React from 'react';
-import ReactTestRenderer, {act} from 'react-test-renderer';
+import ReactTestRenderer, { act } from 'react-test-renderer';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import {AuthProvider, useAuth} from '../src/context/AuthContext';
+import {AuthProvider, useAuth} from '../../../src/context/AuthContext';
 
 type AuthProbe = ReturnType<typeof useAuth>;
 
@@ -50,13 +50,13 @@ jest.mock('@react-native-firebase/firestore/lib/modular/FieldValue', () => ({
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
 }));
 
-jest.mock('../src/services/documentUpload', () => ({
+jest.mock('../../../src/services/documentUpload', () => ({
   clearDocumentKeychainEntries: jest.fn(async () => undefined),
   deleteDocumentFromFirebase: jest.fn(async () => undefined),
   listVaultDocumentsFromFirebase: jest.fn(async () => []),
 }));
 
-jest.mock('../src/services/keyBackup', () => ({
+jest.mock('../../../src/services/keyBackup', () => ({
   clearKeyBackupData: jest.fn(async () => undefined),
   deleteKeyBackupFromFirebase: jest.fn(async () => undefined),
 }));
@@ -163,4 +163,3 @@ describe('AuthContext guest login', () => {
     );
   });
 });
-

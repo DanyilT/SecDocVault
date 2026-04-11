@@ -1,8 +1,8 @@
 import React from 'react';
-import ReactTestRenderer, {act} from 'react-test-renderer';
-import {Alert} from 'react-native';
+import ReactTestRenderer, { act } from 'react-test-renderer';
+import { Alert } from 'react-native';
 
-import App from '../App';
+import App from '../../../App';
 
 function MockFragmentProvider({children}: {children: React.ReactNode}) {
   const ReactLocal = require('react');
@@ -69,11 +69,11 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: MockFragmentProvider,
 }));
 
-jest.mock('../src/firebase/project', () => ({
+jest.mock('../../../src/firebase/project', () => ({
   FIREBASE_PROJECT_ID: 'test-project',
 }));
 
-jest.mock('../src/storage/localVault', () => ({
+jest.mock('../../../src/storage/localVault', () => ({
   getIncomingShareDecisionStore: jest.fn(async () => ({})),
   getLocalDocuments: jest.fn(async () => []),
   getVaultPreferences: jest.fn(async () => ({
@@ -87,7 +87,7 @@ jest.mock('../src/storage/localVault', () => ({
   saveVaultPreferences: jest.fn(async () => undefined),
 }));
 
-jest.mock('../src/services/documentUpload', () => ({
+jest.mock('../../../src/services/documentUpload', () => ({
   canCurrentUserExportDocument: jest.fn(() => true),
   createDocumentShareGrant: jest.fn(async (doc: unknown) => doc),
   deleteDocumentFromFirebase: jest.fn(async () => undefined),
@@ -118,7 +118,7 @@ jest.mock('../src/services/documentUpload', () => ({
   uploadDocumentToFirebase: jest.fn(async () => ({document: {id: '1', references: []}})),
 }));
 
-jest.mock('../src/services/keyBackup', () => ({
+jest.mock('../../../src/services/keyBackup', () => ({
   autoSyncKeysIfEnabled: jest.fn(async () => false),
   backupKeysToFirebase: jest.fn(async () => ({passphrase: 'p', backedUpCount: 0})),
   downloadKeyBackupFile: jest.fn(async () => '/tmp/backup.json'),
@@ -165,13 +165,13 @@ function mockUseAuth() {
   return mockAuth;
 }
 
-jest.mock('../src/context/AuthContext', () => ({
+jest.mock('../../../src/context/AuthContext', () => ({
   __esModule: true,
   AuthProvider: MockFragmentProvider,
   useAuth: mockUseAuth,
 }));
 
-jest.mock('../src/screens', () => {
+jest.mock('../../../src/screens', () => {
   return {
     __esModule: true,
     IntroHeroScreen: MockIntroHeroScreen,
@@ -255,4 +255,3 @@ describe('guest register overwrite confirmation', () => {
     alertSpy.mockRestore();
   });
 });
-

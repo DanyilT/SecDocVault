@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 
-import { KeyBackupScreen } from '../src/screens/KeyBackupScreen';
+import { KeyBackupScreen } from '../../../src/screens';
 
 describe('KeyBackupScreen', () => {
   test('forwards displayed passphrase to copy callback', async () => {
@@ -35,4 +35,3 @@ describe('KeyBackupScreen', () => {
     expect(onCopyPassphrase).toHaveBeenCalledWith('abcd1234-abcd1234-abcd1234-abcd1234-abcd1234');
   });
 });
-

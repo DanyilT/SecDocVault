@@ -1,4 +1,4 @@
-import { generateRecoveryPassphrase } from '../src/services/keyBackup';
+import { generateRecoveryPassphrase } from '../../../src/services/keyBackup';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(async () => null),
@@ -49,4 +49,3 @@ describe('generateRecoveryPassphrase', () => {
     expect(samples.size).toBeGreaterThan(1);
   });
 });
-

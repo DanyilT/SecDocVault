@@ -1,10 +1,10 @@
 import React from 'react';
-import ReactTestRenderer, {act} from 'react-test-renderer';
+import ReactTestRenderer, { act } from 'react-test-renderer';
 
-jest.mock('../src/services/documentUpload', () => ({}));
-jest.mock('../src/services/keyBackup', () => ({}));
+jest.mock('../../../src/services/documentUpload', () => ({}));
+jest.mock('../../../src/services/keyBackup', () => ({}));
 
-import {SettingsScreen} from '../src/screens/SettingsScreen';
+import { SettingsScreen } from '../../../src/screens';
 
 const baseProps = {
   accountLabel: 'Guest session',
@@ -61,4 +61,3 @@ describe('SettingsScreen guest branch', () => {
     expect(renderer!.root.findByProps({children: 'To use key backup, upgrade from guest mode to a cloud (Firebase) account.'})).toBeTruthy();
   });
 });
-

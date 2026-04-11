@@ -1,18 +1,6 @@
-export type Screen =
-  | 'main'
-  | 'upload'
-  | 'preview'
-  | 'share'
-  | 'backup'
-  | 'settings'
-  | 'keybackup'
-  | 'recoverkeys'
-  | 'recoverydocs'
-  | 'sharedetails'; // 'hero' | 'auth'
-
 export type AuthMode = 'login' | 'register';
 
-export type AuthSessionMode = 'firebase' | 'guest';
+export type AuthSessionMode = 'cloud' | 'guest';
 
 export type AuthProtection = 'passkey' | 'pin' | 'none' | 'biometric';
 
