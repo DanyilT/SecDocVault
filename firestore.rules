@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(docData) {
+      return isSignedIn() && docData.owner == request.auth.uid;
+    }
+
+    function hasActiveShare(docId) {
+      let grantRef = /databases/$(database)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid);
+      return isSignedIn()
+        && exists(grantRef)
+        && !get(grantRef).data.get('revokedAt', null)
+        && timestamp.fromString(string(get(grantRef).data.expiresAt)) > request.time;
+    }
+
+    match /vault/{docId} {
+      allow create: if isSignedIn() && request.resource.data.owner == request.auth.uid;
+      allow read: if isOwner(resource.data)
+        || hasActiveShare(docId)
+        || (isSignedIn() && resource.data.sharedWith.hasAny([request.auth.uid, request.auth.token.email]));
+      allow update, delete: if isOwner(resource.data);
+    }
+
+    match /{path=**}/sharedUsers/{recipientUid} {
+      allow read, list: if isSignedIn() && (
+        recipientUid == request.auth.uid
+        || resource.data.recipientUid == request.auth.uid
+        || resource.data.recipientEmail == request.auth.token.email
+      );
+    }
+
+    match /vault/{docId}/sharedUsers/{recipientUid} {
+      allow read: if isSignedIn() && (
+        recipientUid == request.auth.uid
+        || resource.data.recipientUid == request.auth.uid
+        || resource.data.recipientEmail == request.auth.token.email
+        || isOwner(get(/databases/$(database)/documents/vault/$(docId)).data)
+      );
+      allow create, update, delete: if isOwner(get(/databases/$(database)/documents/vault/$(docId)).data)
+        && request.resource.data.recipientUid == recipientUid;
+    }
+
+    match /vaultUsers/{uid} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /vaultKeyBackups/{ownerId} {
+      allow read, delete: if isSignedIn() && request.auth.uid == ownerId;
+      allow create, update: if isSignedIn()
+        && request.auth.uid == ownerId
+        && request.resource.data.owner == request.auth.uid;
+    }
+  }
+}

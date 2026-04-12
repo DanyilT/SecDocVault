@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "866349175104",
+    "firebase_url": "https://docvault-third-year-project-default-rtdb.firebaseio.com",
     "project_id": "docvault-third-year-project",
     "storage_bucket": "docvault-third-year-project.firebasestorage.app"
   },
