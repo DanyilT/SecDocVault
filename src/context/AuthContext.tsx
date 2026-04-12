@@ -59,6 +59,7 @@ type ModularAuthApi = {
     newEmail: string,
     actionCodeSettings?: FirebaseAuthTypes.ActionCodeSettings,
   ) => Promise<void>;
+  deleteUser: (auth: ReturnType<typeof getAuth>) => Promise<void>;
 };
 
 let modularAuthApiPromise: Promise<ModularAuthApi | null> | null = null;
@@ -73,6 +74,7 @@ async function getModularAuthApi(): Promise<ModularAuthApi | null> {
         sendSignInLinkToEmail: mod.sendSignInLinkToEmail,
         isSignInWithEmailLink: mod.isSignInWithEmailLink,
         verifyBeforeUpdateEmail: mod.verifyBeforeUpdateEmail,
+        deleteUser: mod.deleteUser,
       }))
       .catch(() => null);
   }
@@ -955,7 +957,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearGuestAccount();
 
       if (user) {
-        await user.delete();
+        const modularApi = await getModularAuthApi();
+        if (modularApi?.deleteUser) {
+          await modularApi.deleteUser(firebaseAuth);
+        } else {
+          await(user as any).delete(); // Fallback (deprecated)
+        }
       }
 
       await firebaseSignOut(firebaseAuth).catch(() => undefined);
@@ -1167,12 +1174,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mode === 'guest') {
         await saveGuestPasskey();
       } else {
-        const email = options?.firebaseEmail?.trim();
+        const email = options?.firebaseEmail?.trim() ?? user?.email?.trim();
         const password = options?.firebasePassword;
         if (!email || !password) {
           setAuthError('Passkey setup requires your login credentials. Please sign in again.');
           return false;
         }
+
+        // Verify credentials before persisting passkey unlock secrets.
+        await signInWithEmailAndPassword(firebaseAuth, email, password);
         await saveFirebasePasskey(email, password);
       }
 
@@ -1182,8 +1192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPinBiometricEnabled(false);
       setHasSavedPasskey(true);
       return true;
-    } catch {
-      setAuthError('Unable to update unlock method.');
+    } catch (error) {
+      setAuthError(mapAuthError(error));
       return false;
     } finally {
       setIsSubmitting(false);

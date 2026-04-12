@@ -86,6 +86,16 @@ export function MainScreen({
     }
   }, [documentView]);
 
+  useEffect(() => {
+    if (isGuest) {
+      return;
+    }
+
+    if (documentView === 'sharedWithMe' || documentView === 'sharedByMe') {
+      void onReloadDocuments();
+    }
+  }, [documentView, isGuest, onReloadDocuments]);
+
   const normalizedUserId = currentUserId?.trim() ?? '';
   const normalizedUserEmail = normalizeRecipientIdentifier(currentUserEmail);
 
@@ -124,6 +134,8 @@ export function MainScreen({
         return false;
       }
 
+      const hasFirebaseCopy = Boolean(doc.references?.some(ref => ref.source === 'firebase'));
+
       const sharedWithMatch = (doc.sharedWith ?? []).some(item =>
         recipientKeys.has(normalizeRecipientIdentifier(item)),
       );
@@ -131,10 +143,17 @@ export function MainScreen({
         return true;
       }
 
-      return (doc.sharedKeyGrants ?? []).some(grant =>
+      const grantsMatch = (doc.sharedKeyGrants ?? []).some(grant =>
         recipientKeys.has(normalizeRecipientIdentifier(grant.recipientUid)) ||
         recipientKeys.has(normalizeRecipientIdentifier(grant.recipientEmail)),
       );
+
+      if (grantsMatch) {
+        return true;
+      }
+
+      // Fallback: if it's a non-owned cloud doc visible to this user, treat it as shared.
+      return Boolean(normalizedUserId && doc.owner && hasFirebaseCopy);
     });
   }, [documents, isGuest, normalizedUserEmail, normalizedUserId]);
 
@@ -147,8 +166,14 @@ export function MainScreen({
     () =>
       sharedWithMeDocuments.filter(doc => {
         const decision = incomingShareDecisions[doc.id];
-        // return decision !== 'accepted' && decision !== 'declined';
-        return decision !== 'accepted';
+        // Ensure documents whose owners have deleted them or which have no cloud references are not shown.
+        // Also respect the 'declined' state if stored.
+        const hasFirebaseCopy = Boolean(doc.references?.some(ref => ref.source === 'firebase'));
+        if (!hasFirebaseCopy) {
+          return false;
+        }
+
+        return decision !== 'accepted' && decision !== 'declined';
       }),
     [incomingShareDecisions, sharedWithMeDocuments],
   );
@@ -344,8 +369,9 @@ export function MainScreen({
             Boolean(normalizedUserId) &&
             doc.owner === normalizedUserId &&
             hasFirebase;
+          const isOwner = Boolean(normalizedUserId) && doc.owner === normalizedUserId;
           const canManageOfflineCopy = !(
-            documentView === 'sharedWithMe' && doc.owner !== normalizedUserId
+            documentView === 'sharedWithMe' && !isOwner
           );
           const showActions = expandedDocId === doc.id;
 
@@ -455,6 +481,13 @@ export function MainScreen({
                               icon: ShareIcon,
                               onPress: () => openShare(doc),
                             })
+                          ) : !isOwner && hasFirebase ? (
+                            renderCompactAction({
+                              label: 'Decline Share',
+                              icon: MinusCircleIcon,
+                              tone: 'danger',
+                              onPress: () => onDeclineIncomingShare(doc.id),
+                            })
                           ) : (
                             <View style={{ flex: 1 }} />
                           )}
@@ -481,23 +514,27 @@ export function MainScreen({
                           ) : (
                             <View style={{ flex: 1 }} />
                           )}
-                          {renderCompactAction({
-                            label: hasFirebase
-                              ? 'Delete from Cloud'
-                              : 'Save to Cloud',
-                            icon: hasFirebase ? TrashIcon : CloudArrowUpIcon,
-                            tone: hasFirebase ? 'danger' : 'default',
-                            onPress: () => {
-                              if (hasFirebase) {
-                                onDeleteFromFirebase(doc);
-                                return;
-                              }
+                          {isOwner ? (
+                            renderCompactAction({
+                              label: hasFirebase
+                                ? 'Delete from Cloud'
+                                : 'Save to Cloud',
+                              icon: hasFirebase ? TrashIcon : CloudArrowUpIcon,
+                              tone: hasFirebase ? 'danger' : 'default',
+                              onPress: () => {
+                                if (hasFirebase) {
+                                  onDeleteFromFirebase(doc);
+                                  return;
+                                }
 
-                              onSaveToFirebase(doc);
-                            },
-                          })}
+                                onSaveToFirebase(doc);
+                              },
+                            })
+                          ) : (
+                            <View style={{ flex: 1 }} />
+                          )}
                         </View>
-                        {hasFirebase ? (
+                        {isOwner && hasFirebase ? (
                           <View style={styles.cardActions}>
                             {renderCompactAction({
                               label: doc.recoverable

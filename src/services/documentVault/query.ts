@@ -8,7 +8,7 @@ import {
   getFirestore,
   query,
   where,
-} from '@react-native-firebase/firestore/lib/modular';
+} from '@react-native-firebase/firestore';
 
 import { VaultDocument } from '../../types/vault';
 import { normalizeReferenceOrder, resolveIntegrityTag, toHashLabel, toSizeLabel } from './formatters';
@@ -57,6 +57,14 @@ export async function listVaultDocumentsFromFirebase(ownerId: string): Promise<V
     if (typeof error === 'object' && error && 'code' in error) {
       const code = String((error as {code: string}).code);
       if (code.includes('permission-denied')) {
+        return [];
+      }
+    }
+
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const msg = String((error as {message: string}).message);
+      if (msg.includes('FAILED_PRECONDITION') && msg.includes('index')) {
+        console.warn('Firestore index required for vault owner query:', msg);
         return [];
       }
     }
@@ -114,6 +122,13 @@ export async function listVaultDocumentsSharedWithUser(recipientIdentifiers: str
     docId: string;
     grant: ShareGrantRecord;
   }> = [];
+
+  const isIndexError = (error: unknown) =>
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    String((error as {message: string}).message).includes('FAILED_PRECONDITION') &&
+    String((error as {message: string}).message).includes('index');
 
   const isPermissionDeniedError = (error: unknown) =>
     typeof error === 'object' &&
@@ -190,9 +205,17 @@ export async function listVaultDocumentsSharedWithUser(recipientIdentifiers: str
       values.map(async value => {
         let snapshot;
         try {
-          snapshot = await getDocs(query(collectionGroup(db, DOC_SHARES_SUBCOLLECTION), where(fieldName, '==', value)));
+          // Use UID or email directly for searching in the sharedUsers subcollection via collectionGroup
+          const normalizedVal = fieldName === 'recipientEmail' ? value.toLowerCase() : value;
+          snapshot = await getDocs(query(collectionGroup(db, DOC_SHARES_SUBCOLLECTION), where(fieldName, '==', normalizedVal)));
         } catch (error) {
           if (isPermissionDeniedError(error)) {
+            denied = true;
+            return;
+          }
+
+          if (isIndexError(error)) {
+            console.warn(`Firestore index required for collection group '${DOC_SHARES_SUBCOLLECTION}':`, (error as Error).message);
             denied = true;
             return;
           }
@@ -226,6 +249,11 @@ export async function listVaultDocumentsSharedWithUser(recipientIdentifiers: str
         snapshot = await getDocs(query(collection(db, STORAGE_PATH_PREFIX), where('sharedWith', 'array-contains', identifier)));
       } catch (error) {
         if (isPermissionDeniedError(error)) {
+          return;
+        }
+
+        if (isIndexError(error)) {
+          console.warn('Firestore index required for sharedWith array-contains query:', (error as Error).message);
           return;
         }
 

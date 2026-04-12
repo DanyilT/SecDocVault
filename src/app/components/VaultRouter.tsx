@@ -26,6 +26,8 @@ type VaultRouterProps = {
   openShare: (doc: VaultDocument) => void;
   onScanAndUpload: () => void;
   onPickAndUpload: () => void;
+  onAddScanToUpload: () => void;
+  onAddPickToUpload: () => void;
   onReloadDocuments: () => Promise<void>;
   onSaveOffline: (doc: VaultDocument) => Promise<void>;
   onSaveToFirebase: (doc: VaultDocument) => Promise<void>;
@@ -206,6 +208,7 @@ export function VaultRouter(props: VaultRouterProps) {
           hasLocalCopy={Boolean(selectedDoc.references?.some(ref => ref.source === 'local'))}
           hasFirebaseCopy={Boolean(selectedDoc.references?.some(ref => ref.source === 'firebase'))}
           keyBackupEnabled={props.keyBackupEnabled}
+          currentUserId={userUid ?? null}
           onDecrypt={props.onDecryptPreview}
           onExport={props.onExportPreview}
           onSelectFile={props.onSelectPreviewFile}
@@ -215,6 +218,7 @@ export function VaultRouter(props: VaultRouterProps) {
           onDeleteLocal={props.onDeleteLocal}
           onDeleteFromFirebase={props.onDeleteFromFirebase}
           onToggleRecovery={props.onToggleRecovery}
+          onDeclineIncomingShare={props.onDeclineIncomingShare}
         />
       ) : null}
 
@@ -239,8 +243,8 @@ export function VaultRouter(props: VaultRouterProps) {
           setSaveLocalCopy={props.setPendingUploadAlsoSaveLocal}
           onRemoveFile={props.onRemoveUploadFile}
           onReorderFiles={props.onReorderUploadFiles}
-          onPickNewFile={props.onPickAndUpload}
-          onScanNewFile={props.onScanAndUpload}
+          onPickNewFile={props.onAddPickToUpload}
+          onScanNewFile={props.onAddScanToUpload}
           onConfirmUpload={props.onConfirmUpload}
           keyBackupEnabled={props.keyBackupEnabled}
           onRequestEnableKeyBackup={props.onRequestEnableKeyBackup}

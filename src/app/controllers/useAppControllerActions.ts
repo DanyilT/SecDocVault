@@ -206,12 +206,17 @@ export function useAppControllerActions({
     setPendingUploadAlsoSaveLocal(value);
   };
 
-  const handleUpdateUnlockMethod = async (payload: { method: 'pin' | 'passkey'; pin?: string; pinBiometricEnabled?: boolean }) => {
+  const handleUpdateUnlockMethod = async (payload: {
+    method: 'pin' | 'passkey';
+    pin?: string;
+    pinBiometricEnabled?: boolean;
+    firebasePassword?: string;
+  }) => {
     const success = await updateUnlockMethod(payload.method, {
       pin: payload.pin,
       pinBiometricEnabled: payload.pinBiometricEnabled,
       firebaseEmail: userEmail,
-      firebasePassword: undefined,
+      firebasePassword: payload.firebasePassword,
     });
 
     if (success) {

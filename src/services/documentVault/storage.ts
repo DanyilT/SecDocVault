@@ -1,13 +1,23 @@
 import { getApp } from '@react-native-firebase/app';
-import { deleteDoc, doc, getFirestore, setDoc } from '@react-native-firebase/firestore/lib/modular';
-import { serverTimestamp } from '@react-native-firebase/firestore/lib/modular/FieldValue';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  query,
+  serverTimestamp,
+  where,
+  setDoc,
+} from '@react-native-firebase/firestore';
 import {
   deleteObject,
   getDownloadURL,
   getStorage,
   ref as storageRef,
   uploadString,
-} from '@react-native-firebase/storage/lib/modular';
+} from '@react-native-firebase/storage';
 import * as Keychain from 'react-native-keychain';
 import RNFS from 'react-native-fs';
 import {Platform} from 'react-native';
@@ -51,13 +61,23 @@ function findActiveShareGrantForCurrentUser(doc: VaultDocument) {
   );
 }
 
-async function getDocShareGrant(docId: string, recipientUid: string) {
+async function getDocShareGrant(docId: string, recipientUid: string, recipientEmail?: string | null) {
   const app = getApp();
   const db = getFirestore(app);
-  const {getDoc} = await import('@react-native-firebase/firestore/lib/modular');
   const snapshot = await getDoc(doc(db, STORAGE_PATH_PREFIX, docId, DOC_SHARES_SUBCOLLECTION, recipientUid));
   if (!snapshot.exists()) {
-    return null;
+    if (!recipientEmail?.trim()) {
+      return null;
+    }
+
+    const emailSnapshot = await getDocs(
+      query(
+        collection(db, STORAGE_PATH_PREFIX, docId, DOC_SHARES_SUBCOLLECTION),
+        where('recipientEmail', '==', recipientEmail.trim().toLowerCase()),
+      ),
+    );
+    const match = emailSnapshot.docs[0];
+    return match ? (match.data() as ShareGrantRecord) : null;
   }
   return snapshot.data() as ShareGrantRecord;
 }
@@ -75,8 +95,9 @@ async function resolveDocumentKey(docMeta: VaultDocument) {
 
   const auth = getAuth(getApp());
   const currentUid = auth.currentUser?.uid;
+  const currentEmail = auth.currentUser?.email?.trim().toLowerCase();
   const inlineGrant = findActiveShareGrantForCurrentUser(docMeta) as ShareGrantRecord | null;
-  const sharedGrant = (inlineGrant ?? (currentUid ? await getDocShareGrant(docMeta.id, currentUid) : null)) as
+  const sharedGrant = (inlineGrant ?? (currentUid ? await getDocShareGrant(docMeta.id, currentUid, currentEmail) : null)) as
     | ShareGrantRecord
     | null;
   if (sharedGrant && currentUid) {
@@ -415,6 +436,14 @@ export async function deleteDocumentFromFirebase(docMeta: VaultDocument): Promis
 
   const app = getApp();
   const db = getFirestore(app);
+
+  const sharedUsersSnapshot = await getDocs(collection(db, STORAGE_PATH_PREFIX, docMeta.id, DOC_SHARES_SUBCOLLECTION));
+  await Promise.allSettled(
+    sharedUsersSnapshot.docs.map((sharedUserDoc: { ref: any }) =>
+      deleteDoc(sharedUserDoc.ref),
+    ),
+  );
+
   await deleteDoc(doc(db, STORAGE_PATH_PREFIX, docMeta.id));
 }
 

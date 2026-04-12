@@ -6,8 +6,8 @@ import {
   getDoc,
   getFirestore,
   setDoc,
-} from '@react-native-firebase/firestore/lib/modular';
-import { serverTimestamp } from '@react-native-firebase/firestore/lib/modular/FieldValue';
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
 import * as Keychain from 'react-native-keychain';
 import RNFS from 'react-native-fs';
 import { Platform } from 'react-native';

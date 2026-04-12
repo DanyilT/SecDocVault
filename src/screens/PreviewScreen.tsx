@@ -29,6 +29,7 @@ export function PreviewScreen({
   hasLocalCopy,
   hasFirebaseCopy,
   keyBackupEnabled,
+  currentUserId,
   onDecrypt,
   onExport,
   onSelectFile,
@@ -38,6 +39,7 @@ export function PreviewScreen({
   onDeleteLocal,
   onDeleteFromFirebase,
   onToggleRecovery,
+  onDeclineIncomingShare,
 }: {
   selectedDoc: VaultDocument;
   previewFileOrder: number;
@@ -51,6 +53,7 @@ export function PreviewScreen({
   hasLocalCopy: boolean;
   hasFirebaseCopy: boolean;
   keyBackupEnabled: boolean;
+  currentUserId: string | null;
   onDecrypt: () => Promise<void>;
   onExport: () => Promise<void>;
   onSelectFile: (order: number) => void;
@@ -60,6 +63,7 @@ export function PreviewScreen({
   onDeleteLocal: (doc: VaultDocument) => Promise<void>;
   onDeleteFromFirebase: (doc: VaultDocument) => Promise<void>;
   onToggleRecovery: (doc: VaultDocument, nextValue: boolean) => Promise<void>;
+  onDeclineIncomingShare: (docId: string) => void;
 }) {
   const [showFullImage, setShowFullImage] = React.useState(false);
   const [integrityCopied, setIntegrityCopied] = React.useState(false);
@@ -100,6 +104,8 @@ export function PreviewScreen({
     files.findIndex(item => item.order === previewFileOrder),
   );
   const selectedFileIntegrity = files[selectedIndex]?.integrityTag ?? files[selectedIndex]?.fileHash ?? selectedDoc.hash;
+
+  const isOwner = Boolean(currentUserId) && selectedDoc.owner === currentUserId;
 
   const panResponder = React.useMemo(
     () =>
@@ -431,34 +437,45 @@ export function PreviewScreen({
           </View>
         ) : null}
         <View style={styles.previewActionButton}>
-          <PrimaryButton
-            label={hasFirebaseCopy ? 'Delete from Cloud' : 'Save to Cloud'}
-            icon={hasFirebaseCopy ? TrashIcon : CloudArrowUpIcon}
-            variant={hasFirebaseCopy ? 'danger' : 'outline'}
-            onPress={() => {
-              if (hasFirebaseCopy) {
-                void onDeleteFromFirebase(selectedDoc);
-                return;
-              }
+          {isOwner ? (
+            <PrimaryButton
+              label={hasFirebaseCopy ? 'Delete from Cloud' : 'Save to Cloud'}
+              icon={hasFirebaseCopy ? TrashIcon : CloudArrowUpIcon}
+              variant={hasFirebaseCopy ? 'danger' : 'outline'}
+              onPress={() => {
+                if (hasFirebaseCopy) {
+                  void onDeleteFromFirebase(selectedDoc);
+                  return;
+                }
 
-              void onSaveToFirebase(selectedDoc);
-            }}
-          />
+                void onSaveToFirebase(selectedDoc);
+              }}
+            />
+          ) : hasFirebaseCopy ? (
+            <PrimaryButton
+              label="Decline Share"
+              icon={MinusCircleIcon}
+              variant="danger"
+              onPress={() => onDeclineIncomingShare(selectedDoc.id)}
+            />
+          ) : null}
         </View>
-        <View style={styles.previewActionButton}>
-          <PrimaryButton
-            label={
-              selectedDoc.recoverable
-                ? 'Disable Key Backup for this Doc'
-                : 'Enable Key Backup for this Doc'
-            }
-            icon={KeyIcon}
-            disabled={!hasFirebaseCopy}
-            onPress={() => {
-              void onToggleRecovery(selectedDoc, !selectedDoc.recoverable);
-            }}
-          />
-        </View>
+        {isOwner ? (
+          <View style={styles.previewActionButton}>
+            <PrimaryButton
+              label={
+                selectedDoc.recoverable
+                  ? 'Disable Key Backup for this Doc'
+                  : 'Enable Key Backup for this Doc'
+              }
+              icon={KeyIcon}
+              disabled={!hasFirebaseCopy}
+              onPress={() => {
+                void onToggleRecovery(selectedDoc, !selectedDoc.recoverable);
+              }}
+            />
+          </View>
+        ) : null}
       </View>
     </ScrollView>
   );

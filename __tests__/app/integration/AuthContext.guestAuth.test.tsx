@@ -33,20 +33,17 @@ jest.mock('@react-native-firebase/auth', () => ({
   signOut: jest.fn(),
 }));
 
-jest.mock('@react-native-firebase/firestore/lib/modular', () => ({
+jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(() => ({})),
   collection: jest.fn(() => ({})),
   query: jest.fn(() => ({})),
   where: jest.fn(() => ({})),
-  getDocs: jest.fn(async () => ({forEach: () => undefined, docs: [], size: 0})),
+  getDocs: jest.fn(async () => ({docs: [], size: 0, forEach: jest.fn()})),
   setDoc: jest.fn(async () => undefined),
   getDoc: jest.fn(async () => ({exists: () => false, data: () => ({})})),
   doc: jest.fn(() => ({})),
   deleteDoc: jest.fn(async () => undefined),
   collectionGroup: jest.fn(() => ({})),
-}));
-
-jest.mock('@react-native-firebase/firestore/lib/modular/FieldValue', () => ({
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
 }));
 

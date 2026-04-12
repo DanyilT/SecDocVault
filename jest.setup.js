@@ -44,19 +44,6 @@ jest.mock('@react-native-firebase/auth', () => ({
 }));
 
 jest.mock('@react-native-firebase/firestore', () => {
-  const docRef = {
-    id: 'mock-doc-id',
-    set: jest.fn(async () => undefined),
-  };
-
-  return () => ({
-    collection: jest.fn(() => ({
-      doc: jest.fn(() => docRef),
-    })),
-  });
-});
-
-jest.mock('@react-native-firebase/firestore/lib/modular', () => {
   const snapshot = {
     exists: jest.fn(() => false),
     data: jest.fn(() => ({})),
@@ -74,32 +61,25 @@ jest.mock('@react-native-firebase/firestore/lib/modular', () => {
     getDocs: jest.fn(async () => ({docs: []})),
     setDoc: jest.fn(async () => undefined),
     deleteDoc: jest.fn(async () => undefined),
+    serverTimestamp: jest.fn(() => 'mock-timestamp'),
   };
 });
-
-jest.mock('@react-native-firebase/firestore/lib/modular/FieldValue', () => ({
-  serverTimestamp: jest.fn(() => 'mock-timestamp'),
-}));
 
 jest.mock('@react-native-firebase/storage', () => {
-  const ref = {
-    putFile: jest.fn(async () => undefined),
+  const storageApi = {
+    getStorage: jest.fn(() => ({})),
+    ref: jest.fn(() => ({})),
+    uploadString: jest.fn(async () => ({metadata: {}})),
     getDownloadURL: jest.fn(async () => 'https://example.com/mock-file'),
-    delete: jest.fn(async () => undefined),
+    deleteObject: jest.fn(async () => undefined),
   };
 
-  return () => ({
-    ref: jest.fn(() => ref),
-  });
+  return {
+    __esModule: true,
+    default: jest.fn(() => ({ref: storageApi.ref})),
+    ...storageApi,
+  };
 });
-
-jest.mock('@react-native-firebase/storage/lib/modular', () => ({
-  getStorage: jest.fn(() => ({})),
-  ref: jest.fn(() => ({})),
-  uploadString: jest.fn(async () => ({metadata: {}})),
-  getDownloadURL: jest.fn(async () => 'https://example.com/mock-file'),
-  deleteObject: jest.fn(async () => undefined),
-}));
 
 jest.mock('react-native-keychain', () => ({
   ACCESS_CONTROL: {

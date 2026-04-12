@@ -92,6 +92,23 @@ describe('useAppControllerActions', () => {
     expect(params.setPendingUploadAlsoSaveLocal).toHaveBeenCalledWith(true);
   });
 
+  it('forwards cloud passkey password when updating unlock method', async () => {
+    const params = buildParams();
+    const api = useAppControllerActions(params);
+
+    await api.handleUpdateUnlockMethod({
+      method: 'passkey',
+      firebasePassword: 'top-secret-password',
+    });
+
+    expect(params.updateUnlockMethod).toHaveBeenCalledWith('passkey', {
+      pin: undefined,
+      pinBiometricEnabled: undefined,
+      firebaseEmail: 'user@example.com',
+      firebasePassword: 'top-secret-password',
+    });
+  });
+
   it('logs out from header and resets local session state', () => {
     const params = buildParams();
     const api = useAppControllerActions(params);

@@ -11,6 +11,7 @@ type UseIncomingShareDecisionsParams = {
   incomingShareDecisionStore: IncomingShareDecisionStore;
   setIncomingShareDecisionStore: React.Dispatch<React.SetStateAction<IncomingShareDecisionStore>>;
   setUploadStatus: (value: string) => void;
+  onDeclineSuccess?: () => void;
 };
 
 export function useIncomingShareDecisions({
@@ -18,6 +19,7 @@ export function useIncomingShareDecisions({
   incomingShareDecisionStore,
   setIncomingShareDecisionStore,
   setUploadStatus,
+  onDeclineSuccess,
 }: UseIncomingShareDecisionsParams) {
   const incomingShareDecisionsForCurrentUser = useMemo(
     () => incomingShareDecisionStore[currentShareDecisionOwnerKey] ?? {},
@@ -55,8 +57,9 @@ export function useIncomingShareDecisions({
     (docId: string) => {
       persistIncomingShareDecision(docId, 'declined');
       setUploadStatus('Incoming shared document declined.');
+      onDeclineSuccess?.();
     },
-    [persistIncomingShareDecision, setUploadStatus],
+    [persistIncomingShareDecision, setUploadStatus, onDeclineSuccess],
   );
 
   return {

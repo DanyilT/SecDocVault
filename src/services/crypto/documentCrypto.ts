@@ -394,7 +394,7 @@ export async function wrapDocumentKeyForRecipient(
       padding: quickCrypto.constants.RSA_PKCS1_OAEP_PADDING,
       oaepHash: 'sha256',
     },
-    Buffer.from(documentKeyB64, 'utf8'),
+    Buffer.from(documentKeyB64, 'base64'),
   );
 
   return {
@@ -428,14 +428,22 @@ export async function unwrapDocumentKeyFromShareEnvelope(
     constants: Record<string, number>;
   };
 
-  const plain = quickCrypto.privateDecrypt(
-    {
-      key: privateEntry.password,
-      padding: quickCrypto.constants.RSA_PKCS1_OAEP_PADDING,
-      oaepHash: 'sha256',
-    },
-    Buffer.from(envelope.wrappedKeyCipher, 'base64'),
-  );
+  try {
+    const plainBuffer = quickCrypto.privateDecrypt(
+      {
+        key: privateEntry.password,
+        padding: quickCrypto.constants.RSA_PKCS1_OAEP_PADDING,
+        oaepHash: 'sha256',
+      },
+      Buffer.from(envelope.wrappedKeyCipher, 'base64'),
+    );
 
-  return plain.toString('utf8');
+    // Use our local safe utility instead of relying on Buffer or global shims that might be missing
+    return encodeBase64(new Uint8Array(plainBuffer));
+  } catch (error) {
+    // If the standard OAEP-SHA256 fails, it might be due to an older version of the share
+    // that used a different padding or hash. Or the cipher is corrupted.
+    console.error('RSADecrypt error details:', error);
+    throw new Error(`Decryption failed: could not unwrap document key using recipient's private key. (${String(error)})`);
+  }
 }

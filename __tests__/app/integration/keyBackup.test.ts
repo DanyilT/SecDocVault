@@ -10,15 +10,12 @@ jest.mock('@react-native-firebase/app', () => ({
   getApp: jest.fn(() => ({ name: '[DEFAULT]' })),
 }));
 
-jest.mock('@react-native-firebase/firestore/lib/modular', () => ({
+jest.mock('@react-native-firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   deleteDoc: jest.fn(async () => undefined),
   getDoc: jest.fn(async () => ({ exists: () => false })),
   getFirestore: jest.fn(() => ({})),
   setDoc: jest.fn(async () => undefined),
-}));
-
-jest.mock('@react-native-firebase/firestore/lib/modular/FieldValue', () => ({
   serverTimestamp: jest.fn(() => 'mock-timestamp'),
 }));
 

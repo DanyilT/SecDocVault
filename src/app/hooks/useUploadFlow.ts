@@ -1,3 +1,4 @@
+import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { UploadableDocumentDraft, UploadProgressEvent } from '../../services/documentVault';
@@ -92,6 +93,31 @@ export function useUploadFlow({
   documentSaveLocal,
   uploadDocumentToFirebase,
 }: UseUploadFlowParams) {
+  const isFirebaseModuleUnavailableError = (error: unknown): boolean => {
+    if (!error) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    const normalized = message.toLowerCase();
+    // Match: Firestore or Storage module not found, native module issues, or failures
+    const isFirestore = normalized.includes('firestore') &&
+      (normalized.includes('module could not be found') ||
+        normalized.includes('native module') ||
+        normalized.includes('has not been installed') ||
+        normalized.includes("firebase.app('[default]').firestore") ||
+        normalized.includes('getfirestore') ||
+        normalized.includes('cannot read') ||
+        normalized.includes('is not a function'));
+
+    const isStorage = normalized.includes('storage') &&
+      (normalized.includes('module could not be found') ||
+        normalized.includes('native module') ||
+        normalized.includes('has not been installed') ||
+        normalized.includes("firebase.app('[default]').storage") ||
+        normalized.includes('cannot read') ||
+        normalized.includes('is not a function'));
+
+    return isFirestore || isStorage;
+  };
+
   const appendUploadedDocument = (nextDoc: VaultDocument) => {
     setDocuments(prev => [nextDoc, ...prev]);
   };
@@ -209,6 +235,7 @@ export function useUploadFlow({
       const shouldSaveLocal = pendingUploadAlsoSaveLocal || !shouldUploadToCloud;
       if (!shouldUploadToCloud && !shouldSaveLocal) {
         setUploadStatus('Enable at least one destination: local save or cloud upload.');
+        setIsUploading(false);
         return;
       }
 
@@ -216,6 +243,7 @@ export function useUploadFlow({
         const tooLargeFile = document.files.find(file => file.size > 10 * 1024 * 1024);
         if (tooLargeFile) {
           setUploadStatus(`File ${tooLargeFile.name} is larger than 10 MB. Reduce size and retry.`);
+          setIsUploading(false);
           return;
         }
 
@@ -224,6 +252,7 @@ export function useUploadFlow({
         ).length;
         if (cloudOwnedCount >= 10) {
           setUploadStatus('Cloud upload limit reached: maximum 10 documents per user.');
+          setIsUploading(false);
           return;
         }
       }
@@ -236,11 +265,14 @@ export function useUploadFlow({
           : `Uploading ${document.files.length} file(s) for ${document.name}...`,
       );
 
-      const result = !shouldUploadToCloud
-        ? await documentSaveLocal(ownerId, document, {
-            recoverable: pendingUploadRecoverable,
-          })
-        : await (async () => {
+      let result: {document: VaultDocument; timings?: {totalMs: number}};
+      if (!shouldUploadToCloud) {
+        result = await documentSaveLocal(ownerId, document, {
+          recoverable: pendingUploadRecoverable,
+        });
+      } else {
+        try {
+          result = await (async () => {
             let lastProgressUpdate = 0;
             return uploadDocumentToFirebase(ownerId, document, {
               alsoSaveLocal: shouldSaveLocal,
@@ -273,6 +305,29 @@ export function useUploadFlow({
               },
             });
           })();
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.warn('[Upload] Cloud upload failed:', errorMessage);
+
+          if (!isFirebaseModuleUnavailableError(error)) {
+            console.error('[Upload] Not a Firebase module error, rethrowing:', errorMessage);
+            throw error;
+          }
+
+          console.warn('[Upload] Firebase module unavailable, attempting local fallback');
+
+          if (!shouldSaveLocal) {
+            throw new Error(
+              'Cloud upload is unavailable because Firebase native modules are missing. Enable local save or rebuild the app with @react-native-firebase/storage and @react-native-firebase/firestore linked.',
+            );
+          }
+
+          setUploadStatus('Cloud upload unavailable. Saving encrypted files locally instead...');
+          result = await documentSaveLocal(ownerId, document, {
+            recoverable: pendingUploadRecoverable,
+          });
+        }
+      }
 
       appendUploadedDocument(result.document);
       if (result.document.saveMode === 'local' || result.document.offlineAvailable) {
@@ -294,8 +349,9 @@ export function useUploadFlow({
       clearPendingUploadDraft();
       setScreen('main');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Upload failed.';
-      setUploadStatus(message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[Upload]commitUploadDocument outer catch:', errorMessage);
+      setUploadStatus(errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -307,6 +363,14 @@ export function useUploadFlow({
 
   const handlePickAndUpload = () => {
     void selectUploadDocument('pick', false);
+  };
+
+  const handleAddScanToUpload = () => {
+    void selectUploadDocument('scan', true);
+  };
+
+  const handleAddPickToUpload = () => {
+    void selectUploadDocument('pick', true);
   };
 
   const handleRemoveUploadFile = (index: number) => {
@@ -357,6 +421,8 @@ export function useUploadFlow({
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handleAddScanToUpload,
+    handleAddPickToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
   };

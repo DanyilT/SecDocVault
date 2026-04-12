@@ -8,13 +8,13 @@ import {
   query,
   setDoc,
   where,
-} from '@react-native-firebase/firestore/lib/modular';
+} from '@react-native-firebase/firestore';
 import {
   getDownloadURL,
   getStorage,
   ref as storageRef,
   uploadString,
-} from '@react-native-firebase/storage/lib/modular';
+} from '@react-native-firebase/storage';
 import * as Keychain from 'react-native-keychain';
 import RNFS from 'react-native-fs';
 
@@ -343,7 +343,7 @@ export async function ensureCurrentUserSharePublicKey(userId: string, email?: st
       sharePublicKey: publicKey,
       updatedAt: new Date().toISOString(),
     },
-    {merge: true},
+    { merge: true },
   );
 
   return publicKey;
@@ -431,7 +431,7 @@ export async function createDocumentShareGrant(
     wrappedKeyIv: '',
     senderEphemeralPublicKey: '',
     createdAt: nowIso,
-    expiresAt: computeShareExpiryDate(expiresInDays),
+    expiresAt: computeShareExpiryDate(expiresInDays).toISOString(),
   };
 
   const app = getApp();

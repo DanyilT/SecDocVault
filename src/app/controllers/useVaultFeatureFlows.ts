@@ -176,6 +176,8 @@ export function useVaultFeatureFlows({
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handleAddScanToUpload,
+    handleAddPickToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
   } = useUploadFlow({
@@ -266,6 +268,8 @@ export function useVaultFeatureFlows({
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handleAddScanToUpload,
+    handleAddPickToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
     handleSaveOffline,

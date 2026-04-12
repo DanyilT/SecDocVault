@@ -10,9 +10,9 @@ import {
   query,
   setDoc,
   where,
-} from '@react-native-firebase/firestore/lib/modular';
-import { serverTimestamp } from '@react-native-firebase/firestore/lib/modular/FieldValue';
-import { deleteObject, getStorage, ref as storageRef, uploadString } from '@react-native-firebase/storage/lib/modular';
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
+import { deleteObject, getStorage, ref as storageRef, uploadString } from '@react-native-firebase/storage';
 import * as Keychain from 'react-native-keychain';
 import RNFS from 'react-native-fs';
 

@@ -50,20 +50,6 @@ jest.mock('@react-native-firebase/auth', () => ({
 }));
 
 jest.mock('@react-native-firebase/firestore', () => {
-  const doc = {
-    id: 'mock-doc-id',
-    set: jest.fn(async () => undefined),
-  };
-  const collection = {
-    doc: jest.fn(() => doc),
-  };
-
-  return () => ({
-    collection: jest.fn(() => collection),
-  });
-});
-
-jest.mock('@react-native-firebase/firestore/lib/modular', () => {
   const docRef = {id: 'mock-doc-id'};
   const snapshot = {
     exists: jest.fn(() => false),
@@ -74,15 +60,17 @@ jest.mock('@react-native-firebase/firestore/lib/modular', () => {
   return {
     getFirestore: jest.fn(() => ({})),
     collection: jest.fn(() => ({})),
+    collectionGroup: jest.fn(() => ({})),
+    query: jest.fn(() => ({})),
+    where: jest.fn(() => ({})),
     doc: jest.fn(() => docRef),
+    getDocs: jest.fn(async () => ({docs: []})),
+    deleteDoc: jest.fn(async () => undefined),
     setDoc: jest.fn(async () => undefined),
     getDoc: jest.fn(async () => snapshot),
+    serverTimestamp: jest.fn(() => 'mock-timestamp'),
   };
 });
-
-jest.mock('@react-native-firebase/firestore/lib/modular/FieldValue', () => ({
-  serverTimestamp: jest.fn(() => 'mock-timestamp'),
-}));
 
 jest.mock('react-native-fs', () => ({
   CachesDirectoryPath: '/tmp',
@@ -92,22 +80,20 @@ jest.mock('react-native-fs', () => ({
 }));
 
 jest.mock('@react-native-firebase/storage', () => {
-  const ref = {
-    putFile: jest.fn(async () => undefined),
+  const storageApi = {
+    getStorage: jest.fn(() => ({})),
+    ref: jest.fn(() => ({})),
+    uploadString: jest.fn(async () => ({metadata: {}})),
     getDownloadURL: jest.fn(async () => 'https://example.com/mock-file'),
+    deleteObject: jest.fn(async () => undefined),
   };
 
-  return () => ({
-    ref: jest.fn(() => ref),
-  });
+  return {
+    __esModule: true,
+    default: jest.fn(() => ({ref: storageApi.ref})),
+    ...storageApi,
+  };
 });
-
-jest.mock('@react-native-firebase/storage/lib/modular', () => ({
-  getStorage: jest.fn(() => ({})),
-  ref: jest.fn(() => ({})),
-  uploadString: jest.fn(async () => ({metadata: {}})),
-  getDownloadURL: jest.fn(async () => 'https://example.com/mock-file'),
-}));
 
 jest.mock('react-native-get-random-values', () => ({}));
 

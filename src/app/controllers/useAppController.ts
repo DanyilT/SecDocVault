@@ -212,6 +212,11 @@ export function useAppController(): UseAppControllerApi {
     incomingShareDecisionStore,
     setIncomingShareDecisionStore,
     setUploadStatus,
+    onDeclineSuccess: () => {
+      if (screen === 'preview') {
+        setScreen('main');
+      }
+    },
   });
 
   const uploadCanUseCloud = !isGuest && backupCloud && Boolean(user?.uid);
@@ -476,6 +481,8 @@ export function useAppController(): UseAppControllerApi {
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handleAddScanToUpload,
+    handleAddPickToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
     handleSaveOffline,
@@ -627,6 +634,8 @@ export function useAppController(): UseAppControllerApi {
     openShare,
     onScanAndUpload: handleScanAndUpload,
     onPickAndUpload: handlePickAndUpload,
+    onAddScanToUpload: handleAddScanToUpload,
+    onAddPickToUpload: handleAddPickToUpload,
     onReloadDocuments: reloadDocuments,
     onSaveOffline: handleSaveOffline,
     onSaveToFirebase: handleSaveToFirebase,
@@ -713,7 +722,7 @@ export function useAppController(): UseAppControllerApi {
     onDownloadBackupFile: handleDownloadBackupFile,
     onRestoreKeys: handleRestoreKeys,
     onToggleDocBackupFromSettings: handleToggleDocBackupFromSettings,
-  });
+  } as any);
 
   const headerControllerProps: React.ComponentProps<typeof AppHeaderController> = {
     screen,

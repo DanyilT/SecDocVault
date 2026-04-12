@@ -64,6 +64,7 @@ export function SettingsScreen({
     method: 'pin' | 'passkey';
     pin?: string;
     pinBiometricEnabled?: boolean;
+    firebasePassword?: string;
   }) => Promise<void>;
   onChangeGuestPassword: (currentPassword: string, nextPassword: string) => Promise<boolean>;
   onResetPassword: () => Promise<void>;
@@ -77,6 +78,7 @@ export function SettingsScreen({
   const [guestCurrentPassword, setGuestCurrentPassword] = useState('');
   const [guestNewPassword, setGuestNewPassword] = useState('');
   const [guestConfirmPassword, setGuestConfirmPassword] = useState('');
+  const [cloudPasskeyPassword, setCloudPasskeyPassword] = useState('');
   const [usePasskey, setUsePasskey] = useState(preferredProtection === 'passkey');
   const [useBiometricWithPin, setUseBiometricWithPin] = useState(pinBiometricEnabled);
   const [showRecoveryPassphrase, setShowRecoveryPassphrase] = useState(false);
@@ -96,6 +98,12 @@ export function SettingsScreen({
     setGuestConfirmPassword('');
   }, [isGuest]);
 
+  useEffect(() => {
+    if (!usePasskey) {
+      setCloudPasskeyPassword('');
+    }
+  }, [usePasskey]);
+
   const pinError = useMemo(() => {
     if (usePasskey) {
       return '';
@@ -109,7 +117,10 @@ export function SettingsScreen({
     return '';
   }, [confirmPin, pin, usePasskey]);
 
-  const canSaveUnlock = usePasskey || (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
+  const requiresCloudPasskeyPassword = !isGuest && usePasskey && !hasSavedPasskey;
+  const canSaveUnlock =
+    (usePasskey && (!requiresCloudPasskeyPassword || cloudPasskeyPassword.trim().length > 0)) ||
+    (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
   const guestPasswordError = useMemo(() => {
     if (!isGuest) {
       return '';
@@ -414,6 +425,25 @@ export function SettingsScreen({
               />
             </View>
           </>
+        ) : !isGuest && !hasSavedPasskey ? (
+          <>
+            <TextInput
+              autoCapitalize="none"
+              placeholder="Current account password"
+              placeholderTextColor="#6b7280"
+              style={styles.input}
+              value={cloudPasskeyPassword}
+              onChangeText={setCloudPasskeyPassword}
+              secureTextEntry={true}
+              autoCorrect={false}
+              autoComplete="off"
+              textContentType="password"
+              editable={!isSubmitting}
+            />
+            <Text style={styles.subtitle}>
+              Enter your current password once to register passkey unlock on this device.
+            </Text>
+          </>
         ) : null}
 
         <Text style={styles.subtitle}>
@@ -436,7 +466,10 @@ export function SettingsScreen({
           onPress={() => {
             void onUpdateUnlockMethod(
               usePasskey
-                ? { method: 'passkey' }
+                ? {
+                    method: 'passkey',
+                    firebasePassword: cloudPasskeyPassword,
+                  }
                 : {
                     method: 'pin',
                     pin,
