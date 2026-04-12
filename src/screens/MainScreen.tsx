@@ -1,3 +1,11 @@
+/**
+ * screens/MainScreen.tsx
+ *
+ * Top-level document list UI. Connects to controllers/hooks for document
+ * selection, deletion, and navigation. This file focuses on rendering and
+ * small interaction behavior only.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import {
@@ -17,10 +25,51 @@ import { VaultDocument } from '../types/vault';
 
 type DocumentViewMode = 'owned' | 'sharedWithMe' | 'sharedByMe';
 
+/**
+ * normalizeRecipientIdentifier
+ *
+ * Normalize a recipient identifier (user id or email) to a canonical form for
+ * comparisons: trims whitespace and lowercases the value. Returns an empty
+ * string for null/undefined inputs.
+ *
+ * @param {string | null | undefined} value - Identifier to normalize
+ * @returns {string} Normalized identifier
+ */
 function normalizeRecipientIdentifier(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? '';
 }
 
+/**
+ * MainScreen
+ *
+ * Display the user's documents and provide actions for upload, preview,
+ * sharing, saving offline, and deletion. Supports three views: owned,
+ * shared-with-me and shared-by-me. Incoming share decisions are surfaced and
+ * actionable.
+ *
+ * @param {object} props - Component props
+ * @param {VaultDocument[]} props.documents - Array of available documents
+ * @param {Record<string, 'accepted'|'declined'>} props.incomingShareDecisions - Decisions for incoming share requests
+ * @param {string|null} props.currentUserId - Current user's id
+ * @param {string|null} props.currentUserEmail - Current user's email
+ * @param {boolean} props.isGuest - Whether the current session is a guest session
+ * @param {boolean} props.isUploading - Whether an upload is in progress
+ * @param {string} props.uploadStatus - Optional upload status message
+ * @param {(doc: VaultDocument) => void} props.openPreview - Open document preview
+ * @param {(doc: VaultDocument) => void} props.openShare - Open share dialog for a document
+ * @param {() => void} props.onScanAndUpload - Trigger scanner upload flow
+ * @param {() => void} props.onPickAndUpload - Trigger file picker upload flow
+ * @param {() => Promise<void>} props.onReloadDocuments - Reload documents from storage
+ * @param {(doc: VaultDocument) => void} props.onSaveOffline - Save a document locally
+ * @param {(doc: VaultDocument) => void} props.onSaveToFirebase - Save a document to cloud
+ * @param {(doc: VaultDocument) => void} props.onDeleteLocal - Delete a local copy of a document
+ * @param {(doc: VaultDocument) => void} props.onDeleteFromFirebase - Delete a document from cloud
+ * @param {(doc: VaultDocument) => Promise<void>} [props.onExport] - Optional export handler
+ * @param {(doc: VaultDocument, nextValue: boolean) => Promise<void>} [props.onToggleRecovery] - Optional toggle for key backup per document
+ * @param {(docId: string) => void} props.onAcceptIncomingShare - Accept an incoming share request
+ * @param {(docId: string) => void} props.onDeclineIncomingShare - Decline an incoming share request
+ * @returns {JSX.Element} Rendered main screen
+ */
 export function MainScreen({
   documents,
   incomingShareDecisions,

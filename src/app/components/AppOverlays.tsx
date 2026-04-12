@@ -1,3 +1,11 @@
+/**
+ * app/components/AppOverlays.tsx
+ *
+ * Overlay UI elements like toasts, modals and setup dialogs that sit above the
+ * main router. Kept in a single file so overlay presentation can be reused by
+ * multiple screens without duplicating modal markup.
+ */
+
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -17,6 +25,19 @@ type AppOverlaysProps = {
   onConfirmDiscardUploadDraft: () => Promise<void>;
 };
 
+/**
+ * AppOverlays
+ *
+ * Renders top-level overlays used by the application shell:
+ * - Key backup setup modal (prompt and passphrase reveal/copy)
+ * - Upload discard confirmation modal
+ *
+ * This component is presentational and fully controlled by props. All side
+ * effects (copying passphrases, confirming setup, toggling preferences) are
+ * delegated to the callback props supplied by the caller.
+ *
+ * @param props - controlled props described by `AppOverlaysProps`
+ */
 export function AppOverlays({
   showKeyBackupSetupModal,
   recoveryPassphraseForSettings,

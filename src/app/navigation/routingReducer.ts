@@ -1,3 +1,11 @@
+/**
+ * app/navigation/routingReducer.ts
+ *
+ * Small reducer that tracks in-memory routing state for the simplified app
+ * router used in this project (not React Navigation). Keeps `screen`,
+ * `authGateStage` and other small routing flags.
+ */
+
 import { AppScreen, RECOVERY_SUB_SCREENS } from './constants';
 
 export type AuthGateStage = 'hero' | 'auth' | 'unlock';

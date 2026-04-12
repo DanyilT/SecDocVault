@@ -1,3 +1,11 @@
+/**
+ * app/hooks/useAuthGateFlow.ts
+ *
+ * Low-level hook implementing the unlock/auth gate flow used by the app.
+ * Handles transition flags and coordinates when to show passkey / pin unlock
+ * screens vs full authentication screens.
+ */
+
 import { useMemo } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';

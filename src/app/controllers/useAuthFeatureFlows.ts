@@ -1,3 +1,11 @@
+/**
+ * app/controllers/useAuthFeatureFlows.ts
+ *
+ * Encapsulates authentication related flows (email-link handling, verification,
+ * passkey setup, basic validation) separating them from the main controller.
+ * Provides helpers that `useAppController` consumes to implement the auth UI.
+ */
+
 import { useAuthGateFlow, useAuthLinkingFlow } from '../hooks';
 import { isVerificationCallbackUrl, resolveVerificationLink } from '../navigation/urlVerification';
 import { AuthMode, AuthProtection } from '../../types/vault';
@@ -64,6 +72,16 @@ type UseAuthFeatureFlowsParams = {
   setAccountStatus: (value: string) => void;
 };
 
+/**
+ * useAuthFeatureFlows
+ *
+ * Composes authentication-related feature flows by wiring `useAuthLinkingFlow`
+ * and `useAuthGateFlow`. This helper centralizes auth logic so the main
+ * controller stays focused on orchestration.
+ *
+ * @param params - collection of state setters and auth functions required to run auth flows
+ * @returns the API returned by `useAuthGateFlow` (handlers and flags used by the controller)
+ */
 export function useAuthFeatureFlows({
   completeAuthPendingKey,
   authMode,

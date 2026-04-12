@@ -1,3 +1,12 @@
+/**
+ * app/hooks/useKeyBackupFlow.ts
+ *
+ * Implements key backup flows exposed to the settings UI: request setup,
+ * confirm setup, backup keys, restore keys, export passphrase file, etc.
+ * This hook delegates to `services/keyBackup` and keeps UI-facing status
+ * messages and dialogs in one place.
+ */
+
 import React, { useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -40,6 +49,23 @@ type UseKeyBackupFlowParams = {
   downloadKeyBackupFile: (uid: string, passphrase: string) => Promise<string>;
 };
 
+/**
+ * useKeyBackupFlow
+ *
+ * Hook exposing UI state and handlers for key-backup related flows used by
+ * settings and account screens. Responsibilities:
+ * - Present and manage the key-backup setup modal
+ * - Coordinate generation/reset of the recovery passphrase
+ * - Toggle and persist per-document recovery preferences
+ * - Trigger backup/restore operations via injected service functions
+ *
+ * The hook is UI-focused and receives side-effecting functions (network,
+ * storage) as parameters so it remains testable and free of direct platform
+ * calls. It returns small, well-typed handlers and status strings intended
+ * to be shown in the UI.
+ *
+ * @param params - dependency injection and setters required by the hook
+ */
 export function useKeyBackupFlow({
   isGuest,
   userUid,
@@ -82,6 +108,16 @@ export function useKeyBackupFlow({
     [documents],
   );
 
+  /**
+   * requestKeyBackupSetup
+   *
+   * Show the key-backup setup modal and remember a pending callback to run
+   * after the user confirms setup. Useful when an action (for example
+   * enabling per-document recovery) requires key backup to be configured
+   * first.
+   *
+   * @param onEnabled - callback executed after key backup has been enabled
+   */
   const requestKeyBackupSetup = (onEnabled: () => void) => {
     if (keyBackupSetupModalOpenRef.current) {
       return;
@@ -92,6 +128,13 @@ export function useKeyBackupFlow({
     setShowKeyBackupSetupModal(true);
   };
 
+  /**
+   * confirmKeyBackupSetup
+   *
+   * Called when the user confirms key backup setup in the modal. Ensures a
+   * recovery passphrase exists, enables auto-sync, persists preferences, and
+   * runs any pending action that required key backup.
+   */
   const confirmKeyBackupSetup = async () => {
     try {
       const passphrase = await ensureRecoveryPassphrase();
@@ -118,12 +161,27 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * cancelKeyBackupSetup
+   *
+   * Close the setup modal and clear any pending post-setup action.
+   */
   const cancelKeyBackupSetup = () => {
     keyBackupSetupModalOpenRef.current = false;
     setShowKeyBackupSetupModal(false);
     pendingEnableKeyBackupActionRef.current = null;
   };
 
+  /**
+   * handleToggleDocumentRecovery
+   *
+   * Toggle whether a document should be included in cloud key recovery. If
+   * enabling recovery while key backup is not configured, this function will
+   * prompt the user to configure key backup first and then retry the toggle.
+   *
+   * @param docMeta - metadata of the document to update
+   * @param enabled - desired recoverable state
+   */
   const handleToggleDocumentRecovery = async (docMeta: VaultDocument, enabled: boolean) => {
     if (enabled && !keyBackupEnabledRef.current) {
       requestKeyBackupSetup(() => {
@@ -167,6 +225,14 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleSetKeyBackupEnabled
+   *
+   * Enable or disable key backup globally. When enabling, ensure a
+   * recovery passphrase exists and persist auto-sync preferences.
+   *
+   * @param enabled - next enabled state
+   */
   const handleSetKeyBackupEnabled = async (enabled: boolean) => {
     try {
       let nextPassphrase = recoveryPassphraseForSettings;
@@ -191,6 +257,13 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleResetBackupPassphrase
+   *
+   * Generate a new recovery passphrase and delete any existing cloud
+   * backups. This is destructive for the cloud backup and therefore prompts
+   * the user for confirmation via an alert.
+   */
   const handleResetBackupPassphrase = async () => {
     const confirmed = await new Promise<boolean>(resolve => {
       Alert.alert(
@@ -246,6 +319,13 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleBackupKeys
+   *
+   * Create a new cloud key backup using a freshly generated passphrase.
+   * Returns UI-oriented status updates via `keyBackupStatus` and displays
+   * the generated passphrase for user to save.
+   */
   const handleBackupKeys = async () => {
     if (isGuest) {
       setKeyBackupStatus('Key backup is not available in guest mode.');
@@ -276,6 +356,14 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleRestoreKeys
+   *
+   * Restore keys from a cloud backup using the provided passphrase. Reports
+   * progress and errors via `keyBackupStatus`.
+   *
+   * @param passphrase - recovery passphrase for the backup
+   */
   const handleRestoreKeys = async (passphrase: string) => {
     if (isGuest || !userUid) {
       setKeyBackupStatus('You must be logged in to restore keys from Firebase.');
@@ -297,6 +385,14 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleDownloadPassphrase
+   *
+   * Persist the provided passphrase to a platform file using
+   * `downloadPassphraseFile` and report the saved path via UI state.
+   *
+   * @param passphrase - the passphrase to save on disk
+   */
   const handleDownloadPassphrase = async (passphrase: string) => {
     try {
       if (!userUid) {
@@ -311,6 +407,14 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleDownloadBackupFile
+   *
+   * Download the encrypted key backup JSON file for offline transfer or
+   * archival. Reports the destination path via `keyBackupStatus`.
+   *
+   * @param passphrase - passphrase used to decrypt/encrypt the downloaded file
+   */
   const handleDownloadBackupFile = async (passphrase: string) => {
     try {
       if (!userUid) {
@@ -325,6 +429,15 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleCopyPassphrase
+   *
+   * Copy the passphrase using the provided platform copy function and
+   * update `keyBackupStatus` to provide immediate feedback to the user.
+   *
+   * @param passphrase - passphrase to copy
+   * @param copyFn - platform copy function (e.g., clipboard setString)
+   */
   const handleCopyPassphrase = (passphrase: string, copyFn: (value: string) => void) => {
     try {
       copyFn(passphrase);

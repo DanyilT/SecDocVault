@@ -1,3 +1,11 @@
+/**
+ * app/controllers/useVaultFeatureFlows.ts
+ *
+ * Implements flows specific to the vault feature set (uploads, previews,
+ * sharing, saving offline). Returns an object of handlers that the main
+ * controller consumes to wire UI actions to service calls.
+ */
+
 import React from 'react';
 
 import {
@@ -70,6 +78,16 @@ type UseVaultFeatureFlowsParams = {
   handleToggleDocumentRecovery: (docMeta: VaultDocument, enabled: boolean) => Promise<void>;
 };
 
+/**
+ * useVaultFeatureFlows
+ *
+ * Implements vault-specific flows (uploading, previewing, sharing and
+ * document actions). Returns a collection of handlers and flags used by the
+ * main controller to wire UI actions to service calls.
+ *
+ * @param params - dependencies and setters required by vault flows
+ * @returns object containing handlers and state used by the UI
+ */
 export function useVaultFeatureFlows({
   uploadDiscardWarningPrefKey,
   isGuest,
@@ -160,6 +178,16 @@ export function useVaultFeatureFlows({
     revokeDocumentShareGrant,
   });
 
+  /**
+   * handleToggleDocBackupFromSettings
+   *
+   * Convenience wrapper that looks up a document by id and delegates the
+   * recoverable toggle to `handleToggleDocumentRecovery`.
+   *
+   * @param docId - document identifier
+   * @param enabled - desired recoverable state
+   * @returns Promise<void>
+   */
   const handleToggleDocBackupFromSettings = async (docId: string, enabled: boolean) => {
     const target = documents.find(item => item.id === docId);
     if (!target) {

@@ -1,3 +1,11 @@
+/**
+ * screens/UploadConfirmScreen.tsx
+ *
+ * Confirmation and progress screen shown during document encryption/upload.
+ * Presents progress updates and final status. Keeps UI-focused logic only –
+ * progress reporting is provided by the `useUploadFlow` hook.
+ */
+
 import React from 'react';
 import {
   Animated,
@@ -47,6 +55,27 @@ function UploadTile({
   onDragEnd: () => void;
   onReorder: (from: number, to: number) => void;
 }) {
+  /**
+   * UploadTile
+   *
+   * Small draggable tile representing an image/file in the upload queue. Supports
+   * reorder mode with a shaking animation and drag interactions. The component
+   * exposes selection, removal and drag lifecycle handlers.
+   *
+   * @param {object} props - Component props
+   * @param {UploadableDocument} props.file - File to render
+   * @param {number} props.index - Index in the files array
+   * @param {number} props.total - Total number of files
+   * @param {boolean} props.selected - Whether this tile is selected
+   * @param {boolean} props.isReorderMode - Whether reorder mode is active
+   * @param {boolean} props.isDragSource - Whether this tile is the current drag source
+   * @param {() => void} props.onSelect - Select this tile
+   * @param {() => void} props.onRemove - Remove this file
+   * @param {() => void} props.onDragStart - Called when drag starts
+   * @param {() => void} props.onDragEnd - Called when drag ends
+   * @param {(from: number, to: number) => void} props.onReorder - Called to reorder files
+   * @returns {JSX.Element} Draggable upload tile
+   */
   const drag = React.useRef(new Animated.ValueXY({x: 0, y: 0})).current;
   const shake = React.useRef(new Animated.Value(0)).current;
   const shakeLoopRef = React.useRef<Animated.CompositeAnimation | null>(null);
@@ -195,6 +224,41 @@ function UploadTile({
   );
 }
 
+/**
+ * UploadConfirmScreen
+ *
+ * UI shown during the upload confirmation step. Allows arranging files,
+ * entering document metadata, toggling recovery/upload destinations and
+ * finally confirming the upload. Progress and persistence are handled by
+ * the provided handlers.
+ *
+ * @param {object} props - Component props
+ * @param {boolean} props.isUploading - Whether an upload is in progress
+ * @param {string} props.uploadStatus - Optional status message for uploads
+ * @param {UploadableDocument[]} props.files - Files queued for upload
+ * @param {number} props.selectedFileIndex - Currently previewed file index
+ * @param {string} props.documentName - Document name field value
+ * @param {string} props.documentDescription - Document description value
+ * @param {boolean} props.recoverable - Whether the document is recoverable (key backup)
+ * @param {boolean} props.uploadToCloud - Whether to upload to cloud
+ * @param {boolean} props.saveLocalCopy - Whether to save a local encrypted copy
+ * @param {boolean} props.canToggleCloudUpload - Whether cloud upload can be toggled
+ * @param {boolean} props.canToggleSaveLocal - Whether local save can be toggled
+ * @param {(index: number) => void} props.setSelectedFileIndex - Setter for selected file index
+ * @param {(value: string) => void} props.setDocumentName - Setter for document name
+ * @param {(value: string) => void} props.setDocumentDescription - Setter for description
+ * @param {(value: boolean) => void} props.setRecoverable - Setter for recoverable flag
+ * @param {(value: boolean) => void} props.setUploadToCloud - Setter for uploadToCloud
+ * @param {(value: boolean) => void} props.setSaveLocalCopy - Setter for saveLocalCopy
+ * @param {boolean} props.keyBackupEnabled - Whether key backup is enabled globally
+ * @param {(index: number) => void} props.onRemoveFile - Remove a file from the queue
+ * @param {(fromIndex: number, toIndex: number) => void} props.onReorderFiles - Reorder files
+ * @param {() => void} props.onPickNewFile - Pick a new file from gallery
+ * @param {() => void} props.onScanNewFile - Scan a new file
+ * @param {() => Promise<void>} props.onConfirmUpload - Confirm and start upload
+ * @param {() => void} props.onRequestEnableKeyBackup - Request enabling key backup (when needed)
+ * @returns {JSX.Element} Rendered upload confirmation screen
+ */
 export function UploadConfirmScreen({
   isUploading,
   uploadStatus,

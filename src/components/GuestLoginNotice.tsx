@@ -1,3 +1,10 @@
+/**
+ * components/GuestLoginNotice.tsx
+ *
+ * Small informational component shown in guest login contexts. Kept in a
+ * separate file to keep `AuthScreen` compact and to allow focused tests.
+ */
+
 import { StyleSheet, Text } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -14,7 +21,15 @@ const styles = StyleSheet.create({
   }
 });
 
-export function GuestLoginNotice(){
+/**
+ * GuestLoginNotice
+ *
+ * Render a short informational notice shown on guest login flows explaining
+ * that guest mode is local-only and does not sync to Firebase.
+ *
+ * @returns {JSX.Element} Small Text component with guest notice
+ */
+export function GuestLoginNotice() {
   return (
     <Text style={styles.guestNote}>
       Guest login is anonymous and local-only.

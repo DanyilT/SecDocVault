@@ -1,3 +1,12 @@
+/**
+ * components/ui.tsx
+ *
+ * Small shared UI primitives (Header, PrimaryButton, SecondaryButton,
+ * SegmentButton) used across the app. These are intentionally un-opinionated
+ * wrappers around React Native primitives so snapshots and tests can import
+ * them consistently.
+ */
+
 import React from 'react';
 import { Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
 

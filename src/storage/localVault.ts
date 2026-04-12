@@ -1,3 +1,12 @@
+/**
+ * storage/localVault.ts
+ *
+ * Utilities for reading and writing local vault data persisted on-device.
+ * This includes saving encrypted payloads metadata, incoming share decisions,
+ * and small preference values used by the app. Designed to be platform-agnostic
+ * and used by controllers and hooks for offline-first behaviors.
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 

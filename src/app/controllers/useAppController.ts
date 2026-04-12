@@ -1,3 +1,12 @@
+/**
+ * app/controllers/useAppController.ts
+ *
+ * Main application controller hook. Encapsulates app-level state, side effects
+ * and interactions between authentication, document vault, upload flows and
+ * UI routing. Designed to return a stable set of props consumable by
+ * `buildAppScreenRouterProps` and `AppScreenRouter`.
+ */
+
 import React, { useEffect } from 'react';
 import { Animated } from 'react-native';
 
@@ -61,6 +70,18 @@ export type UseAppControllerApi = {
   overlaysProps: React.ComponentProps<typeof AppOverlays>;
 };
 
+/**
+ * useAppController
+ *
+ * Main application controller hook that composes app-wide state, side effects
+ * and feature flows into three structured prop objects consumed by the UI:
+ * - `appScreenRouterProps` for routing and screen handlers
+ * - `headerControllerProps` for the header controller
+ * - `overlaysProps` for top-level overlays and modals
+ *
+ * @returns an object with `showVaultShell`, animation values and the three
+ * standardized prop objects consumed by the app shell
+ */
 export function useAppController(): UseAppControllerApi {
   const UPLOAD_DISCARD_WARNING_PREF_KEY = 'secdocvault.upload.skipDiscardWarning';
   const COMPLETE_AUTH_PENDING_KEY = 'secdocvault.auth.complete.pending';

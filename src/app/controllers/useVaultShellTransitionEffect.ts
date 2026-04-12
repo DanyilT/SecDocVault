@@ -1,3 +1,11 @@
+/**
+ * app/controllers/useVaultShellTransitionEffect.ts
+ *
+ * Small visual transition helper used to animate the vault shell as the app
+ * switches between auth gate and the unlocked vault UI. Exposes a hook that
+ * manipulates `Animated.Value` properties passed from the controller state.
+ */
+
 import { useEffect } from 'react';
 import { Animated } from 'react-native';
 
@@ -16,6 +24,16 @@ type UseVaultShellTransitionEffectParams = {
   isVaultLocked: boolean;
 };
 
+/**
+ * useVaultShellTransitionEffect
+ *
+ * Animate the vault shell entrance/exit when switching between auth and the
+ * unlocked vault UI. Manipulates two `Animated.Value` objects supplied by
+ * the controller state.
+ *
+ * @param params - animation values and state that influence the transition
+ * @returns void
+ */
 export function useVaultShellTransitionEffect({
   transitionOpacity,
   transitionTranslateY,

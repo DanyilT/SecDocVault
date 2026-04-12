@@ -1,3 +1,11 @@
+/**
+ * services/documentVault/query.ts
+ *
+ * Firestore query helpers for fetching vault documents and user-scoped lists.
+ * Contains convenience functions that encapsulate query creation and result
+ * normalization so controllers can operate on typed VaultDocument objects.
+ */
+
 import { getApp } from '@react-native-firebase/app';
 import {
   collection,

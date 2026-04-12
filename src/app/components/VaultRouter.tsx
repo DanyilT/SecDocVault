@@ -1,3 +1,11 @@
+/**
+ * app/components/VaultRouter.tsx
+ *
+ * Renders the main application screens (main, preview, upload, share,
+ * settings). Keeps screen selection logic in one place to simplify tests and
+ * avoid scattering `if (screen === '...')` checks across the codebase.
+ */
+
 import React from 'react';
 
 import {
@@ -114,6 +122,16 @@ type VaultRouterProps = {
   onToggleDocBackupFromSettings: (docId: string, enabled: boolean) => Promise<void>;
 };
 
+/**
+ * VaultRouter
+ *
+ * A controlled component that renders the appropriate screen for a
+ * given `screen` prop. The `AuthGateRouter` component should
+ * render the appropriate `AuthGate` component based on authentication state,
+ * and then render `VaultRouter` once the user is authenticated or in a guest session.
+ *
+ * @param props - controlled props described by `VaultRouterProps`
+ */
 export function VaultRouter(props: VaultRouterProps) {
   const {
     screen,

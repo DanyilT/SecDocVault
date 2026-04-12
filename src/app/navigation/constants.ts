@@ -1,3 +1,11 @@
+/**
+ * app/navigation/constants.ts
+ *
+ * App-wide navigation constants: `AppScreen` union and human-readable
+ * titles used by the `AppHeaderController` and router. Centralized constants
+ * make it easier to change labels and reference screens in tests.
+ */
+
 export const RECOVERY_SUB_SCREENS = ['recoverkeys', 'recoverydocs'] as const;
 
 export type AppScreen =

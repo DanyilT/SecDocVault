@@ -1,9 +1,26 @@
+/**
+ * app/controllers/useAppControllerState.ts
+ *
+ * Local state hook used by the app controller. Centralizes many piece of
+ * UI state and persistence keys so the `useAppController` can compose them
+ * and keep implementation details hidden from presentation components.
+ */
+
 import { useRef, useState } from 'react';
 import { Animated } from 'react-native';
 
 import { UploadableDocumentDraft } from '../../services/documentVault';
 import { AuthMode, VaultDocument } from '../../types/vault';
 
+/**
+ * useAppControllerState
+ *
+ * Local state hook used by the app controller. Centralizes UI state variables
+ * and animation values so the controller can compose them into props for the
+ * presentation layer.
+ *
+ * @returns object containing state values and setter functions used by the controller
+ */
 export function useAppControllerState() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [accessMode, setAccessMode] = useState<'login' | 'guest'>('login');

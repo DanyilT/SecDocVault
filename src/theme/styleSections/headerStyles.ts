@@ -1,3 +1,9 @@
+/**
+ * theme/styleSections/headerStyles.ts
+ *
+ * Styles used by header components across the application.
+ */
+
 export const headerStyles = {
   header: {
     flexDirection: 'row',

@@ -1,3 +1,15 @@
+/**
+ * services/documentVault/upload.ts
+ *
+ * Utilities to upload document payloads to storage and create/update vault
+ * metadata in Firestore. Includes helpers for packaging encrypted payloads and
+ * producing normalized VaultDocument entries.
+ *
+ * Exports:
+ * - uploadDocumentReference: high-level uploader used by the upload flow
+ * - helper functions for writing payloads to storage
+ */
+
 import 'react-native-get-random-values';
 import { ImagePickerResponse, launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { Buffer } from 'buffer';

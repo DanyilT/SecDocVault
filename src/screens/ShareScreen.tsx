@@ -1,3 +1,12 @@
+/**
+ * screens/ShareScreen.tsx
+ *
+ * Presentational share UI used when creating a share grant. Shows recipient
+ * input, expiry, download permission toggles and submit buttons. The screen
+ * is intentionally stateless and driven by props from the `useShareFlow`
+ * hook and controllers.
+ */
+
 import React from 'react';
 import { Switch, Text, TextInput, View } from 'react-native';
 
@@ -5,6 +14,30 @@ import { PrimaryButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import type { VaultDocument } from '../types/vault';
 
+/**
+ * ShareScreen
+ *
+ * Stateless UI for creating or revoking a sharing key for a document. Shows
+ * recipient input, download permission toggle and expiry. Actions are driven
+ * by the provided handlers.
+ *
+ * @param {object} props - Component props
+ * @param {VaultDocument} props.selectedDoc - Document to share
+ * @param {boolean} props.isGuest - Whether the session is guest (sharing disabled)
+ * @param {boolean} props.canManageShares - Whether the current user can manage shares
+ * @param {string} props.shareTarget - Recipient identifier (email)
+ * @param {boolean} props.allowDownload - Whether the recipient is allowed to download files
+ * @param {string} props.shareStatus - Optional status message
+ * @param {boolean} props.isSubmitting - Whether a sharing request is in flight
+ * @param {boolean} props.isSharedWithTarget - Whether a share already exists for the target
+ * @param {string} props.expiresInDays - TTL in days for the generated share key
+ * @param {(value: string) => void} props.setShareTarget - Setter for shareTarget
+ * @param {(value: boolean) => void} props.setAllowDownload - Setter for allowDownload
+ * @param {(value: string) => void} props.setExpiresInDays - Setter for expiresInDays
+ * @param {() => void} props.onCreateShare - Create or update share key
+ * @param {() => void} props.onRevokeShare - Revoke the share key
+ * @returns {JSX.Element} Rendered share screen
+ */
 export function ShareScreen({
   selectedDoc,
   isGuest,

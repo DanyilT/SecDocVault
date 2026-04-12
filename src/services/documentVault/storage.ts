@@ -1,3 +1,12 @@
+/**
+ * services/documentVault/storage.ts
+ *
+ * High-level storage helpers for saving and retrieving encrypted document
+ * payloads from local filesystem and Firebase Storage. These functions wrap
+ * platform-specific APIs and offer a consistent Promise-based API for the
+ * rest of the application.
+ */
+
 import { getApp } from '@react-native-firebase/app';
 import {
   collection,

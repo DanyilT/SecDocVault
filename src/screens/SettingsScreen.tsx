@@ -1,3 +1,11 @@
+/**
+ * screens/SettingsScreen.tsx
+ *
+ * Application settings UI. Exposes preferences for key backup, passphrase
+ * generation, offline defaults, and account sign-in status. Keeps presentational
+ * logic in the screen while delegating actions to hooks and controller APIs.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
@@ -5,6 +13,47 @@ import { PrimaryButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import { AuthProtection, AuthSessionMode } from '../types/vault';
 
+/**
+ * SettingsScreen
+ *
+ * Application settings UI. Exposes preferences for key backup, passphrase
+ * generation, offline defaults, and account sign-in status. Keeps
+ * presentational logic in the screen while delegating actions to hooks and
+ * controller APIs.
+ *
+ * @param {object} props - Component props
+ * @param {string} props.accountLabel - Human friendly account label
+ * @param {AuthSessionMode | null} props.sessionMode - Current session mode
+ * @param {boolean} props.isGuest - Whether the current session is guest
+ * @param {string|null} props.authError - Optional auth error message
+ * @param {AuthProtection | null} props.preferredProtection - Preferred unlock method
+ * @param {boolean} props.pinBiometricEnabled - Whether biometric with PIN is enabled
+ * @param {boolean} props.hasSavedPasskey - Whether a passkey is saved on device
+ * @param {boolean} props.isSubmitting - Whether an operation is in progress
+ * @param {string} props.accountStatus - Informational account status message
+ * @param {string} props.pendingNewEmail - Pending new email input value
+ * @param {boolean} props.saveOfflineByDefault - Preference for saving offline by default
+ * @param {boolean} props.recoverableByDefault - Whether new documents are recoverable by default
+ * @param {boolean} props.keyBackupEnabled - Whether key backup is enabled
+ * @param {string|null} props.recoveryPassphrase - Current recovery passphrase if configured
+ * @param {Array<{id: string; name: string}>} props.backedUpDocs - Documents included in recovery
+ * @param {Array<{id: string; name: string}>} props.notBackedUpDocs - Documents excluded from recovery
+ * @param {(value: boolean) => void} props.onSetSaveOfflineByDefault - Setter for saveOfflineByDefault
+ * @param {(value: boolean) => void} props.onSetRecoverableByDefault - Setter for recoverableByDefault
+ * @param {(value: boolean) => void} props.onSetKeyBackupEnabled - Setter for keyBackupEnabled
+ * @param {(passphrase: string) => Promise<void>} props.onCopyRecoveryPassphrase - Copy recovery passphrase
+ * @param {() => Promise<void>} props.onResetBackupPassphrase - Reset the recovery passphrase
+ * @param {() => void} props.onOpenRecoverKeys - Open key recovery screen
+ * @param {() => void} props.onOpenDocumentRecovery - Open document recovery management
+ * @param {(payload: { method: 'pin' | 'passkey'; pin?: string; pinBiometricEnabled?: boolean; firebasePassword?: string; }) => Promise<void>} props.onUpdateUnlockMethod - Update unlock method
+ * @param {(currentPassword: string, nextPassword: string) => Promise<boolean>} props.onChangeGuestPassword - Change guest password
+ * @param {() => Promise<void>} props.onResetPassword - Reset account password
+ * @param {(value: string) => void} props.onSetPendingNewEmail - Setter for pendingNewEmail
+ * @param {() => Promise<void>} props.onRequestEmailChange - Request email change
+ * @param {() => void} props.onDeleteAccountAndData - Delete account and all data
+ * @param {() => void} props.onUpgradeToCloud - Upgrade guest account to cloud
+ * @returns {JSX.Element} Rendered settings screen
+ */
 export function SettingsScreen({
   accountLabel,
   sessionMode,

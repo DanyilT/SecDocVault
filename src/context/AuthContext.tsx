@@ -1,3 +1,11 @@
+/**
+ * context/AuthContext.tsx
+ *
+ * React context exposing the current authenticated user, session mode and
+ * helper actions. This centralizes auth state for hooks and components in
+ * the app and ensures tests can wrap components with a simple provider.
+ */
+
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp } from '@react-native-firebase/app';

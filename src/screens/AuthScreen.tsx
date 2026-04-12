@@ -1,3 +1,12 @@
+/**
+ * screens/AuthScreen.tsx
+ *
+ * UI wrapper for sign-in and registration flows. This file wires the
+ * presentation components to auth-related hooks and manifests small-screen
+ * specific behaviors. Keep logic thin; auth flows are implemented in
+ * `app/hooks` or `context/AuthContext`.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -16,6 +25,39 @@ import { GuestLoginNotice } from '../components/GuestLoginNotice.tsx';
 import { styles } from '../theme/styles';
 import { AuthMode } from '../types/vault';
 
+/**
+ * AuthScreen
+ *
+ * Render the authentication UI for login, registration and guest access.
+ * This component wires presentation controls to handlers provided by the
+ * controller layer and displays validation, verification and status hints.
+ *
+ * @param {object} props - Component props
+ * @param {'login'|'guest'} props.accessMode - Selected access mode (login or guest)
+ * @param {AuthMode} props.authMode - Active authentication mode (e.g. 'login'|'register')
+ * @param {string} props.email - Current email input value
+ * @param {string} props.password - Current password input value
+ * @param {string} props.confirmPassword - Current confirm-password input value
+ * @param {boolean} props.canSubmitAuth - Whether the auth form can be submitted
+ * @param {boolean} props.isSubmitting - Whether an auth request is in progress
+ * @param {string|null} props.authError - Optional error message to display
+ * @param {string|null} props.authNotice - Optional notice message to display
+ * @param {boolean} props.emailVerifiedForRegistration - Whether the email has been verified for registration
+ * @param {number} props.verificationCooldown - Seconds remaining until resend is allowed
+ * @param {string} props.verificationLinkInput - Value of the verification link input
+ * @param {(mode: 'login'|'guest') => void} props.setAccessMode - Setter for accessMode
+ * @param {(mode: AuthMode) => void} props.setAuthMode - Setter for authMode
+ * @param {(value: string) => void} props.setEmail - Setter for email
+ * @param {(value: string) => void} props.setPassword - Setter for password
+ * @param {(value: string) => void} props.setConfirmPassword - Setter for confirmPassword
+ * @param {(value: string) => void} props.setVerificationLinkInput - Setter for verificationLinkInput
+ * @param {() => Promise<void>} props.onResendVerificationEmail - Trigger resend verification email
+ * @param {() => Promise<void>} props.onVerifyEmailLinkManually - Verify pasted email link
+ * @param {() => Promise<void>} props.onResetPassword - Trigger reset password flow
+ * @param {() => Promise<void>} props.handleAuth - Trigger auth (login/register) action
+ * @param {() => void} props.onBackToHero - Navigate back to the intro/hero screen
+ * @returns {JSX.Element} Rendered authentication screen
+ */
 export function AuthScreen({
   accessMode,
   authMode,

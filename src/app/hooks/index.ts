@@ -1,3 +1,10 @@
+/**
+ * app/hooks/index.ts
+ *
+ * Re-export commonly used hooks from the `app/hooks` directory so callers can
+ * import them from a single path.
+ */
+
 export { useAppConfig } from './useAppConfig';
 export { useAppRouting } from './useAppRouting';
 export { useAuthGateFlow } from './useAuthGateFlow';

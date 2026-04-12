@@ -1,3 +1,9 @@
+/**
+ * theme/styleSections/interactionStyles.ts
+ *
+ * Interaction-related styles (buttons, links, success/failure states).
+ */
+
 export const interactionStyles = {
   fieldGroup: {
     gap: 10,

@@ -1,3 +1,11 @@
+/**
+ * types/vault.ts
+ *
+ * Central TypeScript types used across the application representing vault
+ * documents, reference records and encryption envelopes. Exported types are
+ * intentionally minimal and used by both UI and service layers.
+ */
+
 export type AuthMode = 'login' | 'register';
 
 export type AuthSessionMode = 'cloud' | 'guest';

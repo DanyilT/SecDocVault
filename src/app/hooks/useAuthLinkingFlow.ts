@@ -1,3 +1,10 @@
+/**
+ * app/hooks/useAuthLinkingFlow.ts
+ *
+ * Handles incoming email-link verification flow: extracts tokens from URLs,
+ * saves pending registration state and coordinates verification checks.
+ */
+
 import { useEffect } from 'react';
 import { Linking } from 'react-native';
 

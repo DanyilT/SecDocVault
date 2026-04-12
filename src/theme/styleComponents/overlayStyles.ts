@@ -1,3 +1,10 @@
+/**
+ * theme/styleComponents/overlayStyles.ts
+ *
+ * Style tokens for overlay components (modals, toasts and similar) used by
+ * the UI.
+ */
+
 import { StyleSheet } from 'react-native';
 
 export const overlayStyles = StyleSheet.create({

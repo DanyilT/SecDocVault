@@ -1,3 +1,9 @@
+/**
+ * theme/styleSections/introStyles.ts
+ *
+ * Styles for onboarding/intro screens.
+ */
+
 export const introStyles = {
   introHero: {
     alignItems: 'center',

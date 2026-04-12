@@ -1,3 +1,11 @@
+/**
+ * app/components/AuthGateRouter.tsx
+ *
+ * Small controller component that renders auth-related screens (hero, auth,
+ * unlock) based on `authGateStage`. Keeps the boot/login UX decoupled from
+ * the rest of the app so tests can exercise different entry points easily.
+ */
+
 import React from 'react';
 import { ActivityIndicator, Animated, Text, View } from 'react-native';
 
@@ -60,6 +68,20 @@ type AuthGateRouterProps = {
   }) => Promise<void>;
 };
 
+/**
+ * AuthGateRouter
+ *
+ * A router component that renders the appropriate AuthGate screen
+ * based on the current `authGateStage` prop.
+ *
+ * It handles the flow between the intro hero, authentication, and unlock screens,
+ * as well as the complete auth setup screen if needed.
+ *
+ * The router also handles the transition animation styles
+ * and passes down necessary props and handlers to each screen.
+ *
+ * @param props - controlled props described by `AuthGateRouterProps`
+ */
 export function AuthGateRouter({
   isInitializing,
   firebaseProjectId,

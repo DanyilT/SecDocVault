@@ -1,3 +1,12 @@
+/**
+ * app/hooks/useDocumentActionsFlow.ts
+ *
+ * Implements operations that act on an existing document (save offline,
+ * upload to firebase, delete local copy, delete from firebase). These are
+ * thin wrappers around `services/documentVault` functions to isolate side
+ * effects for testing.
+ */
+
 import type { Dispatch, SetStateAction } from 'react';
 import { Alert } from 'react-native';
 

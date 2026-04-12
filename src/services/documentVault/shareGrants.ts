@@ -1,3 +1,11 @@
+/**
+ * services/documentVault/shareGrants.ts
+ *
+ * Utilities to normalize, validate and compute metadata for share grant
+ * records stored as subcollection entries under vault documents. These helpers
+ * centralize expiry checks and conversion to application-friendly shapes.
+ */
+
 export type ShareGrantRecord = {
   recipientUid: string;
   recipientEmail?: string;

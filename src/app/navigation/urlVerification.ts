@@ -1,3 +1,10 @@
+/**
+ * app/navigation/urlVerification.ts
+ *
+ * Helpers for parsing and validating verification links used in email-link
+ * authentication flows. Keeps URL parsing logic centralized and testable.
+ */
+
 export function resolveVerificationLink(incomingUrl: string): string {
   try {
     const isAppDeepLink = incomingUrl.startsWith('secdocvault://auth/email-link');

@@ -1,3 +1,10 @@
+/**
+ * app/controllers/buildAppScreenRouterProps.ts
+ *
+ * Small helper that composes screen router props object from controller state.
+ * Keeps mapping logic central so tests can assert mapping behavior.
+ */
+
 import React from 'react';
 
 import { AppScreenRouter } from '../components/AppScreenRouter';
@@ -34,6 +41,16 @@ type BuildAppScreenRouterPropsInput = Omit<
   handleRevokeShareForRecipient: (recipient: string) => Promise<void>;
 };
 
+/**
+ * buildAppScreenRouterProps
+ *
+ * Compose the props object consumed by `AppScreenRouter` from the controller
+ * state and a set of handler dependencies. This helper centralizes mapping
+ * logic so tests and the controller can remain small.
+ *
+ * @param input - collection of controller state and handler functions used to build router props
+ * @returns the `RouterProps` object that can be spread into `AppScreenRouter` or `VaultRouter`
+ */
 export function buildAppScreenRouterProps(input: BuildAppScreenRouterPropsInput): RouterProps {
   const {
     preferredProtection,

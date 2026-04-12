@@ -1,3 +1,11 @@
+/**
+ * services/documentVault/index.ts
+ *
+ * Central exports for document vault related utilities. This file re-exports
+ * commonly used functions so consumers can import from the `documentVault`
+ * module path instead of individual files.
+ */
+
 export type { UploadableDocument, UploadableDocumentDraft, UploadProgressEvent } from './types';
 export { toPseudoHash, toSizeLabel } from './formatters';
 

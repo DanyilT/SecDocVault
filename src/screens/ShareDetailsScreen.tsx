@@ -1,3 +1,11 @@
+/**
+ * screens/ShareDetailsScreen.tsx
+ *
+ * Presents details about an active share for a document: current settings,
+ * active grants, and actions to manage/revoke access. This is a
+ * presentational screen and delegates state changes to the provided handlers.
+ */
+
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
@@ -5,6 +13,21 @@ import { PrimaryButton, SecondaryButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import type { VaultDocument, VaultSharedKeyGrant } from '../types/vault';
 
+/**
+ * ShareDetailsScreen
+ *
+ * Presentational screen showing current share settings and active grants for
+ * a document. Actions are forwarded to handlers supplied via props.
+ *
+ * @param {object} props - Component props
+ * @param {VaultDocument} props.selectedDoc - Document being viewed
+ * @param {string} props.shareTarget - Configured share target identifier (email or uid)
+ * @param {boolean} props.allowDownload - Whether downloads are permitted for the share
+ * @param {string} props.expiresInDays - TTL in days for generated shares
+ * @param {() => void} props.onOpenShareOptions - Open share options modal
+ * @param {(recipientEmail: string) => void} props.onRevokeShareForRecipient - Revoke share access for a recipient
+ * @returns {JSX.Element} Rendered share details screen
+ */
 export function ShareDetailsScreen({
   selectedDoc,
   shareTarget,

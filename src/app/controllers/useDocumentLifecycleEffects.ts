@@ -1,3 +1,11 @@
+/**
+ * app/controllers/useDocumentLifecycleEffects.ts
+ *
+ * Side-effectful operations related to documents (auto-saving, auto-sync,
+ * cleanup) that should run in response to app lifecycle events. Kept separate
+ * to keep the main controller hook focused on orchestration and state.
+ */
+
 import React, { useEffect, useRef } from 'react';
 
 import { autoSyncKeysIfEnabled } from '../../services/keyBackup';
@@ -19,6 +27,16 @@ type UseDocumentLifecycleEffectsParams = {
   setIsVaultLocked: (value: boolean) => void;
 };
 
+/**
+ * useDocumentLifecycleEffects
+ *
+ * Run side effects related to document lifecycle: loading, local save,
+ * auto-syncing keys and selection cleanup. Designed to be used inside the
+ * main app controller to keep side effects grouped and testable.
+ *
+ * @param params - parameters controlling lifecycle effects and handlers
+ * @returns void
+ */
 export function useDocumentLifecycleEffects({
   isInitializing,
   isAuthenticated,

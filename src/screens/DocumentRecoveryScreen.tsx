@@ -1,8 +1,32 @@
+/**
+ * screens/DocumentRecoveryScreen.tsx
+ *
+ * Screen to view and toggle which documents are included in the cloud key
+ * recovery backup. Presents two lists (recoverable and not recoverable) and
+ * delegates the actual persistence to the provided `onToggleDocBackup` handler.
+ */
+
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { styles } from '../theme/styles';
 
+/**
+ * DocumentRecoveryScreen
+ *
+ * Shows lists of documents that are included or excluded from key backup
+ * (recoverable vs not recoverable) and allows toggling per-document backup
+ * eligibility. Persistence is delegated to the provided `onToggleDocBackup`
+ * handler.
+ *
+ * @param {object} props - Component props
+ * @param {boolean} props.isSubmitting - Whether a toggle action is in progress
+ * @param {boolean} props.keyBackupEnabled - Whether key backup is enabled globally
+ * @param {Array<{id: string; name: string; canRecover: boolean}>} props.backedUpDocs - Documents currently marked recoverable
+ * @param {Array<{id: string; name: string; canRecover: boolean}>} props.notBackedUpDocs - Documents currently not recoverable
+ * @param {(docId: string, enabled: boolean) => Promise<void>} props.onToggleDocBackup - Toggle handler for per-document backup
+ * @returns {JSX.Element} Rendered document recovery screen
+ */
 export function DocumentRecoveryScreen({
   isSubmitting,
   keyBackupEnabled,

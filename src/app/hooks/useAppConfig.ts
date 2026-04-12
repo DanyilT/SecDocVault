@@ -1,3 +1,11 @@
+/**
+ * app/hooks/useAppConfig.ts
+ *
+ * Provides persisted app preferences and config helpers (e.g. backup defaults,
+ * upload discard warning preferences). This hook reads/writes AsyncStorage and
+ * exposes boolean flags used by the controller and settings screens.
+ */
+
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {

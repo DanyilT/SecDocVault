@@ -1,3 +1,9 @@
+/**
+ * theme/styleSections/contentStyles.ts
+ *
+ * Content focused style tokens (cards, labels, lists) used by screens.
+ */
+
 export const contentStyles = {
   pageTitle: {
     color: '#f9fafb',

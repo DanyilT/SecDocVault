@@ -1,3 +1,11 @@
+/**
+ * screens/UnlockScreen.tsx
+ *
+ * Unlock UI shown when the vault is locked. Supports PIN, passkey, and
+ * biometric shortcut presentation. This file remains a presentational layer
+ * and delegates actual unlock operations to `onUnlock` / `onUnlockWithPin`.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Keychain from 'react-native-keychain';
@@ -6,6 +14,24 @@ import { FaceSmileIcon, FingerPrintIcon, LockClosedIcon, LockOpenIcon } from 're
 import { styles } from '../theme/styles';
 import { AuthProtection } from '../types/vault';
 
+/**
+ * UnlockScreen
+ *
+ * Presentational screen shown when the vault is locked. Supports PIN entry,
+ * passkey flow and biometric shortcut UI. Actual unlock operations are
+ * performed by the handlers supplied via props.
+ *
+ * @param {object} props - Component props
+ * @param {AuthProtection | null} props.preferredProtection - Configured unlock method
+ * @param {boolean} props.pinBiometricEnabled - Whether biometric shortcut for PIN is enabled
+ * @param {boolean} props.canUnlock - Whether unlocking is currently allowed
+ * @param {boolean} props.isSubmitting - Whether an unlock request is in progress
+ * @param {string|null} props.authError - Optional authentication error to display
+ * @param {() => Promise<void>} props.onUnlock - Trigger a biometric/passkey unlock
+ * @param {(pin: string) => Promise<void>} props.onUnlockWithPin - Unlock using a PIN
+ * @param {() => void} props.onGoToAuth - Navigate to the auth screen (login/register)
+ * @returns {JSX.Element} Rendered unlock screen
+ */
 export function UnlockScreen({
   preferredProtection,
   pinBiometricEnabled,
@@ -153,7 +179,6 @@ export function UnlockScreen({
                 keyboardType="number-pad"
                 returnKeyType="go"
                 onSubmitEditing={handleUnlockPress}
-                blurOnSubmit
                 placeholder="Enter PIN"
                 placeholderTextColor="#6b7280"
                 style={styles.input}

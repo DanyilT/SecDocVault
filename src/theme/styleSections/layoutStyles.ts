@@ -1,3 +1,9 @@
+/**
+ * theme/styleSections/layoutStyles.ts
+ *
+ * Layout and spacing tokens used throughout the UI.
+ */
+
 export const layoutStyles = {
   appShell: {
     flex: 1,

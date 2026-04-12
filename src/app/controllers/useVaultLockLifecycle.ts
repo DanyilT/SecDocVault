@@ -1,3 +1,11 @@
+/**
+ * app/controllers/useVaultLockLifecycle.ts
+ *
+ * Manages the lifecycle of the vault lock: when to require unlocking,
+ * how to transition between auth and unlocked states, and handling pending
+ * upload preservation when auth flows are triggered.
+ */
+
 import React, { useCallback, useEffect, useRef } from 'react';
 import { Animated, AppState, AppStateStatus, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -47,6 +55,16 @@ type UseVaultLockLifecycleParams = {
   updateUnlockMethod: (method: AuthProtection) => Promise<boolean>;
 };
 
+/**
+ * useVaultLockLifecycle
+ *
+ * Manage when the vault should be locked/unlocked, respond to app background
+ * events and hardware back button behavior, and preserve pending uploads when
+ * navigating to auth flows.
+ *
+ * @param params - lifecycle configuration and state setters
+ * @returns void
+ */
 export function useVaultLockLifecycle({
   completeAuthPendingKey,
   isInitializing,
@@ -89,6 +107,14 @@ export function useVaultLockLifecycle({
   const didHandlePendingCompleteAuthRef = useRef(false);
   const isLockTransitioningRef = useRef(false);
 
+  /**
+   * enterLockScreen
+   *
+   * Animate the app into the locked state and set the `isVaultLocked` flag.
+   * Prevents re-entrance while a transition is in progress.
+   *
+   * @returns void
+   */
   const enterLockScreen = useCallback(() => {
     if (isLockTransitioningRef.current || isVaultLocked || isTransitioningToAuth || isCompletingAuthFlow) {
       return;
@@ -105,6 +131,15 @@ export function useVaultLockLifecycle({
     });
   }, [isCompletingAuthFlow, isTransitioningToAuth, isVaultLocked, setIsVaultLocked, transitionOpacity]);
 
+  /**
+   * forceReloginFromLockRef.current
+   *
+   * Force a full sign-out and route the user to the unlock auth flow. Used
+   * when the app requires re-login (e.g. 'none' protection) and the user
+   * returns from background.
+   *
+   * @returns void
+   */
   const forceReloginFromLockRef = useRef<() => void>(() => undefined);
   forceReloginFromLockRef.current = () => {
     if (isTransitioningToAuth) {

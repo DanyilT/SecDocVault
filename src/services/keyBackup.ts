@@ -1,3 +1,12 @@
+/**
+ * services/keyBackup.ts
+ *
+ * Key backup management utilities. Handles generation and verification of a
+ * recoverable passphrase used to wrap document keys for cross-device recovery.
+ * Exposes functions for creating, verifying and retrieving the recovery
+ * passphrase and other KDF materials.
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp } from '@react-native-firebase/app';
 import {

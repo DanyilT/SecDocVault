@@ -1,3 +1,12 @@
+/**
+ * app/hooks/useShareFlow.ts
+ *
+ * Implements the share dialog flows including permission selection, email
+ * validation, wrapping keys for recipients and creating share records via the
+ * documentVault service. Keeps UI state (status messages, dialogs) localized
+ * to the hook and testable.
+ */
+
 import { useState } from 'react';
 
 import { VaultDocument } from '../../types/vault.ts';

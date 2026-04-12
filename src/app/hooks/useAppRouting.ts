@@ -1,3 +1,12 @@
+/**
+ * app/hooks/useAppRouting.ts
+ *
+ * Small routing helper that centralizes navigation-related state (current
+ * screen, auth gate stage, share origin) in-memory for the simplified app
+ * router used in this project. This is not React Navigation — it's an app
+ * scoped routing abstraction used in tests and small apps.
+ */
+
 import { useCallback, useReducer } from 'react';
 
 import { AppScreen } from '../navigation/constants';

@@ -1,3 +1,12 @@
+/**
+ * screens/CompleteAuthScreen.tsx
+ *
+ * Screen shown after successful authentication where the user completes
+ * device-specific unlock configuration (PIN, passkey, or none). This file
+ * focuses on presentation and small-form validation; business logic to store
+ * credentials is provided by callers via the `onComplete` callback.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as Keychain from 'react-native-keychain';
@@ -6,6 +15,20 @@ import { Header, PrimaryButton, SegmentButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import { AuthProtection } from '../types/vault';
 
+/**
+ * CompleteAuthScreen
+ *
+ * Screen displayed immediately after successful authentication where the user
+ * chooses a device-specific unlock method (PIN, passkey, or none). The
+ * component is presentational — credential persistence is handled by the
+ * provided `onComplete` callback.
+ *
+ * @param {object} props - Component props
+ * @param {boolean} props.isSubmitting - Whether the completion action is in progress
+ * @param {string|null} props.authError - Optional error message to display
+ * @param {(payload: { method: AuthProtection; pin?: string; useBiometricForPin: boolean }) => Promise<void>} props.onComplete - Callback invoked to persist chosen unlock method
+ * @returns {JSX.Element} Rendered complete-auth screen
+ */
 export function CompleteAuthScreen({
   isSubmitting,
   authError,

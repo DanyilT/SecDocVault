@@ -1,3 +1,14 @@
+/**
+ * services/documentVault/formatters.ts
+ *
+ * Formatting helpers for vault documents. Functions convert internal data such
+ * as hashes, sizes, and reference lists into user-facing labels and ensure a
+ * stable ordering of references.
+ *
+ * Exports:
+ * - toHashLabel, toSizeLabel, normalizeReferenceOrder, sortReferencesByOrder
+ */
+
 import { Buffer } from 'buffer';
 
 import { VaultDocumentReference } from '../../types/vault';

@@ -1,3 +1,10 @@
+/**
+ * app/hooks/useDocumentVault.ts
+ *
+ * Hook used to implement reloading and refreshing of vault documents from the
+ * local cache and Firebase. Abstracts fetch+normalize logic for the controller.
+ */
+
 import { useCallback } from 'react';
 
 import { VaultDocument } from '../../types/vault.ts';

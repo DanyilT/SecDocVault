@@ -1,3 +1,10 @@
+/**
+ * theme/styles.ts
+ *
+ * Centralized style values and utilities used across the React Native app.
+ * Keeps color tokens, spacing, and platform-specific adjustments in one place.
+ */
+
 import { contentStyles } from './styleSections/contentStyles';
 import { headerStyles } from './styleSections/headerStyles';
 import { interactionStyles } from './styleSections/interactionStyles';

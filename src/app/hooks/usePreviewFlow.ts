@@ -1,3 +1,12 @@
+/**
+ * app/hooks/usePreviewFlow.ts
+ *
+ * Implements preview-related logic: choosing a file within a document to
+ * decrypt, preparing temporary URIs for display and orchestrating document
+ * export/decrypt operations. This hook is intentionally thin and delegates
+ * crypto/storage operations to service functions.
+ */
+
 import { useRef, useState } from 'react';
 
 import { VaultDocument } from '../../types/vault';

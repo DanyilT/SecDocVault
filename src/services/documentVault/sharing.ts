@@ -1,3 +1,15 @@
+/**
+ * services/documentVault/sharing.ts
+ *
+ * Helpers for sharing documents: building share payloads and preparing
+ * share-specific metadata. These functions are consumed by UI flows that
+ * present share dialogs and by server-side API callers.
+ *
+ * Exports:
+ * - Functions to create and validate sharing payloads and transform document
+ *   records into a shareable representation.
+ */
+
 import { getApp } from '@react-native-firebase/app';
 import {
   collection,

@@ -1,3 +1,18 @@
+/**
+ * services/crypto/documentCrypto.ts
+ *
+ * Core cryptographic helpers used by the vault implementation. This module
+ * centralizes:
+ * - KDF material management
+ * - document key wrapping/unwrapping
+ * - payload encryption/decryption (AES-GCM/CBC variants)
+ * - utilities to convert between formats (base64, word arrays, etc.)
+ *
+ * WARNING: Cryptography is subtle. Keep this module small, well-tested, and
+ * avoid re-implementing protocols without a clear reference. Use tested
+ * primitives when available.
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
 import * as Keychain from 'react-native-keychain';

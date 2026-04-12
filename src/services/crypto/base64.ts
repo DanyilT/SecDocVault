@@ -1,3 +1,11 @@
+/**
+ * services/crypto/base64.ts
+ *
+ * Small utility functions for Base64 encoding/decoding used by encryption
+ * helpers. Keeps encoding concerns in a single place and abstracts platform
+ * differences where necessary.
+ */
+
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 /**

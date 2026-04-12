@@ -1,3 +1,11 @@
+/**
+ * services/documentVault/types.ts
+ *
+ * Type definitions used by the document-vault service layer and upload flow.
+ * Centralizing these types helps keep different modules consistent and makes
+ * it easier to import them from `documentVault` index.
+ */
+
 import { VaultDocument } from '../../types/vault';
 
 /**
