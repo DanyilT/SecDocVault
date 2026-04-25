@@ -75,6 +75,7 @@ type UseVaultFeatureFlowsParams = {
   setShowUploadDiscardWarning: (value: boolean) => void;
   setDontShowUploadDiscardWarningAgain: (value: boolean | ((value: boolean) => boolean)) => void;
   setSkipUploadDiscardWarning: (value: boolean) => void;
+  isPickingFileRef: { current: boolean };
   handleToggleDocumentRecovery: (docMeta: VaultDocument, enabled: boolean) => Promise<void>;
 };
 
@@ -126,6 +127,7 @@ export function useVaultFeatureFlows({
   setShowUploadDiscardWarning,
   setDontShowUploadDiscardWarningAgain,
   setSkipUploadDiscardWarning,
+  isPickingFileRef,
   handleToggleDocumentRecovery,
 }: UseVaultFeatureFlowsParams) {
   const {
@@ -239,6 +241,7 @@ export function useVaultFeatureFlows({
     setScreen,
     skipUploadDiscardWarning,
     dontShowUploadDiscardWarningAgain,
+    isPickingFileRef,
     getLocalDocuments,
     saveLocalDocuments,
     scanDocumentForUpload,

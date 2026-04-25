@@ -44,30 +44,29 @@ sharing, and key backup/recovery flows.
 ## How it works
 
 **Uploading**
-- User choose to scan with the camera or pick an existing file.
+- User chooses to scan with the camera or picks an existing file.
 - The app encrypts the file on your device before it leaves the phone.
-- If user upload to the cloud, the encrypted file is stored in Firebase Storage
-  and the document metadata (name, size, owner, references) is stored in
-  Firestore. A wrapped version of the document key is stored with metadata so
-  only authorized users can decrypt later.
+- If user uploads to the cloud, encrypted file is stored in Firebase Storage
+  and document metadata (name, size, owner, references) is stored in
+  Firestore. An encrypted version of the document key is stored with metadata so
+  that it can be restored via passphrase.
 
 **Encrypting / Decrypting**
-- When a document is added, a random document key is generated for that
-  document. Each file within a document is encrypted with that key and a
-  per-file IV. The raw document key may be stored in the device keychain for
-  convenience (device-local), and a wrapped (encrypted) envelope of the key is
-  stored in Firestore so other devices or recipients can unwrap it if they
+- When a document is added, a random key is generated for it. Each file within 
+  a document is encrypted with that key and a
+  per-file IV. The cleartext document key may be stored in the device keychain for
+  decryption (device-local), and an encrypted version of the key is
+  stored in Firestore for other devices or recipients to decrypt it if they
   have appropriate credentials.
-- Decryption happens on-device: the wrapped key is unwrapped using the
-  device's KDF material or recovery passphrase and the files are decrypted in
-  memory for preview or export.
+- Decryption happens on-device: key is decrypted using the
+  recovery passphrase stored on device and the files are decrypted for preview or export.
 
 **Saving (local & cloud)**
 - Local (guest/local mode): encrypted payloads and metadata are written to the
-  device filesystem. Nothing is uploaded.
+  device filesystem. Nothing is uploaded to cloud.
 - Cloud (Firebase): encrypted payloads are uploaded to Firebase Storage and a
   Firestore document stores metadata including references to the storage
-  objects, wrapped key envelope and flags such as `offlineAvailable`/`saveMode`.
+  objects, encrypted key and flags such as `offlineAvailable`/`saveMode`.
 
 **Sharing**
 - Sharing creates a share grant which contains a wrapped shared key of the
@@ -76,14 +75,12 @@ sharing, and key backup/recovery flows.
   user unwrap the document key and decrypt the file locally.
 
 **Key backup & recovery**
-- The app supports creating a recoverable backup of key material. A
-  random passphrase is generated and/or you can back up KDF material to
-  Firestore (encrypted). This allows re-wrapping and recovering document keys
-  on a new device when the owner provides the passphrase.
+- The app supports creation of a key backup encrypted by user's passphrase.
+  This recovering document keys on a new device when the owner provides the passphrase.
 
 **Authentication**
 - Guest mode: no Firebase auth, all data stays local on device.
-- Cloud mode: Firebase Authentication (email/password, email link flows, etc.)
+- Cloud mode: Firebase Authentication (email/password)
   provides the user's identity. The app also supports local protections
   (passkey, PIN, biometric) to unlock the vault even when logged in.
 
@@ -120,11 +117,15 @@ into how the app is implemented.
    `encryptedDocKey` envelope and flags such as `offlineAvailable`/`saveMode`.
 
 **Encryption details**
-- Files are encrypted on-device before upload. The implementation uses a
+- Files are encrypted on device before upload. The implementation uses a
   crypto runtime (attempts to use `react-native-quick-crypto` where available)
-  or a fallback. Encryption produces per-file IVs and (when applicable)
-  authentication tags. The envelope stored in Firestore contains the wrapped
-  key and KDF parameters necessary for unwrapping on another device.
+  or a fallback. Encryption produces per-file IVs and, when using AES-256-GCM,
+  authentication tags. AES-GCM is an authenticated encryption mode that produces
+  a 16-byte tag used to verify ciphertext integrity on decryption to simplify 
+  error handling; if the ciphertext was tampered with, decryption fails. Older 
+  documents encrypted with the legacy AES-256-CBC fallback have no authentication 
+  tag. The envelope stored in Firestore contains the wrapped key and KDF 
+  parameters necessary for unwrapping on another device.
 
 **Sharing details**
 - When creating a share, the app ensures the recipient has a public key (or
@@ -133,10 +134,12 @@ into how the app is implemented.
   include allowExport and expiry metadata and can be revoked.
 
 **Key backup details**
-- The key backup flow generates KDF material and a human-friendly
-  passphrase. Backup metadata can be stored in Firestore (per-owner doc in a
-  `vaultKeyBackups` collection). Functions such as `downloadKeyBackupFile` and
-  `deleteKeyBackupFromFirebase` exist in `src/services/keyBackup.ts`.
+- The key backup flow requires the user to enter a passphrase at account 
+  creation, this is the only method for creating a backup. KDF material 
+  is derived from that passphrase. Backup metadata is stored in Firestore 
+  (per-owner doc in a `vaultKeyBackups` collection). Functions such as 
+  `downloadKeyBackupFile` and `deleteKeyBackupFromFirebase` exist 
+  in `src/services/keyBackup.ts`.
 
 **Auth & session protection**
 - Auth context is centralized in `src/context/AuthContext.tsx`. It bridges

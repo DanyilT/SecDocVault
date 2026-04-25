@@ -7,7 +7,7 @@
  * `buildAppScreenRouterProps` and `AppScreenRouter`.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 
 import { AppHeaderController } from '../components/AppHeaderController';
@@ -240,6 +240,8 @@ export function useAppController(): UseAppControllerApi {
     },
   });
 
+  const isPickingFileRef = useRef(false);
+
   const uploadCanUseCloud = !isGuest && backupCloud && Boolean(user?.uid);
   const shouldRequireUnlock = isAuthenticated;
 
@@ -372,6 +374,7 @@ export function useAppController(): UseAppControllerApi {
     recoverableByDefault,
     uploadCanUseCloud,
     skipUploadDiscardWarning,
+    isPickingFileRef,
     setIsVaultLocked,
     setIsTransitioningToAuth,
     setIsCompletingAuthFlow,
@@ -548,6 +551,7 @@ export function useAppController(): UseAppControllerApi {
     setShowUploadDiscardWarning,
     setDontShowUploadDiscardWarningAgain,
     setSkipUploadDiscardWarning,
+    isPickingFileRef,
     handleToggleDocumentRecovery,
   });
 

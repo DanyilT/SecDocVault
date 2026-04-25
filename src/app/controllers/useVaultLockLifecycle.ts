@@ -32,6 +32,7 @@ type UseVaultLockLifecycleParams = {
   recoverableByDefault: boolean;
   uploadCanUseCloud: boolean;
   skipUploadDiscardWarning: boolean;
+  isPickingFileRef: { current: boolean };
   setIsVaultLocked: (value: boolean) => void;
   setIsTransitioningToAuth: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;
@@ -82,6 +83,7 @@ export function useVaultLockLifecycle({
   recoverableByDefault,
   uploadCanUseCloud,
   skipUploadDiscardWarning,
+  isPickingFileRef,
   setIsVaultLocked,
   setIsTransitioningToAuth,
   setIsCompletingAuthFlow,
@@ -170,7 +172,7 @@ export function useVaultLockLifecycle({
       const isGoingToBackground = currentState === 'active' && nextState !== 'active';
       currentState = nextState;
 
-      if (isGoingToBackground && isAuthenticated && shouldRequireUnlock) {
+      if (isGoingToBackground && isAuthenticated && shouldRequireUnlock && !isPickingFileRef.current) {
         if (preferredProtection === 'none' && !isCompletingAuthFlow) {
           forceReloginFromLockRef.current();
           return;
