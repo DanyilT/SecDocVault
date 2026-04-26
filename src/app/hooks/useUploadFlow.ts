@@ -44,6 +44,7 @@ type UseUploadFlowParams = {
   setScreen: (screen: 'main' | 'upload') => void;
   skipUploadDiscardWarning: boolean;
   dontShowUploadDiscardWarningAgain: boolean;
+  isPickingFileRef: { current: boolean };
   getLocalDocuments: () => Promise<VaultDocument[]>;
   saveLocalDocuments: (documents: VaultDocument[]) => Promise<void>;
   scanDocumentForUpload: () => Promise<UploadableDocumentDraft['files'][number]>;
@@ -95,6 +96,7 @@ export function useUploadFlow({
   setScreen,
   skipUploadDiscardWarning,
   dontShowUploadDiscardWarningAgain,
+  isPickingFileRef,
   getLocalDocuments,
   saveLocalDocuments,
   scanDocumentForUpload,
@@ -246,10 +248,12 @@ export function useUploadFlow({
     );
 
     try {
+      isPickingFileRef.current = true;
       const document =
         source === 'scan'
           ? await scanDocumentForUpload()
           : await pickDocumentForUpload();
+      isPickingFileRef.current = false;
       setPendingUploadDraft(prev => {
         if (appendToDraft && prev) {
           return {
@@ -283,6 +287,7 @@ export function useUploadFlow({
       setScreen('upload');
       setUploadStatus('Review your document details before uploading.');
     } catch (error) {
+      isPickingFileRef.current = false;
       const message =
         error instanceof Error ? error.message : 'Selection failed.';
       setUploadStatus(message);
