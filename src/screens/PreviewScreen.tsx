@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Image, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   ArrowDownTrayIcon,
@@ -18,9 +18,15 @@ import {
   MinusCircleIcon,
   ShareIcon,
   TrashIcon,
+  DocumentArrowDownIcon,
 } from 'react-native-heroicons/solid';
+import { captureRef } from 'react-native-view-shot';
+import RNFS from 'react-native-fs';
 
 import { PrimaryButton } from '../components/ui';
+import { CensoredImageView } from '../components/CensoredImageView';
+import { CensorToggle } from '../components/CensorToggle';
+import { censorImage, CensorResult } from '../services/censor';
 import { styles } from '../theme/styles';
 import { VaultDocument } from '../types/vault';
 
@@ -113,6 +119,16 @@ export function PreviewScreen({
   const [showIntegrityInfo, setShowIntegrityInfo] = React.useState(false);
   const copyResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- Censor feature state ---
+  const [censorEnabled, setCensorEnabled] = React.useState(false);
+  const [censorLoading, setCensorLoading] = React.useState(false);
+  const [censorResult, setCensorResult] = React.useState<CensorResult | null>(null);
+  const [isSavingCensored, setIsSavingCensored] = React.useState(false);
+  const [censorSaveStatus, setCensorSaveStatus] = React.useState<string | null>(null);
+
+  // Ref to the censored image view so we can capture it
+  const censoredImageRef = React.useRef<View>(null);
+
   React.useEffect(() => {
     return () => {
       if (copyResetTimerRef.current) {
@@ -124,6 +140,68 @@ export function PreviewScreen({
   React.useEffect(() => {
     setIntegrityCopied(false);
   }, [selectedDoc.id, previewFileOrder]);
+
+  // --- Trigger OCR when censor is toggled on ---
+  React.useEffect(() => {
+    if (!censorEnabled || !previewImageUri) {
+      setCensorResult(null);
+      return;
+    }
+    let cancelled = false;
+    setCensorLoading(true);
+    censorImage(previewImageUri)
+      .then(r => {
+        if (!cancelled) {
+          setCensorResult(r);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setCensorLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [censorEnabled, previewImageUri]);
+
+  // Reset censor state when the image changes
+  React.useEffect(() => {
+    setCensorEnabled(false);
+    setCensorResult(null);
+    setCensorSaveStatus(null);
+  }, [previewImageUri]);
+
+  // --- Save censored version to device Downloads ---
+  const saveCensoredVersion = React.useCallback(async () => {
+    if (!censoredImageRef.current || !censorResult) {
+      return;
+    }
+    setIsSavingCensored(true);
+    setCensorSaveStatus(null);
+    try {
+      // Capture the composited view (image + black rects) as a PNG base64
+      const base64 = await captureRef(censoredImageRef, {
+        format: 'png',
+        quality: 1,
+        result: 'base64',
+      });
+      const targetDir =
+        Platform.OS === 'android'
+          ? RNFS.DownloadDirectoryPath
+          : RNFS.DocumentDirectoryPath;
+      const safeName = (selectedDoc.name ?? 'document').replace(/[^a-z0-9_\-. ]/gi, '_');
+      const outputPath = `${targetDir}/${Date.now()}-censored-${safeName}.png`;
+      await RNFS.writeFile(outputPath, base64, 'base64');
+      setCensorSaveStatus(`Censored image saved to:\n${outputPath}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCensorSaveStatus(`Failed to save: ${msg}`);
+    } finally {
+      setIsSavingCensored(false);
+    }
+  }, [censorResult, selectedDoc.name]);
+
   const files = React.useMemo(() => {
     const byOrder = new Map<number, NonNullable<VaultDocument['references']>[number]>();
     const references = [...(selectedDoc.references ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -179,6 +257,17 @@ export function PreviewScreen({
     >
       <Text style={styles.pageTitle}>{selectedDoc.name}</Text>
 
+      {/* Censor toggle — left-aligned above the image */}
+      {previewImageUri ? (
+        <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}>
+          <CensorToggle
+            value={censorEnabled}
+            loading={censorLoading}
+            onChange={setCensorEnabled}
+          />
+        </View>
+      ) : null}
+
       <Pressable
         {...panResponder.panHandlers}
         onPress={() => {
@@ -204,8 +293,11 @@ export function PreviewScreen({
         }}
       >
         {previewImageUri ? (
-          <Image
-            source={{ uri: previewImageUri }}
+          <CensoredImageView
+            ref={censoredImageRef}
+            uri={previewImageUri}
+            censor={censorEnabled ? censorResult : null}
+            resizeMode="contain"
             style={[
               styles.previewImage,
               { borderWidth: 0, borderRadius: 0, height: '100%' },
@@ -221,68 +313,22 @@ export function PreviewScreen({
             }}
           >
             <View style={{ gap: 6 }}>
-              <View
-                style={{
-                  height: 6,
-                  width: '76%',
-                  backgroundColor: '#1e293b',
-                  borderRadius: 4,
-                }}
-              />
-              <View
-                style={{
-                  height: 6,
-                  width: '58%',
-                  backgroundColor: '#1e293b',
-                  borderRadius: 4,
-                }}
-              />
-              <View
-                style={{
-                  height: 6,
-                  width: '84%',
-                  backgroundColor: '#1e293b',
-                  borderRadius: 4,
-                }}
-              />
+              <View style={{ height: 6, width: '76%', backgroundColor: '#1e293b', borderRadius: 4 }} />
+              <View style={{ height: 6, width: '58%', backgroundColor: '#1e293b', borderRadius: 4 }} />
+              <View style={{ height: 6, width: '84%', backgroundColor: '#1e293b', borderRadius: 4 }} />
             </View>
-
             <View style={{ alignItems: 'center' }}>
               <Text style={{ color: '#64748b', fontSize: 52 }}># # #</Text>
-              <Text
-                style={{
-                  color: '#93c5fd',
-                  fontSize: 18,
-                  fontWeight: '800',
-                  marginTop: 6,
-                }}
-              >
+              <Text style={{ color: '#93c5fd', fontSize: 18, fontWeight: '800', marginTop: 6 }}>
                 Decrypt
               </Text>
               <Text style={{ color: '#94a3b8', marginTop: 4 }}>
-                {isDecrypting
-                  ? 'Decripting document...'
-                  : 'Tap to decrypt this document'}
+                {isDecrypting ? 'Decripting document...' : 'Tap to decrypt this document'}
               </Text>
             </View>
-
             <View style={{ gap: 6 }}>
-              <View
-                style={{
-                  height: 6,
-                  width: '70%',
-                  backgroundColor: '#1e293b',
-                  borderRadius: 4,
-                }}
-              />
-              <View
-                style={{
-                  height: 6,
-                  width: '64%',
-                  backgroundColor: '#1e293b',
-                  borderRadius: 4,
-                }}
-              />
+              <View style={{ height: 6, width: '70%', backgroundColor: '#1e293b', borderRadius: 4 }} />
+              <View style={{ height: 6, width: '64%', backgroundColor: '#1e293b', borderRadius: 4 }} />
             </View>
           </View>
         )}
@@ -312,13 +358,8 @@ export function PreviewScreen({
                   backgroundColor: '#0f172a',
                 }}
               >
-                <Text style={{ color: '#bfdbfe', fontWeight: '800' }}>
-                  #{file.order}
-                </Text>
-                <Text
-                  style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}
-                  numberOfLines={1}
-                >
+                <Text style={{ color: '#bfdbfe', fontWeight: '800' }}>#{file.order}</Text>
+                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }} numberOfLines={1}>
                   {file.type}
                 </Text>
               </Pressable>
@@ -329,8 +370,7 @@ export function PreviewScreen({
 
       {files.length > 0 ? (
         <Text style={styles.previewText}>
-          File {selectedIndex + 1} of {files.length} (index{' '}
-          {files[selectedIndex]?.order ?? 0})
+          File {selectedIndex + 1} of {files.length} (index {files[selectedIndex]?.order ?? 0})
         </Text>
       ) : null}
 
@@ -351,11 +391,13 @@ export function PreviewScreen({
           }}
         >
           {previewImageUri ? (
-            <Image
-              source={{ uri: previewImageUri }}
-              resizeMode="contain"
-              style={{ width: '100%', height: '100%' }}
-            />
+            <View style={{ width: '100%', height: '100%' }}>
+              <CensoredImageView
+                uri={previewImageUri}
+                censor={censorEnabled ? censorResult : null}
+                resizeMode="contain"
+              />
+            </View>
           ) : null}
         </Pressable>
       </Modal>
@@ -381,7 +423,6 @@ export function PreviewScreen({
           if (!selectedFileIntegrity) {
             return;
           }
-
           Clipboard.setString(selectedFileIntegrity);
           setIntegrityCopied(true);
           if (copyResetTimerRef.current) {
@@ -397,9 +438,7 @@ export function PreviewScreen({
         </Text>
       </Pressable>
       {selectedDoc.description ? (
-        <Text style={styles.previewText}>
-          Description: {selectedDoc.description}
-        </Text>
+        <Text style={styles.previewText}>Description: {selectedDoc.description}</Text>
       ) : null}
       <Text style={styles.previewText}>Stored Size: {selectedDoc.size}</Text>
       <Text style={styles.previewText}>Added: {selectedDoc.uploadedAt}</Text>
@@ -407,9 +446,7 @@ export function PreviewScreen({
         Recovery: {selectedDoc.recoverable ? 'Enabled' : 'Disabled'}
       </Text>
       {!keyBackupEnabled ? (
-        <Text style={styles.previewText}>
-          Key backup is currently off in settings.
-        </Text>
+        <Text style={styles.previewText}>Key backup is currently off in settings.</Text>
       ) : null}
       <Text style={styles.previewText}>
         Offline: {hasLocalCopy ? 'Saved locally' : 'Not saved'}
@@ -432,9 +469,7 @@ export function PreviewScreen({
           <PrimaryButton
             label="Export"
             icon={ArrowDownTrayIcon}
-            onPress={() => {
-              void onExport();
-            }}
+            onPress={() => { void onExport(); }}
           />
         </View>
         {canShareDocument ? (
@@ -450,13 +485,7 @@ export function PreviewScreen({
         {canSaveOfflineDocument ? (
           <View style={styles.previewActionButton}>
             <PrimaryButton
-              label={
-                isSavingOffline
-                  ? 'Saving...'
-                  : hasLocalCopy
-                  ? 'Delete Offline'
-                  : 'Save Offline'
-              }
+              label={isSavingOffline ? 'Saving...' : hasLocalCopy ? 'Delete Offline' : 'Save Offline'}
               icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
               variant={hasLocalCopy ? 'danger' : 'default'}
               disabled={isSavingOffline}
@@ -465,7 +494,6 @@ export function PreviewScreen({
                   void onDeleteLocal(selectedDoc);
                   return;
                 }
-
                 void (async () => {
                   setIsSavingOffline(true);
                   try {
@@ -478,6 +506,20 @@ export function PreviewScreen({
             />
           </View>
         ) : null}
+
+        {/* Save Censored Version — visible only when censor is on and result is available */}
+        {censorEnabled && censorResult && !censorLoading ? (
+          <View style={styles.previewActionButton}>
+            <PrimaryButton
+              label={isSavingCensored ? 'Saving…' : 'Save Censored Version'}
+              icon={DocumentArrowDownIcon}
+              variant="outline"
+              disabled={isSavingCensored}
+              onPress={() => { void saveCensoredVersion(); }}
+            />
+          </View>
+        ) : null}
+
         <View style={styles.previewActionButton}>
           {isOwner ? (
             <PrimaryButton
@@ -489,7 +531,6 @@ export function PreviewScreen({
                   void onDeleteFromFirebase(selectedDoc);
                   return;
                 }
-
                 void onSaveToFirebase(selectedDoc);
               }}
             />
@@ -512,13 +553,16 @@ export function PreviewScreen({
               }
               icon={KeyIcon}
               disabled={!hasFirebaseCopy}
-              onPress={() => {
-                void onToggleRecovery(selectedDoc, !selectedDoc.recoverable);
-              }}
+              onPress={() => { void onToggleRecovery(selectedDoc, !selectedDoc.recoverable); }}
             />
           </View>
         ) : null}
       </View>
+
+      {/* Censored save status feedback */}
+      {censorSaveStatus ? (
+        <Text style={[styles.backupStatus, { marginTop: 8 }]}>{censorSaveStatus}</Text>
+      ) : null}
     </ScrollView>
   );
 }
