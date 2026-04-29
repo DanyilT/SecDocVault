@@ -44,6 +44,8 @@ type AuthGateRouterProps = {
   email: string;
   password: string;
   confirmPassword: string;
+  vaultPassphrase: string;
+  confirmVaultPassphrase: string;
   canSubmitAuth: boolean;
   authNotice: string | null;
   emailVerifiedForRegistration: boolean;
@@ -55,6 +57,8 @@ type AuthGateRouterProps = {
   setEmail: (value: string) => void;
   setPassword: (value: string) => void;
   setConfirmPassword: (value: string) => void;
+  setVaultPassphrase: (value: string) => void;
+  setConfirmVaultPassphrase: (value: string) => void;
   setVerificationLinkInput: (value: string) => void;
   onResendVerificationEmail: () => Promise<void>;
   onVerifyEmailLinkManually: () => Promise<void>;
@@ -107,6 +111,8 @@ export function AuthGateRouter({
   email,
   password,
   confirmPassword,
+  vaultPassphrase,
+  confirmVaultPassphrase,
   canSubmitAuth,
   authNotice,
   emailVerifiedForRegistration,
@@ -118,6 +124,8 @@ export function AuthGateRouter({
   setEmail,
   setPassword,
   setConfirmPassword,
+  setVaultPassphrase,
+  setConfirmVaultPassphrase,
   setVerificationLinkInput,
   onResendVerificationEmail,
   onVerifyEmailLinkManually,
@@ -186,6 +194,8 @@ export function AuthGateRouter({
           email={email}
           password={password}
           confirmPassword={confirmPassword}
+          vaultPassphrase={vaultPassphrase}
+          confirmVaultPassphrase={confirmVaultPassphrase}
           canSubmitAuth={canSubmitAuth}
           isSubmitting={isSubmitting}
           authError={authError}
@@ -199,6 +209,8 @@ export function AuthGateRouter({
           setEmail={setEmail}
           setPassword={setPassword}
           setConfirmPassword={setConfirmPassword}
+          setVaultPassphrase={setVaultPassphrase}
+          setConfirmVaultPassphrase={setConfirmVaultPassphrase}
           setVerificationLinkInput={setVerificationLinkInput}
           onResendVerificationEmail={onResendVerificationEmail}
           onVerifyEmailLinkManually={onVerifyEmailLinkManually}

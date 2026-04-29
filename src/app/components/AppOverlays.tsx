@@ -6,16 +6,14 @@
  * multiple screens without duplicating modal markup.
  */
 
-import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { overlayStyles } from '../../theme/styleComponents/overlayStyles.ts';
 import { styles } from '../../theme/styles.ts';
 
 type AppOverlaysProps = {
   showKeyBackupSetupModal: boolean;
-  recoveryPassphraseForSettings: string | null;
-  onCopyPassphrase: (passphrase: string) => Promise<void>;
   onCancelKeyBackupSetup: () => void;
   onConfirmKeyBackupSetup: () => Promise<void>;
   showUploadDiscardWarning: boolean;
@@ -23,6 +21,14 @@ type AppOverlaysProps = {
   onToggleDontShowUploadDiscardWarningAgain: () => void;
   onCloseUploadDiscardWarning: () => void;
   onConfirmDiscardUploadDraft: () => Promise<void>;
+  showVaultPassphrasePrompt: boolean;
+  vaultPassphrasePromptInput: string;
+  vaultPassphrasePromptAttemptsLeft: number;
+  isVaultPassphrasePromptSubmitting: boolean;
+  vaultPassphrasePromptError: string | null;
+  onVaultPassphraseInputChange: (value: string) => void;
+  onVaultPassphraseSubmit: (passphrase: string) => Promise<void>;
+  onVaultPassphrasePromptDismiss: () => void;
 };
 
 /**
@@ -40,8 +46,6 @@ type AppOverlaysProps = {
  */
 export function AppOverlays({
   showKeyBackupSetupModal,
-  recoveryPassphraseForSettings,
-  onCopyPassphrase,
   onCancelKeyBackupSetup,
   onConfirmKeyBackupSetup,
   showUploadDiscardWarning,
@@ -49,7 +53,17 @@ export function AppOverlays({
   onToggleDontShowUploadDiscardWarningAgain,
   onCloseUploadDiscardWarning,
   onConfirmDiscardUploadDraft,
+  showVaultPassphrasePrompt,
+  vaultPassphrasePromptInput,
+  vaultPassphrasePromptAttemptsLeft,
+  isVaultPassphrasePromptSubmitting,
+  vaultPassphrasePromptError,
+  onVaultPassphraseInputChange,
+  onVaultPassphraseSubmit,
+  onVaultPassphrasePromptDismiss,
 }: AppOverlaysProps) {
+  const [showPassphrase, setShowPassphrase] = useState(false);
+
   return (
     <>
       {showKeyBackupSetupModal ? (
@@ -60,20 +74,6 @@ export function AppOverlays({
               Enabling recovery for a document needs key backup to be configured. This will generate (or reuse)
               your recovery passphrase.
             </Text>
-            <Pressable
-              onPress={() => {
-                if (recoveryPassphraseForSettings) {
-                  void onCopyPassphrase(recoveryPassphraseForSettings);
-                }
-              }}
-            >
-              <Text style={styles.cardMeta}>
-                Passphrase: {recoveryPassphraseForSettings ?? 'Will be generated now'}
-              </Text>
-              {recoveryPassphraseForSettings ? (
-                <Text style={styles.settingsNote}>Tap passphrase to copy.</Text>
-              ) : null}
-            </Pressable>
 
             <View style={styles.cardActions}>
               <Pressable
@@ -89,6 +89,63 @@ export function AppOverlays({
                 style={[styles.primaryButton, overlayStyles.actionButtonNoTopMargin]}
               >
                 <Text style={[styles.primaryButtonText, overlayStyles.actionButtonLabel]}>Set Up</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {showVaultPassphrasePrompt ? (
+        <View style={overlayStyles.backdrop}>
+          <View style={[styles.card, overlayStyles.keyBackupCard]}>
+            <Text style={styles.sectionLabel}>Enter Your Vault Passphrase</Text>
+            <Text style={styles.subtitle}>
+              Your vault passphrase is needed to unlock your documents. You set this during account creation.
+            </Text>
+
+            {vaultPassphrasePromptError ? (
+              <Text style={styles.errorText}>{vaultPassphrasePromptError}</Text>
+            ) : null}
+
+            {vaultPassphrasePromptAttemptsLeft < 3 ? (
+              <Text style={styles.subtitle}>
+                {vaultPassphrasePromptAttemptsLeft} attempt{vaultPassphrasePromptAttemptsLeft !== 1 ? 's' : ''} remaining.
+              </Text>
+            ) : null}
+
+            <View style={{flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12}}>
+              <TextInput
+                style={[styles.input, {flex: 1, borderWidth: 0, paddingHorizontal: 0}]}
+                placeholder="Vault passphrase"
+                placeholderTextColor="#6b7280"
+                secureTextEntry={!showPassphrase}
+                value={vaultPassphrasePromptInput}
+                onChangeText={onVaultPassphraseInputChange}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isVaultPassphrasePromptSubmitting}
+              />
+              <Pressable onPress={() => setShowPassphrase(prev => !prev)}>
+                <Text style={styles.secondaryButtonText}>{showPassphrase ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.cardActions}>
+              <Pressable
+                onPress={onVaultPassphrasePromptDismiss}
+                style={[styles.secondaryButton, overlayStyles.actionButton]}
+                disabled={isVaultPassphrasePromptSubmitting}
+              >
+                <Text style={[styles.secondaryButtonText, overlayStyles.actionButtonLabel]}>Dismiss</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { void onVaultPassphraseSubmit(vaultPassphrasePromptInput); }}
+                style={[styles.primaryButton, overlayStyles.actionButtonNoTopMargin]}
+                disabled={isVaultPassphrasePromptSubmitting || !vaultPassphrasePromptInput.trim()}
+              >
+                <Text style={[styles.primaryButtonText, overlayStyles.actionButtonLabel]}>
+                  {isVaultPassphrasePromptSubmitting ? 'Unlocking...' : 'Unlock'}
+                </Text>
               </Pressable>
             </View>
           </View>

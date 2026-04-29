@@ -38,6 +38,8 @@ import { AuthMode } from '../types/vault';
  * @param {string} props.email - Current email input value
  * @param {string} props.password - Current password input value
  * @param {string} props.confirmPassword - Current confirm-password input value
+ * @param {string} props.vaultPassphrase - Current vault passphrase input value
+ * @param {string} props.confirmVaultPassphrase - Current confirm-vault-passphrase input value
  * @param {boolean} props.canSubmitAuth - Whether the auth form can be submitted
  * @param {boolean} props.isSubmitting - Whether an auth request is in progress
  * @param {string|null} props.authError - Optional error message to display
@@ -50,6 +52,8 @@ import { AuthMode } from '../types/vault';
  * @param {(value: string) => void} props.setEmail - Setter for email
  * @param {(value: string) => void} props.setPassword - Setter for password
  * @param {(value: string) => void} props.setConfirmPassword - Setter for confirmPassword
+ * @param {(value: string) => void} props.setVaultPassphrase - Setter for vaultPassphrase
+ * @param {(value: string) => void} props.setConfirmVaultPassphrase - Setter for confirmVaultPassphrase
  * @param {(value: string) => void} props.setVerificationLinkInput - Setter for verificationLinkInput
  * @param {() => Promise<void>} props.onResendVerificationEmail - Trigger resend verification email
  * @param {() => Promise<void>} props.onVerifyEmailLinkManually - Verify pasted email link
@@ -64,6 +68,8 @@ export function AuthScreen({
   email,
   password,
   confirmPassword,
+  vaultPassphrase,
+  confirmVaultPassphrase,
   canSubmitAuth,
   isSubmitting,
   authError,
@@ -76,6 +82,8 @@ export function AuthScreen({
   setEmail,
   setPassword,
   setConfirmPassword,
+  setVaultPassphrase,
+  setConfirmVaultPassphrase,
   setVerificationLinkInput,
   onResendVerificationEmail,
   onVerifyEmailLinkManually,
@@ -88,6 +96,8 @@ export function AuthScreen({
   email: string;
   password: string;
   confirmPassword: string;
+  vaultPassphrase: string;
+  confirmVaultPassphrase: string;
   canSubmitAuth: boolean;
   isSubmitting: boolean;
   authError: string | null;
@@ -100,6 +110,8 @@ export function AuthScreen({
   setEmail: (value: string) => void;
   setPassword: (value: string) => void;
   setConfirmPassword: (value: string) => void;
+  setVaultPassphrase: (value: string) => void;
+  setConfirmVaultPassphrase: (value: string) => void;
   setVerificationLinkInput: (value: string) => void;
   onResendVerificationEmail: () => Promise<void>;
   onVerifyEmailLinkManually: () => Promise<void>;
@@ -109,6 +121,8 @@ export function AuthScreen({
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showVaultPassphrase, setShowVaultPassphrase] = useState(false);
+  const [showConfirmVaultPassphrase, setShowConfirmVaultPassphrase] = useState(false);
   const passwordInputRef = useRef<TextInput | null>(null);
   const verificationPanelOpacity = useRef(new Animated.Value(0)).current;
   const statusHintOpacity = useRef(new Animated.Value(0)).current;
@@ -137,6 +151,24 @@ export function AuthScreen({
 
     return '';
   }, [isPasswordMismatch, isPasswordTooShort]);
+
+  const hasTypedVaultPassphrase = vaultPassphrase.trim().length > 0;
+  const isVaultPassphraseTooShort = hasTypedVaultPassphrase && vaultPassphrase.trim().length < 8;
+  const isVaultPassphraseMismatch =
+    authMode === 'register' &&
+    confirmVaultPassphrase.trim().length > 0 &&
+    vaultPassphrase.trim().length >= 8 &&
+    vaultPassphrase !== confirmVaultPassphrase;
+
+  const vaultPassphraseWarning = useMemo(() => {
+    if (isVaultPassphraseTooShort) {
+      return 'Vault passphrase must be at least 8 characters.';
+    }
+    if (isVaultPassphraseMismatch) {
+      return 'Vault passphrases do not match.';
+    }
+    return '';
+  }, [isVaultPassphraseMismatch, isVaultPassphraseTooShort]);
 
   const verificationButtonLabel =
     verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : 'Send Verification Email';
@@ -473,6 +505,63 @@ export function AuthScreen({
           ) : null}
 
           {passwordWarning ? <Text style={styles.errorText}>{passwordWarning}</Text> : null}
+
+          {authMode === 'register' ? (
+            <>
+              <Text style={[styles.subtitle, { marginTop: 12, marginBottom: 4 }]}>
+                Passphrase is used to backup encryption keys. Make sure to remember it, as it cannot be recovered.
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: isVaultPassphraseTooShort ? '#ef4444' : '#374151',
+                  borderRadius: 12,
+                  backgroundColor: '#111827',
+                  paddingHorizontal: 12,
+                }}
+              >
+                <TextInput
+                  autoCapitalize="none"
+                  secureTextEntry={!showVaultPassphrase}
+                  placeholder="Vault Passphrase (min 8 chars)"
+                  placeholderTextColor="#6b7280"
+                  style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                  value={vaultPassphrase}
+                  onChangeText={setVaultPassphrase}
+                />
+                <Pressable onPress={() => setShowVaultPassphrase(prev => !prev)}>
+                  <Text style={styles.secondaryButtonText}>{showVaultPassphrase ? 'Hide' : 'Show'}</Text>
+                </Pressable>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: isVaultPassphraseMismatch ? '#ef4444' : '#374151',
+                  borderRadius: 12,
+                  backgroundColor: '#111827',
+                  paddingHorizontal: 12,
+                }}
+              >
+                <TextInput
+                  autoCapitalize="none"
+                  secureTextEntry={!showConfirmVaultPassphrase}
+                  placeholder="Confirm Vault Passphrase"
+                  placeholderTextColor="#6b7280"
+                  style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                  value={confirmVaultPassphrase}
+                  onChangeText={setConfirmVaultPassphrase}
+                />
+                <Pressable onPress={() => setShowConfirmVaultPassphrase(prev => !prev)}>
+                  <Text style={styles.secondaryButtonText}>{showConfirmVaultPassphrase ? 'Hide' : 'Show'}</Text>
+                </Pressable>
+              </View>
+              {vaultPassphraseWarning ? <Text style={styles.errorText}>{vaultPassphraseWarning}</Text> : null}
+            </>
+          ) : null}
         </View>
 
         {authError ? <Text style={styles.errorText}>{authError}</Text> : null}

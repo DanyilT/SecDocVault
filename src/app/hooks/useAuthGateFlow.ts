@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AppScreen } from '../navigation/constants';
 import { AuthMode, AuthProtection } from '../../types/vault.ts';
+import { initUserKdfPassphrase } from '../../services/crypto/documentCrypto';
 
 type UseAuthGateFlowParams = {
   completeAuthPendingKey: string;
@@ -20,6 +21,10 @@ type UseAuthGateFlowParams = {
   email: string;
   password: string;
   confirmPassword: string;
+  vaultPassphrase: string;
+  confirmVaultPassphrase: string;
+  setVaultPassphrase: (value: string) => void;
+  setConfirmVaultPassphrase: (value: string) => void;
   emailVerifiedForRegistration: boolean;
   verificationLinkInput: string;
   verificationCooldown: number;
@@ -82,6 +87,10 @@ export function useAuthGateFlow({
   email,
   password,
   confirmPassword,
+  vaultPassphrase,
+  confirmVaultPassphrase,
+  setVaultPassphrase,
+  setConfirmVaultPassphrase,
   emailVerifiedForRegistration,
   verificationLinkInput,
   verificationCooldown,
@@ -129,17 +138,24 @@ export function useAuthGateFlow({
   resolveVerificationLink,
 }: UseAuthGateFlowParams) {
   const canSubmitAuth = useMemo(() => {
+    const hasVaultPassphrase =
+      authMode === 'register'
+        ? vaultPassphrase.trim().length >= 8 && vaultPassphrase === confirmVaultPassphrase
+        : true;
+
     if (accessMode === 'guest') {
       const hasPassword = password.trim().length > 5;
-      return authMode === 'register' ? hasPassword && password === confirmPassword : hasPassword;
+      return authMode === 'register'
+        ? hasPassword && password === confirmPassword && hasVaultPassphrase
+        : hasPassword;
     }
 
     const hasEmail = email.trim().length > 4;
     const hasPassword = password.trim().length > 5;
     return authMode === 'register'
-      ? hasEmail && hasPassword && password === confirmPassword && emailVerifiedForRegistration
+      ? hasEmail && hasPassword && password === confirmPassword && emailVerifiedForRegistration && hasVaultPassphrase
       : hasEmail && hasPassword;
-  }, [accessMode, authMode, confirmPassword, email, emailVerifiedForRegistration, password]);
+  }, [accessMode, authMode, confirmPassword, confirmVaultPassphrase, email, emailVerifiedForRegistration, password, vaultPassphrase]);
 
   const canUseUnlockButton =
     preferredProtection === 'passkey' ||
@@ -193,6 +209,10 @@ export function useAuthGateFlow({
     if (!isSuccess) {
       setIsCompletingAuthFlow(false);
       return;
+    }
+
+    if (authMode === 'register') {
+      await initUserKdfPassphrase(vaultPassphrase.trim());
     }
 
     setAuthCredentialSnapshot({email: email.trim(), password});
@@ -275,6 +295,8 @@ export function useAuthGateFlow({
     setEmailVerifiedForRegistration(false);
     setVerificationLinkInput('');
     setVerificationCooldown(0);
+    setVaultPassphrase('');
+    setConfirmVaultPassphrase('');
     setAuthNotice(null);
     clearError();
   };
@@ -284,6 +306,8 @@ export function useAuthGateFlow({
     setEmailVerifiedForRegistration(false);
     setVerificationLinkInput('');
     setVerificationCooldown(0);
+    setVaultPassphrase('');
+    setConfirmVaultPassphrase('');
     setAuthNotice(null);
     routeToAuth('hero');
     clearError();
@@ -356,6 +380,18 @@ export function useAuthGateFlow({
     clearError();
   };
 
+  const updateVaultPassphrase = (value: string) => {
+    setVaultPassphrase(value);
+    setAuthNotice(null);
+    clearError();
+  };
+
+  const updateConfirmVaultPassphrase = (value: string) => {
+    setConfirmVaultPassphrase(value);
+    setAuthNotice(null);
+    clearError();
+  };
+
   const handleResendVerificationEmail = async () => {
     if (verificationCooldown > 0) {
       return;
@@ -420,6 +456,8 @@ export function useAuthGateFlow({
     updateEmail,
     updatePassword,
     updateConfirmPassword,
+    updateVaultPassphrase,
+    updateConfirmVaultPassphrase,
     handleResendVerificationEmail,
     handleManualVerificationLink,
     handleResetPassword,

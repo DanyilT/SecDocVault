@@ -35,14 +35,11 @@ import { AuthProtection, AuthSessionMode } from '../types/vault';
  * @param {boolean} props.saveOfflineByDefault - Preference for saving offline by default
  * @param {boolean} props.recoverableByDefault - Whether new documents are recoverable by default
  * @param {boolean} props.keyBackupEnabled - Whether key backup is enabled
- * @param {string|null} props.recoveryPassphrase - Current recovery passphrase if configured
  * @param {Array<{id: string; name: string}>} props.backedUpDocs - Documents included in recovery
  * @param {Array<{id: string; name: string}>} props.notBackedUpDocs - Documents excluded from recovery
  * @param {(value: boolean) => void} props.onSetSaveOfflineByDefault - Setter for saveOfflineByDefault
  * @param {(value: boolean) => void} props.onSetRecoverableByDefault - Setter for recoverableByDefault
  * @param {(value: boolean) => void} props.onSetKeyBackupEnabled - Setter for keyBackupEnabled
- * @param {(passphrase: string) => Promise<void>} props.onCopyRecoveryPassphrase - Copy recovery passphrase
- * @param {() => Promise<void>} props.onResetBackupPassphrase - Reset the recovery passphrase
  * @param {() => void} props.onOpenRecoverKeys - Open key recovery screen
  * @param {() => void} props.onOpenDocumentRecovery - Open document recovery management
  * @param {(payload: { method: 'pin' | 'passkey'; pin?: string; pinBiometricEnabled?: boolean; firebasePassword?: string; }) => Promise<void>} props.onUpdateUnlockMethod - Update unlock method
@@ -68,14 +65,11 @@ export function SettingsScreen({
   saveOfflineByDefault,
   recoverableByDefault,
   keyBackupEnabled,
-  recoveryPassphrase,
   backedUpDocs,
   notBackedUpDocs,
   onSetSaveOfflineByDefault,
   onSetRecoverableByDefault,
   onSetKeyBackupEnabled,
-  onCopyRecoveryPassphrase,
-  onResetBackupPassphrase,
   onOpenRecoverKeys,
   onOpenDocumentRecovery,
   onUpdateUnlockMethod,
@@ -99,14 +93,11 @@ export function SettingsScreen({
   saveOfflineByDefault: boolean;
   recoverableByDefault: boolean;
   keyBackupEnabled: boolean;
-  recoveryPassphrase: string | null;
   backedUpDocs: Array<{id: string; name: string}>;
   notBackedUpDocs: Array<{id: string; name: string}>;
   onSetSaveOfflineByDefault: (value: boolean) => void;
   onSetRecoverableByDefault: (value: boolean) => void;
   onSetKeyBackupEnabled: (value: boolean) => void;
-  onCopyRecoveryPassphrase: (passphrase: string) => Promise<void>;
-  onResetBackupPassphrase: () => Promise<void>;
   onOpenRecoverKeys: () => void;
   onOpenDocumentRecovery: () => void;
   onUpdateUnlockMethod: (payload: {
@@ -130,8 +121,6 @@ export function SettingsScreen({
   const [cloudPasskeyPassword, setCloudPasskeyPassword] = useState('');
   const [usePasskey, setUsePasskey] = useState(preferredProtection === 'passkey');
   const [useBiometricWithPin, setUseBiometricWithPin] = useState(pinBiometricEnabled);
-  const [showRecoveryPassphrase, setShowRecoveryPassphrase] = useState(false);
-
   useEffect(() => {
     setUsePasskey(preferredProtection === 'passkey');
     setUseBiometricWithPin(pinBiometricEnabled);
@@ -369,39 +358,6 @@ export function SettingsScreen({
             account.
           </Text>
         ) : null}
-
-        <Text style={styles.cardMeta}>Recovery passphrase</Text>
-        <Pressable
-          onPress={() => {
-            if (!recoveryPassphrase) {
-              return;
-            }
-            setShowRecoveryPassphrase(true);
-            void onCopyRecoveryPassphrase(recoveryPassphrase);
-          }}
-          style={styles.hashBlock}
-        >
-          <Text style={styles.cardMeta}>
-            {recoveryPassphrase
-              ? showRecoveryPassphrase
-                ? recoveryPassphrase
-                : 'Tap to reveal and copy'
-              : 'Not configured'}
-          </Text>
-        </Pressable>
-
-        <PrimaryButton
-          label="Generate New Passphrase"
-          variant="outline"
-          onPress={() => {
-            void onResetBackupPassphrase();
-            setShowRecoveryPassphrase(false);
-          }}
-          disabled={isGuest || !keyBackupEnabled || isSubmitting}
-        />
-        <Text style={styles.subtitle}>
-          Generating a new passphrase deactivates the previous passphrase and deletes existing cloud key backups.
-        </Text>
 
         <PrimaryButton
           label="Recover Keys"

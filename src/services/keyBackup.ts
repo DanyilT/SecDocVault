@@ -25,6 +25,7 @@ import {
   getRecoveryPassphrase,
   getOrCreateKdfMaterial,
   randomWordArray,
+  restoreKdfPassphrase,
   setRecoveryPassphrase,
   toBase64,
   unwrapDocumentKey,
@@ -59,18 +60,6 @@ export type KeyBackupResult = {
   backedUpCount: number;
 };
 
-export function generateRecoveryPassphrase(): string {
-  const cryptoApi = (globalThis as { crypto?: { getRandomValues: (arr: Uint8Array) => Uint8Array } }).crypto;
-  if (!cryptoApi?.getRandomValues) {
-    throw new Error('Secure random source is unavailable.');
-  }
-
-  const bytes = new Uint8Array(20); // 160 bits of entropy
-  cryptoApi.getRandomValues(bytes);
-  const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
-
-  return hex.match(/.{1,8}/g)?.join('-') ?? hex;
-}
 
 async function resolveDocumentKeyForBackup(docMeta: VaultDocument): Promise<string | null> {
   const direct = await Keychain.getGenericPassword({
@@ -268,15 +257,7 @@ export async function ensureRecoveryPassphrase(): Promise<string> {
     return existing;
   }
 
-  const generated = generateRecoveryPassphrase();
-  await setRecoveryPassphrase(generated);
-  return generated;
-}
-
-export async function resetRecoveryPassphraseForSettings(): Promise<string> {
-  const generated = generateRecoveryPassphrase();
-  await setRecoveryPassphrase(generated);
-  return generated;
+  throw new Error('No recovery passphrase configured. Complete vault setup first.');
 }
 
 async function getOrCreateAutoSyncPassphrase(): Promise<string> {
@@ -285,13 +266,17 @@ async function getOrCreateAutoSyncPassphrase(): Promise<string> {
     return existing.password;
   }
 
-  const generated = generateRecoveryPassphrase();
-  await Keychain.setGenericPassword('autosync', generated, {
+  const recovery = await getRecoveryPassphrase();
+  if (!recovery) {
+    throw new Error('No recovery passphrase configured. Set up key backup first.');
+  }
+
+  await Keychain.setGenericPassword('autosync', recovery, {
     service: AUTO_SYNC_KEYS_PASSPHRASE,
     accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
 
-  return generated;
+  return recovery;
 }
 
 export async function autoSyncKeysIfEnabled(ownerId: string, documents: VaultDocument[]): Promise<boolean> {
@@ -351,4 +336,69 @@ export async function clearKeyBackupData(): Promise<void> {
     AsyncStorage.removeItem(AUTO_SYNC_KEYS_ENABLED),
     Keychain.resetGenericPassword({service: AUTO_SYNC_KEYS_PASSPHRASE}),
   ]);
+}
+
+/**
+ * Verifies a vault passphrase by attempting to unwrap each document's
+ * device-mode encrypted key, caches the unwrapped keys in Keychain, then
+ * persists the passphrase for future KDF material lookups.
+ *
+ * @param documents - The current list of vault documents.
+ * @param passphrase - The vault passphrase entered by the user.
+ * @returns The number of document keys that were successfully unwrapped and cached.
+ * @throws {Error} If the passphrase is wrong (no keys could be unwrapped despite candidates existing).
+ */
+export async function restoreDocumentKeysFromPassphrase(
+  documents: VaultDocument[],
+  passphrase: string,
+): Promise<number> {
+  const normalized = passphrase.trim();
+  if (!normalized) {
+    throw new Error('Vault passphrase is required.');
+  }
+
+  const candidates = documents.filter(
+    item => item.encryptedDocKey && item.encryptedDocKey.wrapMode !== 'recovery',
+  );
+
+  if (candidates.length === 0) {
+    await restoreKdfPassphrase(normalized);
+    return 0;
+  }
+
+  let restoredCount = 0;
+  let hadDecryptionError = false;
+
+  for (const item of candidates) {
+    try {
+      const unwrapped = await unwrapDocumentKey(
+        item.encryptedDocKey!.cipher,
+        item.encryptedDocKey!.iv,
+        normalized,
+        item.encryptedDocKey!.salt,
+        item.encryptedDocKey!.algorithm ?? 'AES-256-GCM',
+        item.encryptedDocKey!.iterations ?? 100000,
+        item.encryptedDocKey!.authTag,
+      );
+      const normalizedKey = normalizeDocumentKeyB64(unwrapped);
+      if (!normalizedKey) {
+        continue;
+      }
+
+      await Keychain.setGenericPassword(item.id, normalizedKey, {
+        service: `${DOC_KEY_SERVICE_PREFIX}.${item.id}`,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+      restoredCount += 1;
+    } catch {
+      hadDecryptionError = true;
+    }
+  }
+
+  if (restoredCount === 0 && hadDecryptionError) {
+    throw new Error('Wrong passphrase — could not decrypt any document keys. Please try again.');
+  }
+
+  await restoreKdfPassphrase(normalized);
+  return restoredCount;
 }

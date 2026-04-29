@@ -8,7 +8,6 @@
  */
 
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 
 import { VaultDocument } from '../../types/vault';
 
@@ -35,7 +34,6 @@ type UseKeyBackupFlowParams = {
   }) => Promise<void>;
   setAutoKeySyncEnabled: (value: boolean) => Promise<void>;
   ensureRecoveryPassphrase: () => Promise<string>;
-  resetRecoveryPassphraseForSettings: () => Promise<string>;
   deleteKeyBackupFromFirebase: (uid: string) => Promise<void>;
   backupKeysToFirebase: (
     uid: string,
@@ -43,7 +41,6 @@ type UseKeyBackupFlowParams = {
     passphrase: string,
   ) => Promise<{passphrase: string; backedUpCount: number}>;
   updateDocumentRecoveryPreference: (docMeta: VaultDocument, enabled: boolean) => Promise<VaultDocument>;
-  generateRecoveryPassphrase: () => string;
   restoreKeysFromFirebase: (uid: string, passphrase: string) => Promise<number>;
   downloadPassphraseFile: (passphrase: string, uid: string) => Promise<string>;
   downloadKeyBackupFile: (uid: string, passphrase: string) => Promise<string>;
@@ -84,11 +81,9 @@ export function useKeyBackupFlow({
   saveVaultPreferences,
   setAutoKeySyncEnabled,
   ensureRecoveryPassphrase,
-  resetRecoveryPassphraseForSettings,
   deleteKeyBackupFromFirebase,
   backupKeysToFirebase,
   updateDocumentRecoveryPreference,
-  generateRecoveryPassphrase,
   restoreKeysFromFirebase,
   downloadPassphraseFile,
   downloadKeyBackupFile,
@@ -258,68 +253,6 @@ export function useKeyBackupFlow({
   };
 
   /**
-   * handleResetBackupPassphrase
-   *
-   * Generate a new recovery passphrase and delete any existing cloud
-   * backups. This is destructive for the cloud backup and therefore prompts
-   * the user for confirmation via an alert.
-   */
-  const handleResetBackupPassphrase = async () => {
-    const confirmed = await new Promise<boolean>(resolve => {
-      Alert.alert(
-        'Generate new recovery passphrase?',
-        'This will permanently remove your current cloud key backup (vaultKeyBackups). You must create a new key backup after generating the passphrase.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => resolve(false),
-          },
-          {
-            text: 'Generate New',
-            style: 'destructive',
-            onPress: () => resolve(true),
-          },
-        ],
-      );
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      if (isGuest || !userUid) {
-        setAccountStatus('Sign in with a cloud account to reset and sync key backups.');
-        return;
-      }
-
-      await deleteKeyBackupFromFirebase(userUid);
-      const passphrase = await resetRecoveryPassphraseForSettings();
-      setRecoveryPassphraseForSettings(passphrase);
-
-      const recoverableCloudDocs = documents.filter(item => {
-        const hasCloudCopy = Boolean(item.references?.some(reference => reference.source === 'firebase'));
-        return item.recoverable !== false && hasCloudCopy;
-      });
-
-      if (recoverableCloudDocs.length === 0) {
-        setKeyBackupStatus('Passphrase reset. No recoverable cloud documents found, so no new backup was created.');
-        setAccountStatus('Backup passphrase reset and previous cloud key backup deleted.');
-        return;
-      }
-
-      setKeyBackupStatus('Generating new cloud key backup...');
-      const result = await backupKeysToFirebase(userUid, recoverableCloudDocs, passphrase);
-      setKeyBackupStatus(`New cloud key backup created (${result.backedUpCount} keys).`);
-      setAccountStatus('Backup passphrase reset, old backup deleted, and new cloud key backup created.');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to reset backup passphrase.';
-      setAccountStatus(message);
-    }
-  };
-
-  /**
    * handleBackupKeys
    *
    * Create a new cloud key backup using a freshly generated passphrase.
@@ -343,13 +276,11 @@ export function useKeyBackupFlow({
     }
 
     try {
-      setKeyBackupStatus('Generating passphrase and backing up keys...');
-      const passphrase = generateRecoveryPassphrase();
+      setKeyBackupStatus('Backing up keys...');
+      const passphrase = await ensureRecoveryPassphrase();
+      setRecoveryPassphraseForSettings(passphrase);
       const result = await backupKeysToFirebase(userUid, documents, passphrase);
-      setDisplayPassphrase(result.passphrase);
-      setKeyBackupStatus(
-        `Key backup created successfully (${result.backedUpCount} keys). Save your passphrase in a secure location.`,
-      );
+      setKeyBackupStatus(`Key backup created successfully (${result.backedUpCount} keys).`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to backup keys.';
       setKeyBackupStatus(`Error: ${message}`);
@@ -458,7 +389,6 @@ export function useKeyBackupFlow({
     cancelKeyBackupSetup,
     handleToggleDocumentRecovery,
     handleSetKeyBackupEnabled,
-    handleResetBackupPassphrase,
     handleBackupKeys,
     handleRestoreKeys,
     handleDownloadPassphrase,

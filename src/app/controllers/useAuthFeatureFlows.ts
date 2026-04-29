@@ -18,6 +18,10 @@ type UseAuthFeatureFlowsParams = {
   email: string;
   password: string;
   confirmPassword: string;
+  vaultPassphrase: string;
+  confirmVaultPassphrase: string;
+  setVaultPassphrase: (value: string) => void;
+  setConfirmVaultPassphrase: (value: string) => void;
   emailVerifiedForRegistration: boolean;
   verificationLinkInput: string;
   verificationCooldown: number;
@@ -89,6 +93,10 @@ export function useAuthFeatureFlows({
   email,
   password,
   confirmPassword,
+  vaultPassphrase,
+  confirmVaultPassphrase,
+  setVaultPassphrase,
+  setConfirmVaultPassphrase,
   emailVerifiedForRegistration,
   verificationLinkInput,
   verificationCooldown,
@@ -153,6 +161,10 @@ export function useAuthFeatureFlows({
     email,
     password,
     confirmPassword,
+    vaultPassphrase,
+    confirmVaultPassphrase,
+    setVaultPassphrase,
+    setConfirmVaultPassphrase,
     emailVerifiedForRegistration,
     verificationLinkInput,
     verificationCooldown,

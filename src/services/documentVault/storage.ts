@@ -35,6 +35,7 @@ import {
   decryptBase64Payload,
   getOrCreateKdfMaterial,
   getRecoveryPassphrase,
+  MissingKdfPassphraseError,
   unwrapDocumentKey,
   unwrapDocumentKeyFromShareEnvelope,
   wrapDocumentKey,
@@ -139,7 +140,10 @@ async function resolveDocumentKey(docMeta: VaultDocument) {
         iterations,
         docMeta.encryptedDocKey.authTag,
       );
-    } catch {
+    } catch (err) {
+      if (err instanceof MissingKdfPassphraseError) {
+        throw err;
+      }
       // Fallback to recovery passphrase for cross-device restore.
     }
   }
