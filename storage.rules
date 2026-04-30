@@ -18,9 +18,7 @@ service firebase.storage {
     function hasActiveShare(docId) {
       return isSignedIn() &&
         firestore.exists(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)) &&
-        firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.get('revokedAt', null) == null &&
-        firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.get('expiresAt', null) != null &&
-        timestamp.value(firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.expiresAt) > request.time;
+        firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.get('revokedAt', null) == null;
     }
 
     function belowSizeLimit() {

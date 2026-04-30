@@ -1,91 +1,99 @@
-/**
- * screens/ShareDetailsScreen.tsx
- *
- * Presents details about an active share for a document: current settings,
- * active grants, and actions to manage/revoke access. This is a
- * presentational screen and delegates state changes to the provided handlers.
- */
-
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { PrimaryButton, SecondaryButton } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
+import { useDocumentVaultContext } from '../context/DocumentVaultContext';
+import { Header, PrimaryButton, SecondaryButton } from '../components/ui';
+import { revokeDocumentShareGrant } from '../services/documentVault';
 import { styles } from '../theme/styles';
-import type { VaultDocument, VaultSharedKeyGrant } from '../types/vault';
+import type { VaultSharedKeyGrant } from '../types/vault';
+import type { VaultStackParamList } from '../navigation/types';
 
-/**
- * ShareDetailsScreen
- *
- * Presentational screen showing current share settings and active grants for
- * a document. Actions are forwarded to handlers supplied via props.
- *
- * @param {object} props - Component props
- * @param {VaultDocument} props.selectedDoc - Document being viewed
- * @param {string} props.shareTarget - Configured share target identifier (email or uid)
- * @param {boolean} props.allowDownload - Whether downloads are permitted for the share
- * @param {string} props.expiresInDays - TTL in days for generated shares
- * @param {() => void} props.onOpenShareOptions - Open share options modal
- * @param {(recipientEmail: string) => void} props.onRevokeShareForRecipient - Revoke share access for a recipient
- * @returns {JSX.Element} Rendered share details screen
- */
-export function ShareDetailsScreen({
-  selectedDoc,
-  shareTarget,
-  allowDownload,
-  expiresInDays,
-  onOpenShareOptions,
-  onRevokeShareForRecipient,
-}: {
-  selectedDoc: VaultDocument;
-  shareTarget: string;
-  allowDownload: boolean;
-  expiresInDays: string;
-  onOpenShareOptions: () => void;
-  onRevokeShareForRecipient: (recipientEmail: string) => void;
-}) {
-  const activeGrants = ((selectedDoc.sharedKeyGrants ?? []) as VaultSharedKeyGrant[]).filter(grant => !grant.revokedAt);
+type Props = NativeStackScreenProps<VaultStackParamList, 'ShareDetails'>;
+
+export function ShareDetailsScreen({ route, navigation }: Props) {
+  const { docId } = route.params;
+  const { user, isGuest } = useAuth();
+  const { documents, setDocuments } = useDocumentVaultContext();
+
+  const doc = documents.find(d => d.id === docId);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState('');
+
+  if (!doc) {
+    return (
+      <View style={{ flex: 1 }}>
+        <Header title="Share Details" showBack onBack={() => navigation.goBack()} />
+        <View style={styles.pageBody}>
+          <Text style={styles.subtitle}>Document not found.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const userUid = user?.uid ?? null;
+  const activeGrants = ((doc.sharedKeyGrants ?? []) as VaultSharedKeyGrant[]).filter(
+    g => !g.revokedAt,
+  );
+
+  const handleRevokeForRecipient = async (recipientEmail: string) => {
+    if (!userUid || isGuest) return;
+    setIsSubmitting(true);
+    setStatus(`Revoking access for ${recipientEmail}...`);
+    try {
+      const updated = await revokeDocumentShareGrant(doc, userUid, recipientEmail);
+      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
+      setStatus('Shared key revoked.');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Failed to revoke shared key.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <Text style={styles.pageTitle}>Share Details</Text>
+    <View style={{ flex: 1 }}>
+      <Header title="Share Details" showBack onBack={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
       <Text style={styles.subtitle}>
         View who this document is shared with and manage the current sharing settings.
       </Text>
 
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Current Share Settings</Text>
-        <Text style={styles.cardMeta}>Recipient: {shareTarget || 'Not set'}</Text>
-        <Text style={styles.cardMeta}>Allow download: {allowDownload ? 'Yes' : 'No'}</Text>
-        <Text style={styles.cardMeta}>Time to live: {expiresInDays || '30'} days</Text>
-        <PrimaryButton label="Open Sharing Options" onPress={onOpenShareOptions} />
+        <PrimaryButton
+          label="Open Sharing Options"
+          onPress={() => navigation.navigate('Share', { docId })}
+        />
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Shared With</Text>
-        {activeGrants.length === 0 ? <Text style={styles.subtitle}>No active share keys.</Text> : null}
+        <Text style={styles.sectionLabel}>Active Grants</Text>
+        {activeGrants.length === 0 ? (
+          <Text style={styles.subtitle}>No active shares for this document.</Text>
+        ) : null}
         {activeGrants.map(grant => (
-          <View key={`${grant.recipientUid}-${grant.recipientEmail ?? ''}`} style={{ gap: 6 }}>
-            <Text style={styles.cardTitle}>{grant.recipientEmail ?? grant.recipientUid}</Text>
-            <Text style={styles.cardMeta}>Allow download: {grant.allowExport ? 'Yes' : 'No'}</Text>
-            <Text style={styles.cardMeta}>Shared date: {grant.createdAt}</Text>
-            <Text style={styles.cardMeta}>Expired date: {grant.expiresAt.toString()}</Text>
-            <Text style={styles.cardMeta}>Sharing key: Active access grant</Text>
+          <View key={`${grant.recipientUid}-${grant.createdAt}`} style={styles.docRow}>
+            <Text style={styles.cardMeta}>
+              {grant.recipientEmail ?? grant.recipientUid}
+            </Text>
+            <Text style={styles.cardMeta}>
+              Expires: {new Date(grant.expiresAt).toLocaleDateString()}
+            </Text>
             <SecondaryButton
-              label="Retrieve Access"
-              onPress={() => {
-                if (!grant.recipientEmail) {
-                  return;
-                }
-
-                onRevokeShareForRecipient(grant.recipientEmail);
-              }}
+              label={isSubmitting ? 'Revoking...' : 'Revoke'}
+              onPress={() =>
+                void handleRevokeForRecipient(grant.recipientEmail ?? grant.recipientUid)
+              }
+              disabled={isSubmitting || isGuest}
             />
-            {!grant.recipientEmail ? (
-              <Text style={styles.subtitle}>Recipient email is required to retrieve access.</Text>
-            ) : null}
           </View>
         ))}
       </View>
-    </ScrollView>
+
+      {status ? <Text style={styles.backupStatus}>{status}</Text> : null}
+      </ScrollView>
+    </View>
   );
 }

@@ -182,8 +182,6 @@ export async function restoreKeysFromFirebase(ownerId: string, passphrase: strin
     throw new Error('Recovery passphrase is required.');
   }
 
-  await setRecoveryPassphrase(passphrase.trim());
-
   const app = getApp();
   const db = getFirestore(app);
   const backupRef = doc(db, KEY_BACKUP_COLLECTION, ownerId);
@@ -235,6 +233,7 @@ export async function restoreKeysFromFirebase(ownerId: string, passphrase: strin
     throw new Error('No keys were restored. Check your recovery passphrase.');
   }
 
+  await setRecoveryPassphrase(passphrase.trim());
   return restoredCount;
 }
 

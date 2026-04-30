@@ -1,51 +1,29 @@
 import React from 'react';
-import { Animated, StatusBar, useColorScheme } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar, useColorScheme } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AppOverlays } from './src/app/components/AppOverlays';
-import { AppHeaderController } from './src/app/components/AppHeaderController';
-import { AppScreenRouter } from './src/app/components/AppScreenRouter';
-import { useAppController } from './src/app/controllers';
 import { AuthProvider } from './src/context/AuthContext';
-import { styles } from './src/theme/styles';
+import { VaultLockProvider } from './src/context/VaultLockContext';
+import { DocumentVaultProvider } from './src/context/DocumentVaultContext';
+import { AppNavigator } from './src/navigation/AppNavigator';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <SafeAreaView style={styles.appShell}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0b1220' }}>
+      <SafeAreaProvider style={{ backgroundColor: '#0b1220' }}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
         <AuthProvider>
-          <AppContent />
+          <VaultLockProvider>
+            <DocumentVaultProvider>
+              <AppNavigator />
+            </DocumentVaultProvider>
+          </VaultLockProvider>
         </AuthProvider>
-      </SafeAreaView>
-    </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  const {
-    showVaultShell,
-    transitionOpacity,
-    transitionTranslateY,
-    appScreenRouterProps,
-    headerControllerProps,
-    overlaysProps,
-  } = useAppController();
-
-  const router = <AppScreenRouter {...appScreenRouterProps} />;
-
-  if (!showVaultShell) {
-    return router;
-  }
-
-  return (
-    <Animated.View style={[styles.container, { opacity: transitionOpacity, transform: [{ translateY: transitionTranslateY }] }] }>
-      <AppHeaderController {...headerControllerProps} />
-      {router}
-      <AppOverlays {...overlaysProps} />
-    </Animated.View>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

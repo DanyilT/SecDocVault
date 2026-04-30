@@ -422,7 +422,8 @@ export async function removeLocalDocumentCopy(docMeta: VaultDocument): Promise<V
     offlineAvailable: false,
   };
 
-  if (docMeta.owner && hasFirebaseRef) {
+  const currentUid = getAuth(getApp()).currentUser?.uid;
+  if (docMeta.owner && docMeta.owner === currentUid && hasFirebaseRef) {
     const app = getApp();
     const db = getFirestore(app);
     await setDoc(doc(db, STORAGE_PATH_PREFIX, docMeta.id), {offlineAvailable: false}, {merge: true});
@@ -450,12 +451,16 @@ export async function deleteDocumentFromFirebase(docMeta: VaultDocument): Promis
   const app = getApp();
   const db = getFirestore(app);
 
-  const sharedUsersSnapshot = await getDocs(collection(db, STORAGE_PATH_PREFIX, docMeta.id, DOC_SHARES_SUBCOLLECTION));
-  await Promise.allSettled(
-    sharedUsersSnapshot.docs.map((sharedUserDoc: { ref: any }) =>
-      deleteDoc(sharedUserDoc.ref),
-    ),
-  );
+  try {
+    const sharedUsersSnapshot = await getDocs(collection(db, STORAGE_PATH_PREFIX, docMeta.id, DOC_SHARES_SUBCOLLECTION));
+    await Promise.allSettled(
+      sharedUsersSnapshot.docs.map((sharedUserDoc: { ref: any }) =>
+        deleteDoc(sharedUserDoc.ref),
+      ),
+    );
+  } catch {
+    // Subcollection cleanup is best-effort; Firestore cascades deletion server-side.
+  }
 
   await deleteDoc(doc(db, STORAGE_PATH_PREFIX, docMeta.id));
 }

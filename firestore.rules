@@ -15,7 +15,7 @@ service cloud.firestore {
       let grantRef = /databases/$(database)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid);
       return isSignedIn()
         && exists(grantRef)
-        && !get(grantRef).data.get('revokedAt', null)
+        && get(grantRef).data.get('revokedAt', null) == null
         && timestamp.fromString(string(get(grantRef).data.expiresAt)) > request.time;
     }
 
@@ -36,14 +36,15 @@ service cloud.firestore {
     }
 
     match /vault/{docId}/sharedUsers/{recipientUid} {
-      allow read: if isSignedIn() && (
+      allow read, list: if isSignedIn() && (
         recipientUid == request.auth.uid
         || resource.data.recipientUid == request.auth.uid
         || resource.data.recipientEmail == request.auth.token.email
         || isOwner(get(/databases/$(database)/documents/vault/$(docId)).data)
       );
-      allow create, update, delete: if isOwner(get(/databases/$(database)/documents/vault/$(docId)).data)
+      allow create, update: if isOwner(get(/databases/$(database)/documents/vault/$(docId)).data)
         && request.resource.data.recipientUid == recipientUid;
+      allow delete: if isOwner(get(/databases/$(database)/documents/vault/$(docId)).data);
     }
 
     match /vaultUsers/{uid} {

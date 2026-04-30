@@ -1,62 +1,57 @@
-/**
- * screens/KeyRecoveryScreen.tsx
- *
- * Screen used to restore key backups from a recovery passphrase. This is a
- * thin presentation layer that accepts a passphrase and delegates the
- * restoration work to `onRestoreKeys` provided by the caller.
- */
-
 import React, { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { PrimaryButton } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
+import { useDocumentVaultContext } from '../context/DocumentVaultContext';
+import { Header, PrimaryButton } from '../components/ui';
+import { restoreKeysFromFirebase } from '../services/keyBackup';
 import { styles } from '../theme/styles';
+import type { VaultStackParamList } from '../navigation/types';
 
-/**
- * KeyRecoveryScreen
- *
- * Presentation screen that accepts a recovery passphrase and triggers the
- * provided `onRestoreKeys` callback to perform key restoration.
- *
- * @param {object} props - Component props
- * @param {boolean} props.isGuest - Whether the current session is a guest session
- * @param {boolean} props.isSubmitting - Whether a restore is in progress
- * @param {string} props.status - Optional status message to show below the action
- * @param {(passphrase: string) => Promise<void>} props.onRestoreKeys - Callback to restore keys using the passphrase
- * @returns {JSX.Element} Rendered key recovery screen
- */
-export function KeyRecoveryScreen({
-  isGuest,
-  isSubmitting,
-  status,
-  onRestoreKeys,
-}: {
-  isGuest: boolean;
-  isSubmitting: boolean;
-  status: string;
-  onRestoreKeys: (passphrase: string) => Promise<void>;
-}) {
+type Props = NativeStackScreenProps<VaultStackParamList, 'RecoverKeys'>;
+
+export function KeyRecoveryScreen({ navigation }: Props) {
+  const { user, isGuest } = useAuth();
+  const { loadDocuments } = useDocumentVaultContext();
   const [passphrase, setPassphrase] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState('');
+
+  const handleRestoreKeys = async (phrase: string) => {
+    if (!user?.uid) return;
+    setIsSubmitting(true);
+    setStatus('');
+    try {
+      const count = await restoreKeysFromFirebase(user.uid, phrase);
+      setStatus(`Restored keys for ${count} document(s).`);
+      await loadDocuments();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Key recovery failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <View style={styles.pageBody}>
-      <Text style={styles.pageTitle}>Recover Keys</Text>
-      <TextInput
-        value={passphrase}
-        onChangeText={setPassphrase}
-        style={styles.input}
-        placeholder="Recovery passphrase"
-        placeholderTextColor="#6b7280"
-        autoCapitalize="none"
-      />
-      <PrimaryButton
-        label={isSubmitting ? 'Recovering...' : 'Confirm Key Recovery'}
-        onPress={() => {
-          void onRestoreKeys(passphrase.trim());
-        }}
-        disabled={isGuest || isSubmitting || passphrase.trim().length < 6}
-      />
-      {status ? <Text style={styles.backupStatus}>{status}</Text> : null}
+    <View style={{ flex: 1 }}>
+      <Header title="Recover Keys" showBack onBack={() => navigation.goBack()} />
+      <View style={styles.pageBody}>
+        <TextInput
+          value={passphrase}
+          onChangeText={setPassphrase}
+          style={styles.input}
+          placeholder="Recovery passphrase"
+          placeholderTextColor="#6b7280"
+          autoCapitalize="none"
+        />
+        <PrimaryButton
+          label={isSubmitting ? 'Recovering...' : 'Confirm Key Recovery'}
+          onPress={() => void handleRestoreKeys(passphrase.trim())}
+          disabled={isGuest || isSubmitting || passphrase.trim().length < 6}
+        />
+        {status ? <Text style={styles.backupStatus}>{status}</Text> : null}
+      </View>
     </View>
   );
 }

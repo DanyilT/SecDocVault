@@ -1,43 +1,21 @@
-/**
- * screens/CompleteAuthScreen.tsx
- *
- * Screen shown after successful authentication where the user completes
- * device-specific unlock configuration (PIN, passkey, or none). This file
- * focuses on presentation and small-form validation; business logic to store
- * credentials is provided by callers via the `onComplete` callback.
- */
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Keychain from 'react-native-keychain';
 
+import { useAuth } from '../context/AuthContext';
+import { useVaultLock } from '../context/VaultLockContext';
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
 import { styles } from '../theme/styles';
-import { AuthProtection } from '../types/vault';
+import type { AuthProtection } from '../types/vault';
+import type { AuthStackParamList } from '../navigation/types';
 
-/**
- * CompleteAuthScreen
- *
- * Screen displayed immediately after successful authentication where the user
- * chooses a device-specific unlock method (PIN, passkey, or none). The
- * component is presentational — credential persistence is handled by the
- * provided `onComplete` callback.
- *
- * @param {object} props - Component props
- * @param {boolean} props.isSubmitting - Whether the completion action is in progress
- * @param {string|null} props.authError - Optional error message to display
- * @param {(payload: { method: AuthProtection; pin?: string; useBiometricForPin: boolean }) => Promise<void>} props.onComplete - Callback invoked to persist chosen unlock method
- * @returns {JSX.Element} Rendered complete-auth screen
- */
-export function CompleteAuthScreen({
-  isSubmitting,
-  authError,
-  onComplete,
-}: {
-  isSubmitting: boolean;
-  authError: string | null;
-  onComplete: (payload: { method: AuthProtection; pin?: string; useBiometricForPin: boolean }) => Promise<void>;
-}) {
+type Props = NativeStackScreenProps<AuthStackParamList, 'CompleteAuthSetup'>;
+
+export function CompleteAuthScreen(_props: Props) {
+  const { isSubmitting, authError, updateUnlockMethod, clearError } = useAuth();
+  const { finishAuthSetup } = useVaultLock();
+
   const [method, setMethod] = useState<AuthProtection>('pin');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -49,9 +27,7 @@ export function CompleteAuthScreen({
       .then(type => {
         const supported = Boolean(type);
         setCanUseBiometric(supported);
-        if (!supported) {
-          setUseBiometricForPin(false);
-        }
+        if (!supported) setUseBiometricForPin(false);
       })
       .catch(() => {
         setCanUseBiometric(false);
@@ -60,21 +36,23 @@ export function CompleteAuthScreen({
   }, []);
 
   const pinError = useMemo(() => {
-    if (method !== 'pin') {
-      return '';
-    }
-    if (pin.length > 0 && pin.length < 4) {
-      return 'PIN must be at least 4 digits.';
-    }
-    if (confirmPin.length > 0 && pin !== confirmPin) {
-      return 'PIN entries do not match.';
-    }
+    if (method !== 'pin') return '';
+    if (pin.length > 0 && pin.length < 4) return 'PIN must be at least 4 digits.';
+    if (confirmPin.length > 0 && pin !== confirmPin) return 'PIN entries do not match.';
     return '';
   }, [confirmPin, method, pin]);
 
   const canContinue =
-    method !== 'pin' ||
-    (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
+    method !== 'pin' || (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
+
+  const handleComplete = async () => {
+    clearError();
+    const ok = await updateUnlockMethod(method, {
+      pin: method === 'pin' ? pin : undefined,
+      pinBiometricEnabled: method === 'pin' ? useBiometricForPin : false,
+    });
+    if (ok) finishAuthSetup();
+  };
 
   return (
     <View style={styles.container}>
@@ -95,8 +73,8 @@ export function CompleteAuthScreen({
             {method === 'pin'
               ? 'PIN unlock is local to this device and does not re-authenticate your account.'
               : method === 'passkey'
-                ? 'Passkey unlock re-authenticates this account from a saved credential.'
-                : 'No unlock method is saved. After lock, you must sign in again.'}
+              ? 'Passkey unlock re-authenticates this account from a saved credential.'
+              : 'No unlock method is saved. After lock, you must sign in again.'}
           </Text>
         </View>
 
@@ -109,7 +87,7 @@ export function CompleteAuthScreen({
               placeholderTextColor="#6b7280"
               style={styles.input}
               value={pin}
-              onChangeText={value => setPin(value.replace(/[^0-9]/g, ''))}
+              onChangeText={v => setPin(v.replace(/[^0-9]/g, ''))}
               secureTextEntry
               editable={!isSubmitting}
               maxLength={12}
@@ -120,7 +98,7 @@ export function CompleteAuthScreen({
               placeholderTextColor="#6b7280"
               style={styles.input}
               value={confirmPin}
-              onChangeText={value => setConfirmPin(value.replace(/[^0-9]/g, ''))}
+              onChangeText={v => setConfirmPin(v.replace(/[^0-9]/g, ''))}
               secureTextEntry
               editable={!isSubmitting}
               maxLength={12}
@@ -144,13 +122,7 @@ export function CompleteAuthScreen({
         <PrimaryButton
           label={isSubmitting ? 'Please wait...' : 'Complete Setup'}
           disabled={isSubmitting || !canContinue || Boolean(pinError)}
-          onPress={() => {
-            void onComplete({
-              method,
-              pin: method === 'pin' ? pin : undefined,
-              useBiometricForPin: method === 'pin' ? useBiometricForPin : false,
-            });
-          }}
+          onPress={() => void handleComplete()}
         />
       </ScrollView>
     </View>

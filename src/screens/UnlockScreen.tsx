@@ -1,56 +1,44 @@
-/**
- * screens/UnlockScreen.tsx
- *
- * Unlock UI shown when the vault is locked. Supports PIN, passkey, and
- * biometric shortcut presentation. This file remains a presentational layer
- * and delegates actual unlock operations to `onUnlock` / `onUnlockWithPin`.
- */
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Keychain from 'react-native-keychain';
-import { FaceSmileIcon, FingerPrintIcon, LockClosedIcon, LockOpenIcon } from 'react-native-heroicons/solid';
+import {
+  FaceSmileIcon,
+  FingerPrintIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+} from 'react-native-heroicons/solid';
 
+import { useAuth } from '../context/AuthContext';
+import { useVaultLock } from '../context/VaultLockContext';
 import { styles } from '../theme/styles';
-import { AuthProtection } from '../types/vault';
+import type { AuthStackParamList } from '../navigation/types';
 
-/**
- * UnlockScreen
- *
- * Presentational screen shown when the vault is locked. Supports PIN entry,
- * passkey flow and biometric shortcut UI. Actual unlock operations are
- * performed by the handlers supplied via props.
- *
- * @param {object} props - Component props
- * @param {AuthProtection | null} props.preferredProtection - Configured unlock method
- * @param {boolean} props.pinBiometricEnabled - Whether biometric shortcut for PIN is enabled
- * @param {boolean} props.canUnlock - Whether unlocking is currently allowed
- * @param {boolean} props.isSubmitting - Whether an unlock request is in progress
- * @param {string|null} props.authError - Optional authentication error to display
- * @param {() => Promise<void>} props.onUnlock - Trigger a biometric/passkey unlock
- * @param {(pin: string) => Promise<void>} props.onUnlockWithPin - Unlock using a PIN
- * @param {() => void} props.onGoToAuth - Navigate to the auth screen (login/register)
- * @returns {JSX.Element} Rendered unlock screen
- */
-export function UnlockScreen({
-  preferredProtection,
-  pinBiometricEnabled,
-  canUnlock,
-  isSubmitting,
-  authError,
-  onUnlock,
-  onUnlockWithPin,
-  onGoToAuth,
-}: {
-  preferredProtection: AuthProtection | null;
-  pinBiometricEnabled: boolean;
-  canUnlock: boolean;
-  isSubmitting: boolean;
-  authError: string | null;
-  onUnlock: () => Promise<void>;
-  onUnlockWithPin: (pin: string) => Promise<void>;
-  onGoToAuth: () => void;
-}) {
+type Props = NativeStackScreenProps<AuthStackParamList, 'Unlock'>;
+
+export function UnlockScreen({ navigation }: Props) {
+  const {
+    preferredProtection,
+    pinBiometricEnabled,
+    isSubmitting,
+    authError,
+    unlockWithSavedPasskey,
+    unlockWithPin,
+    unlockWithBiometric,
+    clearError,
+  } = useAuth();
+  const { unlockVault, isCompletingAuthSetup } = useVaultLock();
+
   const [supportedBiometryType, setSupportedBiometryType] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const lockOpacity = useRef(new Animated.Value(0)).current;
@@ -72,81 +60,107 @@ export function UnlockScreen({
       .catch(() => setSupportedBiometryType(null));
   }, []);
 
+  const canUnlock = !isSubmitting && preferredProtection !== 'none';
+
+  const handlePasskeyOrBiometricUnlock = async () => {
+    clearError();
+    const ok =
+      preferredProtection === 'passkey'
+        ? await unlockWithSavedPasskey()
+        : await unlockWithBiometric();
+    if (ok) {
+      unlockVault();
+      if (isCompletingAuthSetup) {
+        navigation.replace('CompleteAuthSetup');
+      }
+    }
+  };
+
+  const handlePinUnlock = async (enteredPin: string) => {
+    clearError();
+    const ok = await unlockWithPin(enteredPin);
+    if (ok) {
+      unlockVault();
+      if (isCompletingAuthSetup) {
+        navigation.replace('CompleteAuthSetup');
+      }
+    }
+  };
+
+  // Auto-trigger biometric shortcut for PIN+biometric users.
   useEffect(() => {
     if (
       preferredProtection !== 'pin' ||
       !pinBiometricEnabled ||
       pin.trim().length > 0 ||
       !canUnlock ||
-      isSubmitting ||
       didAutoUnlockRef.current
     ) {
       return;
     }
-
     didAutoUnlockRef.current = true;
     const timer = setTimeout(() => {
-      void onUnlock();
+      void handlePasskeyOrBiometricUnlock();
     }, 220);
-
     return () => clearTimeout(timer);
-  }, [canUnlock, isSubmitting, onUnlock, pin, pinBiometricEnabled, preferredProtection]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUnlock, pin, pinBiometricEnabled, preferredProtection]);
 
   const biometryKind = useMemo(() => {
     const normalized = supportedBiometryType?.toLowerCase() ?? '';
-    if (normalized.includes('face')) {
-      return 'face';
-    }
-    return 'fingerprint';
+    return normalized.includes('face') ? 'face' : 'fingerprint';
   }, [supportedBiometryType]);
 
-  const unlockDisabled = isSubmitting || preferredProtection === 'none' || !canUnlock;
   const hasPinInput = pin.trim().length > 0;
-  const isBiometricShortcutActive = preferredProtection === 'pin' && pinBiometricEnabled && !hasPinInput;
-  const isPinUnlockAction = preferredProtection === 'pin' && hasPinInput;
-  const isPinActionInvalid =
-    preferredProtection === 'pin' &&
-    !isBiometricShortcutActive &&
-    pin.trim().length < 4;
-  const isUnlockButtonDisabled = unlockDisabled || isPinActionInvalid;
-  const UnlockIcon = isBiometricShortcutActive ? biometryKind === 'face' ? FaceSmileIcon : FingerPrintIcon : isUnlockButtonDisabled ? LockClosedIcon : LockOpenIcon;
+  const isBiometricShortcut = preferredProtection === 'pin' && pinBiometricEnabled && !hasPinInput;
+  const isPinAction = preferredProtection === 'pin' && hasPinInput;
+  const isPinTooShort = preferredProtection === 'pin' && !isBiometricShortcut && pin.trim().length < 4;
+  const isButtonDisabled = !canUnlock || isPinTooShort;
 
-  const unlockButtonText =
-    isSubmitting
-      ? 'Please wait...'
-      : preferredProtection === 'passkey'
-        ? 'Unlock with Passkey'
-        : isPinUnlockAction
-          ? 'Unlock with PIN'
-          : isBiometricShortcutActive
-            ? biometryKind === 'face'
-              ? 'Unlock with Face ID'
-              : 'Unlock with Fingerprint'
-            : 'Unlock with PIN';
+  const UnlockIcon = isBiometricShortcut
+    ? biometryKind === 'face'
+      ? FaceSmileIcon
+      : FingerPrintIcon
+    : isButtonDisabled
+    ? LockClosedIcon
+    : LockOpenIcon;
+
+  const unlockButtonText = isSubmitting
+    ? 'Please wait...'
+    : preferredProtection === 'passkey'
+    ? 'Unlock with Passkey'
+    : isPinAction
+    ? 'Unlock with PIN'
+    : isBiometricShortcut
+    ? biometryKind === 'face'
+      ? 'Unlock with Face ID'
+      : 'Unlock with Fingerprint'
+    : 'Unlock with PIN';
 
   const handleUnlockPress = () => {
-    if (preferredProtection === 'pin' && !isBiometricShortcutActive) {
-      void onUnlockWithPin(pin);
-      return;
+    if (preferredProtection === 'pin' && !isBiometricShortcut) {
+      void handlePinUnlock(pin);
+    } else {
+      void handlePasskeyOrBiometricUnlock();
     }
-    void onUnlock();
+  };
+
+  const handleGoToAuth = () => {
+    clearError();
+    navigation.navigate('Auth', { accessMode: 'login' });
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
-    >
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}>
       <ScrollView
         contentContainerStyle={[styles.scrollContainer, { flexGrow: 1 }]}
-        keyboardShouldPersistTaps="handled"
-      >
+        keyboardShouldPersistTaps="handled">
         <View style={{ flex: 1 }}>
           <View style={styles.introHero}>
-            <Animated.View
-              style={[styles.logoPlaceholder, { opacity: lockOpacity }]}
-            >
+            <Animated.View style={[styles.logoPlaceholder, { opacity: lockOpacity }]}>
               <LockClosedIcon size={30} color="#93c5fd" />
             </Animated.View>
             <Text style={styles.brand}>Unlock Vault</Text>
@@ -155,25 +169,16 @@ export function UnlockScreen({
             </Text>
           </View>
 
-          <View
-            style={{
-              marginTop: 'auto',
-              paddingTop: 18,
-              paddingBottom: 44,
-              gap: 10,
-            }}
-          >
+          <View style={{ marginTop: 'auto', paddingTop: 18, paddingBottom: 44, gap: 10 }}>
             <View>
-              {authError ? (
-                <Text style={styles.errorText}>{authError}</Text>
-              ) : null}
+              {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
               {preferredProtection === 'none' ? (
                 <Text style={styles.cardMeta}>
-                  Unlock is disabled for this account. Use Login / Register
-                  below.
+                  Unlock is disabled for this account. Use Login / Register below.
                 </Text>
               ) : null}
             </View>
+
             {preferredProtection === 'pin' ? (
               <TextInput
                 keyboardType="number-pad"
@@ -184,34 +189,21 @@ export function UnlockScreen({
                 style={styles.input}
                 value={pin}
                 secureTextEntry
-                onChangeText={value => setPin(value.replace(/[^0-9]/g, ''))}
+                onChangeText={v => setPin(v.replace(/[^0-9]/g, ''))}
                 editable={!isSubmitting}
                 maxLength={12}
               />
             ) : null}
 
             <Pressable
-              disabled={isUnlockButtonDisabled}
+              disabled={isButtonDisabled}
               onPress={handleUnlockPress}
               style={[
                 styles.primaryButton,
-                isUnlockButtonDisabled && styles.primaryButtonDisabled,
-                {
-                  marginTop: 0,
-                  minHeight: 52,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                },
-              ]}
-            >
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-              >
+                isButtonDisabled && styles.primaryButtonDisabled,
+                { marginTop: 0, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+              ]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <UnlockIcon size={20} color="#ffffff" />
                 <Text style={styles.primaryButtonText}>{unlockButtonText}</Text>
               </View>
@@ -219,14 +211,8 @@ export function UnlockScreen({
 
             <Pressable
               disabled={isSubmitting}
-              onPress={onGoToAuth}
-              style={{
-                borderRadius: 12,
-                paddingVertical: 12,
-                alignItems: 'center',
-                backgroundColor: '#334155',
-              }}
-            >
+              onPress={handleGoToAuth}
+              style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#334155' }}>
               <Text style={styles.primaryButtonText}>
                 {isSubmitting ? 'Please wait...' : 'Use Login / Register'}
               </Text>
