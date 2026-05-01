@@ -17,6 +17,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
 import { useDocumentVaultContext } from '../context/DocumentVaultContext';
+import { useVaultLock } from '../context/VaultLockContext';
 import { PrimaryButton, SecondaryButton } from '../components/ui';
 import {
   documentSaveLocal,
@@ -197,6 +198,7 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
   const { draft, saveOfflineByDefault, recoverableByDefault, canUseCloud } = route.params;
   const { user, isGuest } = useAuth();
   const { setDocuments } = useDocumentVaultContext();
+  const { setIsPickingFile } = useVaultLock();
 
   const [files, setFiles] = React.useState<UploadableDocument[]>(draft.files);
   const [documentName, setDocumentName] = React.useState(draft.name);
@@ -230,20 +232,26 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
   const ownerId = isGuest ? 'guest-local' : (user?.uid ?? 'guest-local');
 
   const handlePickNewFile = async () => {
+    setIsPickingFile(true);
     try {
       const picked = await pickDocumentForUpload();
       setFiles(prev => [...prev, picked]);
     } catch {
       // user cancelled
+    } finally {
+      setIsPickingFile(false);
     }
   };
 
   const handleScanNewFile = async () => {
+    setIsPickingFile(true);
     try {
       const scanned = await scanDocumentForUpload();
       setFiles(prev => [...prev, scanned]);
     } catch {
       // user cancelled
+    } finally {
+      setIsPickingFile(false);
     }
   };
 

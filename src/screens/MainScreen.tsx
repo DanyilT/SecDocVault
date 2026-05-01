@@ -15,6 +15,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useDocumentVaultContext } from '../context/DocumentVaultContext';
+import { useVaultLock } from '../context/VaultLockContext';
 import { Header, SecondaryButton, SegmentButton } from '../components/ui';
 import {
   deleteDocumentFromFirebase,
@@ -42,6 +43,7 @@ function normalizeRecipientIdentifier(value: string | null | undefined): string 
 
 export function MainScreen({ navigation }: Props) {
   const { user, isGuest } = useAuth();
+  const { setIsPickingFile } = useVaultLock();
   const {
     documents,
     setDocuments,
@@ -204,6 +206,7 @@ export function MainScreen({ navigation }: Props) {
   const handlePickAndUpload = async () => {
     setIsUploading(true);
     setUploadStatus('Picking document...');
+    setIsPickingFile(true);
     try {
       const picked = await pickDocumentForUpload();
       setUploadStatus('');
@@ -211,6 +214,7 @@ export function MainScreen({ navigation }: Props) {
     } catch (err) {
       setUploadStatus(err instanceof Error ? err.message : 'Failed to pick document.');
     } finally {
+      setIsPickingFile(false);
       setIsUploading(false);
     }
   };
@@ -218,6 +222,7 @@ export function MainScreen({ navigation }: Props) {
   const handleScanAndUpload = async () => {
     setIsUploading(true);
     setUploadStatus('Opening camera...');
+    setIsPickingFile(true);
     try {
       const scanned = await scanDocumentForUpload();
       setUploadStatus('');
@@ -225,6 +230,7 @@ export function MainScreen({ navigation }: Props) {
     } catch (err) {
       setUploadStatus(err instanceof Error ? err.message : 'Failed to scan document.');
     } finally {
+      setIsPickingFile(false);
       setIsUploading(false);
     }
   };

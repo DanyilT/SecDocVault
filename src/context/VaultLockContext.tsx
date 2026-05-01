@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 
 import { useAuth } from './AuthContext';
 
@@ -10,6 +11,7 @@ type VaultLockContextValue = {
   unlockVault: () => void;
   startAuthSetup: () => void;
   finishAuthSetup: () => void;
+  setIsPickingFile: (value: boolean) => void;
 };
 
 const VaultLockContext = createContext<VaultLockContextValue | undefined>(undefined);
@@ -18,6 +20,7 @@ export function VaultLockProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [hasUnlockedThisLaunch, setHasUnlockedThisLaunch] = useState(false);
   const [isCompletingAuthSetup, setIsCompletingAuthSetup] = useState(false);
+  const isPickingFileRef = useRef(false);
 
   // Derived synchronously so isVaultLocked is always consistent with isAuthenticated
   // in the same render — prevents the flash where isAuthenticated=true but
@@ -30,6 +33,20 @@ export function VaultLockProvider({ children }: { children: React.ReactNode }) {
       setIsCompletingAuthSetup(false);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    let currentState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      const isGoingToBackground = currentState === 'active' && nextState !== 'active';
+      currentState = nextState;
+
+      if (isGoingToBackground && isAuthenticated && hasUnlockedThisLaunch && !isPickingFileRef.current) {
+        setHasUnlockedThisLaunch(false);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [isAuthenticated, hasUnlockedThisLaunch]);
 
   const lockVault = useCallback(() => {
     setHasUnlockedThisLaunch(false);
@@ -48,6 +65,10 @@ export function VaultLockProvider({ children }: { children: React.ReactNode }) {
     setHasUnlockedThisLaunch(true);
   }, []);
 
+  const setIsPickingFile = useCallback((value: boolean) => {
+    isPickingFileRef.current = value;
+  }, []);
+
   return (
     <VaultLockContext.Provider
       value={{
@@ -58,6 +79,7 @@ export function VaultLockProvider({ children }: { children: React.ReactNode }) {
         unlockVault,
         startAuthSetup,
         finishAuthSetup,
+        setIsPickingFile,
       }}>
       {children}
     </VaultLockContext.Provider>
