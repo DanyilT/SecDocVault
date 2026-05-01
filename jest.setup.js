@@ -97,3 +97,8 @@ jest.mock('react-native-keychain', () => ({
   setGenericPassword: jest.fn(async () => true),
   resetGenericPassword: jest.fn(async () => true),
 }));
+
+jest.mock('react-native-view-shot', () => ({
+  captureRef: jest.fn(async () => 'bW9ja0Jhc2U2NA=='),
+  captureScreen: jest.fn(async () => 'bW9ja0Jhc2U2NA=='),
+}));

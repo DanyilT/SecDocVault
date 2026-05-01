@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Image, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -11,11 +11,17 @@ import {
   MinusCircleIcon,
   ShareIcon,
   TrashIcon,
+  DocumentArrowDownIcon,
 } from 'react-native-heroicons/solid';
+import { captureRef } from 'react-native-view-shot';
+import RNFS from 'react-native-fs';
 
 import { useAuth } from '../context/AuthContext';
 import { useDocumentVaultContext } from '../context/DocumentVaultContext';
 import { Header, PrimaryButton } from '../components/ui';
+import { CensoredImageView } from '../components/CensoredImageView';
+import { CensorToggle } from '../components/CensorToggle';
+import { censorImage, CensorResult } from '../services/censor';
 import {
   decryptDocumentPayload,
   deleteDocumentFromFirebase,
@@ -52,6 +58,16 @@ export function PreviewScreen({ route, navigation }: Props) {
   const [keyBackupEnabled, setKeyBackupEnabled] = React.useState(false);
   const copyResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- Censor feature state ---
+  const [censorEnabled, setCensorEnabled] = React.useState(false);
+  const [censorLoading, setCensorLoading] = React.useState(false);
+  const [censorResult, setCensorResult] = React.useState<CensorResult | null>(null);
+  const [isSavingCensored, setIsSavingCensored] = React.useState(false);
+  const [censorSaveStatus, setCensorSaveStatus] = React.useState<string | null>(null);
+
+  // Ref to the censored image view so we can capture it
+  const censoredImageRef = React.useRef<View>(null);
+
   React.useEffect(() => {
     void getVaultPreferences().then(prefs => setKeyBackupEnabled(prefs.keyBackupEnabled));
   }, []);
@@ -68,6 +84,43 @@ export function PreviewScreen({ route, navigation }: Props) {
     setIsCurrentFileDecrypted(false);
     setPreviewStatus('');
   }, [previewFileOrder]);
+
+  React.useEffect(() => {
+    if (!censorEnabled || !previewImageUri) {
+      setCensorResult(null);
+      return;
+    }
+    let cancelled = false;
+    setCensorLoading(true);
+    censorImage(previewImageUri)
+      .then(r => { if (!cancelled) setCensorResult(r); })
+      .finally(() => { if (!cancelled) setCensorLoading(false); });
+    return () => { cancelled = true; };
+  }, [censorEnabled, previewImageUri]);
+
+  React.useEffect(() => {
+    setCensorEnabled(false);
+    setCensorResult(null);
+    setCensorSaveStatus(null);
+  }, [previewImageUri]);
+
+  const saveCensoredVersion = React.useCallback(async () => {
+    if (!censoredImageRef.current || !censorResult) return;
+    setIsSavingCensored(true);
+    setCensorSaveStatus(null);
+    try {
+      const base64 = await captureRef(censoredImageRef, { format: 'png', quality: 1, result: 'base64' });
+      const targetDir = Platform.OS === 'android' ? RNFS.DownloadDirectoryPath : RNFS.DocumentDirectoryPath;
+      const safeName = (doc?.name ?? 'document').replace(/[^a-z0-9_\-. ]/gi, '_');
+      const outputPath = `${targetDir}/${Date.now()}-censored-${safeName}.png`;
+      await RNFS.writeFile(outputPath, base64, 'base64');
+      setCensorSaveStatus(`Censored image saved to:\n${outputPath}`);
+    } catch (err) {
+      setCensorSaveStatus(`Failed to save: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsSavingCensored(false);
+    }
+  }, [censorResult, doc?.name]);
 
   if (!doc) {
     return (
@@ -243,6 +296,17 @@ export function PreviewScreen({ route, navigation }: Props) {
         keyboardShouldPersistTaps="handled"
       >
 
+      {/* Censor toggle — left-aligned above the image */}
+      {previewImageUri ? (
+        <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}>
+          <CensorToggle
+            value={censorEnabled}
+            loading={censorLoading}
+            onChange={setCensorEnabled}
+          />
+        </View>
+      ) : null}
+
       <Pressable
         {...panResponder.panHandlers}
         onPress={() => {
@@ -267,8 +331,11 @@ export function PreviewScreen({ route, navigation }: Props) {
         }}
       >
         {previewImageUri ? (
-          <Image
-            source={{ uri: previewImageUri }}
+          <CensoredImageView
+            ref={censoredImageRef}
+            uri={previewImageUri}
+            censor={censorEnabled ? censorResult : null}
+            resizeMode="contain"
             style={[styles.previewImage, { borderWidth: 0, borderRadius: 0, height: '100%' }]}
           />
         ) : (
@@ -352,11 +419,13 @@ export function PreviewScreen({ route, navigation }: Props) {
           }}
         >
           {previewImageUri ? (
-            <Image
-              source={{ uri: previewImageUri }}
-              resizeMode="contain"
-              style={{ width: '100%', height: '100%' }}
-            />
+            <View style={{ width: '100%', height: '100%' }}>
+              <CensoredImageView
+                uri={previewImageUri}
+                censor={censorEnabled ? censorResult : null}
+                resizeMode="contain"
+              />
+            </View>
           ) : null}
         </Pressable>
       </Modal>
@@ -434,11 +503,20 @@ export function PreviewScreen({ route, navigation }: Props) {
             icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
             variant={hasLocalCopy ? 'danger' : 'default'}
             disabled={isSavingOffline}
-            onPress={() =>
-              hasLocalCopy ? void handleDeleteLocal() : void handleSaveOffline()
-            }
+            onPress={() => hasLocalCopy ? void handleDeleteLocal() : void handleSaveOffline()}
           />
         </View>
+        {censorEnabled && censorResult && !censorLoading ? (
+          <View style={styles.previewActionButton}>
+            <PrimaryButton
+              label={isSavingCensored ? 'Saving…' : 'Save Censored Version'}
+              icon={DocumentArrowDownIcon}
+              variant="outline"
+              disabled={isSavingCensored}
+              onPress={() => void saveCensoredVersion()}
+            />
+          </View>
+        ) : null}
         <View style={styles.previewActionButton}>
           {isOwner ? (
             <PrimaryButton
@@ -473,6 +551,10 @@ export function PreviewScreen({ route, navigation }: Props) {
           </View>
         ) : null}
       </View>
+
+      {censorSaveStatus ? (
+        <Text style={[styles.backupStatus, { marginTop: 8 }]}>{censorSaveStatus}</Text>
+      ) : null}
       </ScrollView>
     </View>
   );
