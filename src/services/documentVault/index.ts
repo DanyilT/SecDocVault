@@ -22,6 +22,7 @@ export {
   canCurrentUserExportDocument,
   clearDocumentKeychainEntries,
   createDocumentShareGrant,
+  deleteUserShareProfile,
   enforceExpiredShareRevocations,
   ensureCurrentUserSharePublicKey,
   revokeDocumentShareGrant,

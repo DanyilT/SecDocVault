@@ -21,7 +21,7 @@ import * as Keychain from 'react-native-keychain';
 
 import { FIREBASE_AUTH_EMAIL_LINK_URL } from '../firebase/project';
 import { AuthProtection, AuthSessionMode } from '../types/vault';
-import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, listVaultDocumentsFromFirebase } from '../services/documentVault';
+import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, deleteUserShareProfile, listVaultDocumentsFromFirebase } from '../services/documentVault';
 import { clearKeyBackupData, deleteKeyBackupFromFirebase } from '../services/keyBackup';
 import { clearLocalVaultData, getLocalDocuments } from '../storage/localVault';
 
@@ -974,6 +974,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (ownerId) {
         await Promise.allSettled(remoteDocs.map(docItem => deleteDocumentFromFirebase(docItem)));
         await deleteKeyBackupFromFirebase(ownerId).catch(() => undefined);
+        await deleteUserShareProfile(ownerId).catch(() => undefined);
       }
 
       await clearLocalVaultData(ownerId);

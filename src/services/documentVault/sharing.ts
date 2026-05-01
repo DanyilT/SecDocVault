@@ -13,6 +13,7 @@
 import { getApp } from '@react-native-firebase/app';
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -359,6 +360,12 @@ export async function ensureCurrentUserSharePublicKey(userId: string, email?: st
   );
 
   return publicKey;
+}
+
+export async function deleteUserShareProfile(userId: string): Promise<void> {
+  const app = getApp();
+  const db = getFirestore(app);
+  await deleteDoc(doc(db, USERS_COLLECTION_PATH, userId));
 }
 
 async function getRecipientShareProfileByEmail(recipientEmail: string) {
