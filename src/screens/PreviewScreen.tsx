@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Modal, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -20,6 +20,7 @@ import {
   decryptDocumentPayload,
   deleteDocumentFromFirebase,
   exportDocumentToDevice,
+  removeFirebaseReferences,
   removeLocalDocumentCopy,
   saveDocumentOffline,
   saveDocumentToFirebase,
@@ -159,9 +160,28 @@ export function PreviewScreen({ route, navigation }: Props) {
   };
 
   const handleDeleteLocal = async () => {
+    if (!hasFirebaseCopy) {
+      const confirmed = await new Promise<boolean>(resolve =>
+        Alert.alert(
+          'Delete document permanently?',
+          `"${doc.name}" has no cloud copy. Deleting the offline copy will permanently remove this document and it cannot be recovered.`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
+          ],
+        ),
+      );
+      if (!confirmed) return;
+    }
     try {
       const updated = await removeLocalDocumentCopy(doc);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
+      const hasRefs = (updated.references?.length ?? 0) > 0;
+      setDocuments(prev =>
+        hasRefs
+          ? prev.map(d => (d.id === updated.id ? updated : d))
+          : prev.filter(d => d.id !== updated.id),
+      );
+      if (!hasRefs) navigation.goBack();
     } catch (err) {
       setPreviewStatus(err instanceof Error ? err.message : 'Failed to delete local copy.');
     }
@@ -178,9 +198,28 @@ export function PreviewScreen({ route, navigation }: Props) {
   };
 
   const handleDeleteFromFirebase = async () => {
+    if (!hasLocalCopy) {
+      const confirmed = await new Promise<boolean>(resolve =>
+        Alert.alert(
+          'Delete document permanently?',
+          `"${doc.name}" has no offline copy. Deleting the cloud copy will permanently remove this document and it cannot be recovered.`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
+          ],
+        ),
+      );
+      if (!confirmed) return;
+    }
     try {
       await deleteDocumentFromFirebase(doc);
-      navigation.goBack();
+      const localOnly = removeFirebaseReferences(doc);
+      setDocuments(prev =>
+        localOnly
+          ? prev.map(d => (d.id === doc.id ? localOnly : d))
+          : prev.filter(d => d.id !== doc.id),
+      );
+      if (!localOnly) navigation.goBack();
     } catch (err) {
       setPreviewStatus(err instanceof Error ? err.message : 'Failed to delete from cloud.');
     }

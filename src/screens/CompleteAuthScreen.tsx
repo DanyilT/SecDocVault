@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Keychain from 'react-native-keychain';
 
 import { useAuth } from '../context/AuthContext';
 import { useVaultLock } from '../context/VaultLockContext';
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
+import { hasKdfPassphrase, restoreKdfPassphrase, setRecoveryPassphrase } from '../services/crypto/documentCrypto';
 import { styles } from '../theme/styles';
 import type { AuthProtection } from '../types/vault';
 import type { AuthStackParamList } from '../navigation/types';
@@ -22,6 +23,20 @@ export function CompleteAuthScreen(_props: Props) {
   const [canUseBiometric, setCanUseBiometric] = useState(false);
   const [useBiometricForPin, setUseBiometricForPin] = useState(false);
 
+  const [passphraseNeeded, setPassphraseNeeded] = useState(false);
+  const [passphraseReady, setPassphraseReady] = useState(false);
+  const [loginPassphrase, setLoginPassphrase] = useState('');
+  const [showLoginPassphrase, setShowLoginPassphrase] = useState(false);
+  const [passphraseError, setPassphraseError] = useState('');
+  const [isSettingPassphrase, setIsSettingPassphrase] = useState(false);
+
+  useEffect(() => {
+    void hasKdfPassphrase().then(has => {
+      setPassphraseNeeded(!has);
+      setPassphraseReady(true);
+    });
+  }, []);
+
   useEffect(() => {
     void Keychain.getSupportedBiometryType()
       .then(type => {
@@ -34,6 +49,25 @@ export function CompleteAuthScreen(_props: Props) {
         setUseBiometricForPin(false);
       });
   }, []);
+
+  const handlePassphraseSetup = async () => {
+    const normalized = loginPassphrase.trim();
+    if (normalized.length < 8) {
+      setPassphraseError('Passphrase must be at least 8 characters.');
+      return;
+    }
+    setIsSettingPassphrase(true);
+    setPassphraseError('');
+    try {
+      await restoreKdfPassphrase(normalized);
+      await setRecoveryPassphrase(normalized);
+      setPassphraseNeeded(false);
+    } catch (err) {
+      setPassphraseError(err instanceof Error ? err.message : 'Failed to restore passphrase.');
+    } finally {
+      setIsSettingPassphrase(false);
+    }
+  };
 
   const pinError = useMemo(() => {
     if (method !== 'pin') return '';
@@ -53,6 +87,49 @@ export function CompleteAuthScreen(_props: Props) {
     });
     if (ok) finishAuthSetup();
   };
+
+  if (passphraseReady && passphraseNeeded) {
+    return (
+      <View style={styles.container}>
+        <Header title="Enter Vault Passphrase" />
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <Text style={styles.subtitle}>
+            Enter the passphrase you set when you created your account. It is used to protect your encrypted document keys.
+          </Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Vault Passphrase</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
+              <TextInput
+                autoCapitalize="none"
+                secureTextEntry={!showLoginPassphrase}
+                placeholder="Vault passphrase"
+                placeholderTextColor="#6b7280"
+                style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                value={loginPassphrase}
+                onChangeText={text => { setLoginPassphrase(text); setPassphraseError(''); }}
+                editable={!isSettingPassphrase}
+              />
+              <Pressable onPress={() => setShowLoginPassphrase(p => !p)}>
+                <Text style={styles.secondaryButtonText}>{showLoginPassphrase ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            </View>
+            {passphraseError ? <Text style={styles.errorText}>{passphraseError}</Text> : null}
+          </View>
+          <PrimaryButton
+            label={isSettingPassphrase ? 'Please wait...' : 'Continue'}
+            disabled={isSettingPassphrase || loginPassphrase.trim().length < 8}
+            onPress={() => void handlePassphraseSetup()}
+          />
+          <Pressable
+            disabled={isSettingPassphrase}
+            onPress={() => setPassphraseNeeded(false)}
+            style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#334155', marginTop: 4 }}>
+            <Text style={styles.primaryButtonText}>Skip for now</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

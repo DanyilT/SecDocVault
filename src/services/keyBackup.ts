@@ -22,6 +22,7 @@ import RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
 
 import {
+  clearVaultPassphraseData,
   getRecoveryPassphrase,
   getOrCreateKdfMaterial,
   randomWordArray,
@@ -61,7 +62,10 @@ export type KeyBackupResult = {
 };
 
 
-async function resolveDocumentKeyForBackup(docMeta: VaultDocument): Promise<string | null> {
+async function resolveDocumentKeyForBackup(
+  docMeta: VaultDocument,
+  backupPassphrase: string,
+): Promise<string | null> {
   const direct = await Keychain.getGenericPassword({
     service: `${DOC_KEY_SERVICE_PREFIX}.${docMeta.id}`,
   });
@@ -74,39 +78,41 @@ async function resolveDocumentKeyForBackup(docMeta: VaultDocument): Promise<stri
     return null;
   }
 
-  try {
-    if (docMeta.encryptedDocKey.wrapMode !== 'recovery') {
-      const { passphrase } = await getOrCreateKdfMaterial();
+  // For recovery-mode keys, derive a wrapping key from the backup passphrase
+  // via PBKDF2 (handled inside unwrapDocumentKey) and attempt unwrap.
+  if (docMeta.encryptedDocKey.wrapMode === 'recovery') {
+    try {
       const unwrapped = await unwrapDocumentKey(
         docMeta.encryptedDocKey.cipher,
         docMeta.encryptedDocKey.iv,
-        passphrase,
+        backupPassphrase,
         docMeta.encryptedDocKey.salt,
         docMeta.encryptedDocKey.algorithm,
         docMeta.encryptedDocKey.iterations,
         docMeta.encryptedDocKey.authTag,
       );
       return normalizeDocumentKeyB64(unwrapped);
+    } catch {
+      return null;
     }
-  } catch {
-    // Try recovery-passphrase fallback for recovery-wrapped documents.
   }
 
-  const recoveryPassphrase = await getRecoveryPassphrase();
-  if (!recoveryPassphrase) {
+  // For device-mode keys, derive from the local KDF material.
+  try {
+    const { passphrase } = await getOrCreateKdfMaterial();
+    const unwrapped = await unwrapDocumentKey(
+      docMeta.encryptedDocKey.cipher,
+      docMeta.encryptedDocKey.iv,
+      passphrase,
+      docMeta.encryptedDocKey.salt,
+      docMeta.encryptedDocKey.algorithm,
+      docMeta.encryptedDocKey.iterations,
+      docMeta.encryptedDocKey.authTag,
+    );
+    return normalizeDocumentKeyB64(unwrapped);
+  } catch {
     return null;
   }
-
-  const unwrapped = await unwrapDocumentKey(
-    docMeta.encryptedDocKey.cipher,
-    docMeta.encryptedDocKey.iv,
-    recoveryPassphrase,
-    docMeta.encryptedDocKey.salt,
-    docMeta.encryptedDocKey.algorithm,
-    docMeta.encryptedDocKey.iterations,
-    docMeta.encryptedDocKey.authTag,
-  );
-  return normalizeDocumentKeyB64(unwrapped);
 }
 
 export async function backupKeysToFirebase(
@@ -122,8 +128,7 @@ export async function backupKeysToFirebase(
     throw new Error('Recovery passphrase is required.');
   }
 
-  await setRecoveryPassphrase(passphrase.trim());
-
+  const normalizedPassphrase = passphrase.trim();
   const recoverySalt = toBase64(randomWordArray(16));
   const items: SerializedBackupEntry[] = [];
 
@@ -132,7 +137,7 @@ export async function backupKeysToFirebase(
       continue;
     }
 
-    const resolvedKey = await resolveDocumentKeyForBackup(item);
+    const resolvedKey = await resolveDocumentKeyForBackup(item, normalizedPassphrase);
     if (!resolvedKey) {
       continue;
     }
@@ -140,7 +145,7 @@ export async function backupKeysToFirebase(
     items.push({
       docId: item.id,
       name: item.name,
-      wrappedKey: await wrapDocumentKey(resolvedKey, passphrase, recoverySalt, {wrapMode: 'recovery'}),
+      wrappedKey: await wrapDocumentKey(resolvedKey, normalizedPassphrase, recoverySalt, {wrapMode: 'recovery'}),
       uploadedAt: new Date().toISOString(),
     });
   }
@@ -166,9 +171,11 @@ export async function backupKeysToFirebase(
     updatedAt: serverTimestamp(),
   });
 
+  await setRecoveryPassphrase(normalizedPassphrase);
+
   return {
     backupId: ownerId,
-    passphrase,
+    passphrase: normalizedPassphrase,
     backedUpCount: items.length,
   };
 }
@@ -256,7 +263,14 @@ export async function ensureRecoveryPassphrase(): Promise<string> {
     return existing;
   }
 
-  throw new Error('No recovery passphrase configured. Complete vault setup first.');
+  // Fall back to the KDF passphrase set at account creation — it doubles as the recovery passphrase.
+  try {
+    const { passphrase } = await getOrCreateKdfMaterial();
+    await setRecoveryPassphrase(passphrase);
+    return passphrase;
+  } catch {
+    throw new Error('No recovery passphrase found. Please log in and enter your vault passphrase.');
+  }
 }
 
 async function getOrCreateAutoSyncPassphrase(): Promise<string> {
@@ -334,6 +348,7 @@ export async function clearKeyBackupData(): Promise<void> {
   await Promise.allSettled([
     AsyncStorage.removeItem(AUTO_SYNC_KEYS_ENABLED),
     Keychain.resetGenericPassword({service: AUTO_SYNC_KEYS_PASSPHRASE}),
+    clearVaultPassphraseData(),
   ]);
 }
 

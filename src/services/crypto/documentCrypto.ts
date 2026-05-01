@@ -269,6 +269,12 @@ export async function initUserKdfPassphrase(passphrase: string) {
   });
   await AsyncStorage.setItem(KDF_SALT_KEY, salt);
 
+  // The vault passphrase doubles as the recovery passphrase for cloud key backup.
+  await Keychain.setGenericPassword('recovery', normalized, {
+    service: RECOVERY_PASSPHRASE_SERVICE,
+    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  });
+
   return { passphrase: normalized, salt };
 }
 
@@ -287,6 +293,14 @@ export async function setRecoveryPassphrase(passphrase: string) {
 export async function getRecoveryPassphrase() {
   const existing = await Keychain.getGenericPassword({service: RECOVERY_PASSPHRASE_SERVICE});
   return existing ? existing.password : null;
+}
+
+export async function clearVaultPassphraseData(): Promise<void> {
+  await Promise.allSettled([
+    Keychain.resetGenericPassword({service: KDF_PASSPHRASE_SERVICE}),
+    Keychain.resetGenericPassword({service: RECOVERY_PASSPHRASE_SERVICE}),
+    AsyncStorage.removeItem(KDF_SALT_KEY),
+  ]);
 }
 
 /**

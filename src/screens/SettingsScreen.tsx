@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useDocumentVaultContext } from '../context/DocumentVaultContext';
 import { Header, PrimaryButton } from '../components/ui';
-import { backupKeysToFirebase, ensureRecoveryPassphrase } from '../services/keyBackup';
+import { ensureRecoveryPassphrase } from '../services/keyBackup';
 import { getVaultPreferences, saveVaultPreferences } from '../storage/localVault';
 import { styles } from '../theme/styles';
 import type { VaultStackParamList } from '../navigation/types';
@@ -36,7 +36,6 @@ export function SettingsScreen({ navigation }: Props) {
   const [saveOfflineByDefault, setSaveOfflineByDefault] = useState(false);
   const [recoverableByDefault, setRecoverableByDefault] = useState(false);
   const [keyBackupStatus, setKeyBackupStatus] = useState('');
-  const [backupPassphrase, setBackupPassphrase] = useState('');
 
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -131,18 +130,6 @@ export function SettingsScreen({ navigation }: Props) {
     guestNewPassword === guestConfirmPassword &&
     !guestPasswordError;
 
-  const handleBackupKeys = async () => {
-    if (!user?.uid || !backupPassphrase.trim()) return;
-    setKeyBackupStatus('Backing up keys...');
-    try {
-      const result = await backupKeysToFirebase(user.uid, documents, backupPassphrase.trim());
-      setKeyBackupStatus(`Backup created: ${result.backedUpCount} key(s) saved. Store your passphrase securely.`);
-      setBackupPassphrase('');
-    } catch (err) {
-      setKeyBackupStatus(err instanceof Error ? err.message : 'Backup failed.');
-    }
-  };
-
   const savePrefs = async (updates: Partial<{
     saveOfflineByDefault: boolean;
     recoverableByDefault: boolean;
@@ -160,10 +147,8 @@ export function SettingsScreen({ navigation }: Props) {
   const handleSetRecoverableByDefault = async (value: boolean) => {
     try {
       if (value) {
-        const passphrase = await ensureRecoveryPassphrase();
-        setKeyBackupStatus(
-          `Key recovery enabled. Save this recovery passphrase securely: ${passphrase}`,
-        );
+        await ensureRecoveryPassphrase();
+        setKeyBackupStatus('Key recovery enabled for new documents.');
       } else {
         setKeyBackupStatus('Key recovery for new documents disabled.');
       }
@@ -386,25 +371,9 @@ export function SettingsScreen({ navigation }: Props) {
         ) : null}
 
         {!isGuest ? (
-          <>
-            <Text style={styles.subtitle}>
-              Enter your recovery passphrase to create or update the cloud key backup.
-            </Text>
-            <TextInput
-              value={backupPassphrase}
-              onChangeText={setBackupPassphrase}
-              style={styles.input}
-              placeholder="Recovery passphrase"
-              placeholderTextColor="#6b7280"
-              autoCapitalize="none"
-              secureTextEntry
-            />
-            <PrimaryButton
-              label="Backup Keys"
-              onPress={() => void handleBackupKeys()}
-              disabled={isSubmitting || backupPassphrase.trim().length < 6}
-            />
-          </>
+          <Text style={styles.subtitle}>
+            Key recovery uses the passphrase you set when creating your account.
+          </Text>
         ) : null}
 
         {keyBackupStatus ? <Text style={styles.backupStatus}>{keyBackupStatus}</Text> : null}
