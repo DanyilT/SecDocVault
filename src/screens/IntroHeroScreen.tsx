@@ -1,15 +1,16 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { GuestLoginNotice } from '../components/GuestLoginNotice.tsx';
 import { SegmentButton } from '../components/ui';
 import { styles } from '../theme/styles';
-import type { AuthStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'IntroHero'>;
+type Props = {
+  onLogin: () => void;
+  onGuest: () => void;
+};
 
-export function IntroHeroScreen({ navigation }: Props) {
+export function IntroHeroScreen({ onLogin, onGuest }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.introHero}>
@@ -26,16 +27,8 @@ export function IntroHeroScreen({ navigation }: Props) {
           Keep vault files secure, preview the app, and continue to authentication when ready.
         </Text>
         <View style={styles.actionRow}>
-          <SegmentButton
-            label="Login"
-            isActive
-            onPress={() => navigation.navigate('Auth', { accessMode: 'login' })}
-          />
-          <SegmentButton
-            label="Guest"
-            isActive
-            onPress={() => navigation.navigate('Auth', { accessMode: 'guest' })}
-          />
+          <SegmentButton label="Login" isActive onPress={onLogin} />
+          <SegmentButton label="Guest" isActive onPress={onGuest} />
         </View>
         <GuestLoginNotice />
       </View>

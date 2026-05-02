@@ -348,16 +348,24 @@ export async function ensureCurrentUserSharePublicKey(userId: string, email?: st
   const {publicKey} = await getOrCreateSharingKeyPair(userId);
   const app = getApp();
   const db = getFirestore(app);
+  const userDocRef = doc(db, USERS_COLLECTION_PATH, userId);
+  const emailLower = email?.trim().toLowerCase() ?? null;
+
   await setDoc(
-    doc(db, USERS_COLLECTION_PATH, userId),
+    userDocRef,
     {
       uid: userId,
-      emailLower: email?.trim().toLowerCase() ?? null,
+      emailLower,
       sharePublicKey: publicKey,
       updatedAt: new Date().toISOString(),
     },
     { merge: true },
   );
+
+  const snapshot = await getDoc(userDocRef);
+  if (!snapshot.exists() || snapshot.data()?.sharePublicKey !== publicKey) {
+    throw new Error('Share key could not be verified in the database. Check network connection and try again.');
+  }
 
   return publicKey;
 }

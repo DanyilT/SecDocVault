@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from './src/context/AuthContext';
 import { VaultLockProvider } from './src/context/VaultLockContext';
 import { DocumentVaultProvider } from './src/context/DocumentVaultContext';
-import { AppNavigator } from './src/navigation/AppNavigator';
+import { AppShell } from './src/app/components/AppShell';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -18,7 +18,7 @@ function App(): React.JSX.Element {
         <AuthProvider>
           <VaultLockProvider>
             <DocumentVaultProvider>
-              <AppNavigator />
+              <AppShell />
             </DocumentVaultProvider>
           </VaultLockProvider>
         </AuthProvider>

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Alert, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ArrowDownTrayIcon,
   CloudArrowDownIcon,
@@ -16,61 +15,77 @@ import {
 import { captureRef } from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
 
-import { useAuth } from '../context/AuthContext';
-import { useDocumentVaultContext } from '../context/DocumentVaultContext';
-import { Header, PrimaryButton } from '../components/ui';
+import { PrimaryButton } from '../components/ui';
 import { CensoredImageView } from '../components/CensoredImageView';
 import { CensorToggle } from '../components/CensorToggle';
 import { censorImage, CensorResult } from '../services/censor';
-import {
-  decryptDocumentPayload,
-  deleteDocumentFromFirebase,
-  exportDocumentToDevice,
-  removeFirebaseReferences,
-  removeLocalDocumentCopy,
-  saveDocumentOffline,
-  saveDocumentToFirebase,
-  updateDocumentRecoveryPreference,
-} from '../services/documentVault';
-import { getVaultPreferences } from '../storage/localVault';
 import { styles } from '../theme/styles';
 import type { VaultDocument } from '../types/vault';
-import type { VaultStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<VaultStackParamList, 'Preview'>;
+type Props = {
+  selectedDoc: VaultDocument;
+  previewFileOrder: number;
+  previewImageUri: string | null;
+  previewStatus: string;
+  isDecrypting: boolean;
+  isCurrentFileDecrypted: boolean;
+  isGuest: boolean;
+  canShareDocument: boolean;
+  canSaveOfflineDocument: boolean;
+  hasLocalCopy: boolean;
+  hasFirebaseCopy: boolean;
+  keyBackupEnabled: boolean;
+  currentUserId: string | null;
+  onDecrypt: () => Promise<void>;
+  onExport: () => Promise<void>;
+  onSelectFile: (order: number) => void;
+  onShare: (doc: VaultDocument) => void;
+  onSaveOffline: (doc: VaultDocument) => Promise<void>;
+  onSaveToFirebase: (doc: VaultDocument) => Promise<void>;
+  onDeleteLocal: (doc: VaultDocument) => Promise<void>;
+  onDeleteFromFirebase: (doc: VaultDocument) => Promise<void>;
+  onToggleRecovery: (doc: VaultDocument, enabled: boolean) => Promise<void>;
+  onDeclineIncomingShare: (docId: string) => void;
+};
 
-export function PreviewScreen({ route, navigation }: Props) {
-  const { docId } = route.params;
-  const { user, isGuest } = useAuth();
-  const { documents, setDocuments, handleDeclineIncomingShare } = useDocumentVaultContext();
-
-  const doc = documents.find(d => d.id === docId);
-
-  const [previewFileOrder, setPreviewFileOrder] = React.useState(0);
-  const [previewImageUri, setPreviewImageUri] = React.useState<string | null>(null);
-  const [previewStatus, setPreviewStatus] = React.useState('');
-  const [isDecrypting, setIsDecrypting] = React.useState(false);
-  const [isCurrentFileDecrypted, setIsCurrentFileDecrypted] = React.useState(false);
+export function PreviewScreen({
+  selectedDoc,
+  previewFileOrder,
+  previewImageUri,
+  previewStatus,
+  isDecrypting,
+  isCurrentFileDecrypted,
+  isGuest: _isGuest,
+  canShareDocument,
+  canSaveOfflineDocument: _canSaveOfflineDocument,
+  hasLocalCopy,
+  hasFirebaseCopy,
+  keyBackupEnabled,
+  currentUserId,
+  onDecrypt,
+  onExport,
+  onSelectFile,
+  onShare,
+  onSaveOffline,
+  onSaveToFirebase,
+  onDeleteLocal,
+  onDeleteFromFirebase,
+  onToggleRecovery,
+  onDeclineIncomingShare,
+}: Props) {
   const [isSavingOffline, setIsSavingOffline] = React.useState(false);
   const [showFullImage, setShowFullImage] = React.useState(false);
   const [integrityCopied, setIntegrityCopied] = React.useState(false);
   const [showIntegrityInfo, setShowIntegrityInfo] = React.useState(false);
-  const [keyBackupEnabled, setKeyBackupEnabled] = React.useState(false);
   const copyResetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // --- Censor feature state ---
   const [censorEnabled, setCensorEnabled] = React.useState(false);
   const [censorLoading, setCensorLoading] = React.useState(false);
   const [censorResult, setCensorResult] = React.useState<CensorResult | null>(null);
   const [isSavingCensored, setIsSavingCensored] = React.useState(false);
   const [censorSaveStatus, setCensorSaveStatus] = React.useState<string | null>(null);
 
-  // Ref to the censored image view so we can capture it
   const censoredImageRef = React.useRef<View>(null);
-
-  React.useEffect(() => {
-    void getVaultPreferences().then(prefs => setKeyBackupEnabled(prefs.keyBackupEnabled));
-  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -80,9 +95,6 @@ export function PreviewScreen({ route, navigation }: Props) {
 
   React.useEffect(() => {
     setIntegrityCopied(false);
-    setPreviewImageUri(null);
-    setIsCurrentFileDecrypted(false);
-    setPreviewStatus('');
   }, [previewFileOrder]);
 
   React.useEffect(() => {
@@ -111,7 +123,7 @@ export function PreviewScreen({ route, navigation }: Props) {
     try {
       const base64 = await captureRef(censoredImageRef, { format: 'png', quality: 1, result: 'base64' });
       const targetDir = Platform.OS === 'android' ? RNFS.DownloadDirectoryPath : RNFS.DocumentDirectoryPath;
-      const safeName = (doc?.name ?? 'document').replace(/[^a-z0-9_\-. ]/gi, '_');
+      const safeName = (selectedDoc.name ?? 'document').replace(/[^a-z0-9_\-. ]/gi, '_');
       const outputPath = `${targetDir}/${Date.now()}-censored-${safeName}.png`;
       await RNFS.writeFile(outputPath, base64, 'base64');
       setCensorSaveStatus(`Censored image saved to:\n${outputPath}`);
@@ -120,28 +132,13 @@ export function PreviewScreen({ route, navigation }: Props) {
     } finally {
       setIsSavingCensored(false);
     }
-  }, [censorResult, doc?.name]);
+  }, [censorResult, selectedDoc.name]);
 
-  if (!doc) {
-    return (
-      <View style={{ flex: 1 }}>
-        <Header title="Preview" showBack onBack={() => navigation.goBack()} />
-        <View style={styles.pageBody}>
-          <Text style={styles.subtitle}>Document not found.</Text>
-        </View>
-      </View>
-    );
-  }
-
-  const currentUserId = user?.uid ?? null;
-  const isOwner = Boolean(currentUserId) && doc.owner === currentUserId;
-  const hasLocalCopy = Boolean(doc.references?.some(ref => ref.source === 'local'));
-  const hasFirebaseCopy = Boolean(doc.references?.some(ref => ref.source === 'firebase'));
-  const canShareDocument = !isGuest && isOwner && hasFirebaseCopy;
+  const isOwner = Boolean(currentUserId) && selectedDoc.owner === currentUserId;
 
   const files = (() => {
     const byOrder = new Map<number, NonNullable<VaultDocument['references']>[number]>();
-    const references = [...(doc.references ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const references = [...(selectedDoc.references ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     references.forEach((reference, index) => {
       const order = reference.order ?? index;
       const existing = byOrder.get(order);
@@ -156,57 +153,26 @@ export function PreviewScreen({ route, navigation }: Props) {
 
   const selectedIndex = Math.max(0, files.findIndex(item => item.order === previewFileOrder));
   const selectedFileIntegrity =
-    files[selectedIndex]?.integrityTag ?? files[selectedIndex]?.fileHash ?? doc.hash;
+    files[selectedIndex]?.integrityTag ?? files[selectedIndex]?.fileHash ?? selectedDoc.hash;
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
     onPanResponderRelease: (_, g) => {
       if (files.length <= 1 || Math.abs(g.dx) < 40) return;
       if (g.dx < 0 && selectedIndex < files.length - 1) {
-        setPreviewFileOrder(files[selectedIndex + 1].order);
+        onSelectFile(files[selectedIndex + 1].order);
         return;
       }
       if (g.dx > 0 && selectedIndex > 0) {
-        setPreviewFileOrder(files[selectedIndex - 1].order);
+        onSelectFile(files[selectedIndex - 1].order);
       }
     },
   });
 
-  const handleDecrypt = async () => {
-    setIsDecrypting(true);
-    setPreviewStatus('Decrypting...');
-    try {
-      const result = await decryptDocumentPayload(doc, previewFileOrder);
-      if (result.mimeType?.startsWith('image/')) {
-        setPreviewImageUri(`data:${result.mimeType};base64,${result.base64}`);
-      }
-      setIsCurrentFileDecrypted(true);
-      setPreviewStatus('');
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Decryption failed.');
-      setIsCurrentFileDecrypted(false);
-    } finally {
-      setIsDecrypting(false);
-    }
-  };
-
-  const handleExport = async () => {
-    setPreviewStatus('Exporting...');
-    try {
-      await exportDocumentToDevice(doc, previewFileOrder);
-      setPreviewStatus('Exported successfully.');
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Export failed.');
-    }
-  };
-
   const handleSaveOffline = async () => {
     setIsSavingOffline(true);
     try {
-      const updated = await saveDocumentOffline(doc);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Failed to save offline.');
+      await onSaveOffline(selectedDoc);
     } finally {
       setIsSavingOffline(false);
     }
@@ -217,7 +183,7 @@ export function PreviewScreen({ route, navigation }: Props) {
       const confirmed = await new Promise<boolean>(resolve =>
         Alert.alert(
           'Delete document permanently?',
-          `"${doc.name}" has no cloud copy. Deleting the offline copy will permanently remove this document and it cannot be recovered.`,
+          `"${selectedDoc.name}" has no cloud copy. Deleting the offline copy will permanently remove this document and it cannot be recovered.`,
           [
             { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
             { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
@@ -226,28 +192,7 @@ export function PreviewScreen({ route, navigation }: Props) {
       );
       if (!confirmed) return;
     }
-    try {
-      const updated = await removeLocalDocumentCopy(doc);
-      const hasRefs = (updated.references?.length ?? 0) > 0;
-      setDocuments(prev =>
-        hasRefs
-          ? prev.map(d => (d.id === updated.id ? updated : d))
-          : prev.filter(d => d.id !== updated.id),
-      );
-      if (!hasRefs) navigation.goBack();
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Failed to delete local copy.');
-    }
-  };
-
-  const handleSaveToFirebase = async () => {
-    if (!currentUserId) return;
-    try {
-      const updated = await saveDocumentToFirebase(doc, currentUserId);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Failed to save to cloud.');
-    }
+    await onDeleteLocal(selectedDoc);
   };
 
   const handleDeleteFromFirebase = async () => {
@@ -255,7 +200,7 @@ export function PreviewScreen({ route, navigation }: Props) {
       const confirmed = await new Promise<boolean>(resolve =>
         Alert.alert(
           'Delete document permanently?',
-          `"${doc.name}" has no offline copy. Deleting the cloud copy will permanently remove this document and it cannot be recovered.`,
+          `"${selectedDoc.name}" has no offline copy. Deleting the cloud copy will permanently remove this document and it cannot be recovered.`,
           [
             { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
             { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
@@ -264,39 +209,17 @@ export function PreviewScreen({ route, navigation }: Props) {
       );
       if (!confirmed) return;
     }
-    try {
-      await deleteDocumentFromFirebase(doc);
-      const localOnly = removeFirebaseReferences(doc);
-      setDocuments(prev =>
-        localOnly
-          ? prev.map(d => (d.id === doc.id ? localOnly : d))
-          : prev.filter(d => d.id !== doc.id),
-      );
-      if (!localOnly) navigation.goBack();
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Failed to delete from cloud.');
-    }
-  };
-
-  const handleToggleRecovery = async (nextValue: boolean) => {
-    try {
-      const updated = await updateDocumentRecoveryPreference(doc, nextValue);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setPreviewStatus(err instanceof Error ? err.message : 'Failed to update recovery setting.');
-    }
+    await onDeleteFromFirebase(selectedDoc);
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title={doc.name} showBack onBack={() => navigation.goBack()} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scrollContainer, { paddingBottom: 28 }]}
         keyboardShouldPersistTaps="handled"
       >
 
-      {/* Censor toggle — left-aligned above the image */}
       {previewImageUri ? (
         <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}>
           <CensorToggle
@@ -315,7 +238,7 @@ export function PreviewScreen({ route, navigation }: Props) {
             return;
           }
           if (!isCurrentFileDecrypted && !isDecrypting) {
-            void handleDecrypt();
+            void onDecrypt();
           }
         }}
         style={{
@@ -373,7 +296,7 @@ export function PreviewScreen({ route, navigation }: Props) {
             return (
               <Pressable
                 key={`${file.order}-${file.name}-${index}`}
-                onPress={() => setPreviewFileOrder(file.order)}
+                onPress={() => onSelectFile(file.order)}
                 style={{
                   width: 72,
                   height: 72,
@@ -458,13 +381,13 @@ export function PreviewScreen({ route, navigation }: Props) {
         <Text style={styles.hashBlock}>{integrityCopied ? 'Copied!' : selectedFileIntegrity}</Text>
       </Pressable>
 
-      {doc.description ? (
-        <Text style={styles.previewText}>Description: {doc.description}</Text>
+      {selectedDoc.description ? (
+        <Text style={styles.previewText}>Description: {selectedDoc.description}</Text>
       ) : null}
-      <Text style={styles.previewText}>Stored Size: {doc.size}</Text>
-      <Text style={styles.previewText}>Added: {doc.uploadedAt}</Text>
+      <Text style={styles.previewText}>Stored Size: {selectedDoc.size}</Text>
+      <Text style={styles.previewText}>Added: {selectedDoc.uploadedAt}</Text>
       <Text style={styles.previewText}>
-        Recovery: {doc.recoverable ? 'Enabled' : 'Disabled'}
+        Recovery: {selectedDoc.recoverable ? 'Enabled' : 'Disabled'}
       </Text>
       {!keyBackupEnabled ? (
         <Text style={styles.previewText}>Key backup is currently off in settings.</Text>
@@ -485,15 +408,15 @@ export function PreviewScreen({ route, navigation }: Props) {
 
       <View style={styles.previewActionsWrap}>
         <View style={styles.previewActionButton}>
-          <PrimaryButton label="Export" icon={ArrowDownTrayIcon} onPress={() => void handleExport()} />
+          <PrimaryButton label="Export" icon={ArrowDownTrayIcon} onPress={() => void onExport()} />
         </View>
         {canShareDocument ? (
           <View style={styles.previewActionButton}>
             <PrimaryButton
               label="Share"
               icon={ShareIcon}
-              onPress={() => navigation.navigate('Share', { docId: doc.id })}
-              disabled={isGuest || !hasFirebaseCopy}
+              onPress={() => onShare(selectedDoc)}
+              disabled={!hasFirebaseCopy}
             />
           </View>
         ) : null}
@@ -524,7 +447,7 @@ export function PreviewScreen({ route, navigation }: Props) {
               icon={hasFirebaseCopy ? TrashIcon : CloudArrowUpIcon}
               variant={hasFirebaseCopy ? 'danger' : 'outline'}
               onPress={() =>
-                hasFirebaseCopy ? void handleDeleteFromFirebase() : void handleSaveToFirebase()
+                hasFirebaseCopy ? void handleDeleteFromFirebase() : void onSaveToFirebase(selectedDoc)
               }
             />
           ) : hasFirebaseCopy ? (
@@ -532,7 +455,7 @@ export function PreviewScreen({ route, navigation }: Props) {
               label="Decline Share"
               icon={MinusCircleIcon}
               variant="danger"
-              onPress={() => handleDeclineIncomingShare(doc.id)}
+              onPress={() => onDeclineIncomingShare(selectedDoc.id)}
             />
           ) : null}
         </View>
@@ -540,13 +463,13 @@ export function PreviewScreen({ route, navigation }: Props) {
           <View style={styles.previewActionButton}>
             <PrimaryButton
               label={
-                doc.recoverable
+                selectedDoc.recoverable
                   ? 'Disable Key Backup for this Doc'
                   : 'Enable Key Backup for this Doc'
               }
               icon={KeyIcon}
               disabled={!hasFirebaseCopy}
-              onPress={() => void handleToggleRecovery(!doc.recoverable)}
+              onPress={() => void onToggleRecovery(selectedDoc, !selectedDoc.recoverable)}
             />
           </View>
         ) : null}

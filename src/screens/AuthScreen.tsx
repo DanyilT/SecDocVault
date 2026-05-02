@@ -10,54 +10,71 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { useAuth } from '../context/AuthContext';
-import { useVaultLock } from '../context/VaultLockContext';
 import { GuestLoginNotice } from '../components/GuestLoginNotice.tsx';
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
-import { initUserKdfPassphrase } from '../services/crypto/documentCrypto';
 import { styles } from '../theme/styles';
 import type { AuthMode } from '../types/vault';
-import { isVerificationCallbackUrl, resolveVerificationLink } from '../app/navigation/urlVerification';
-import { useAuthLinkingFlow } from '../app/hooks/useAuthLinkingFlow';
-import type { AuthStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Auth'>;
+type Props = {
+  authMode: AuthMode;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  vaultPassphrase: string;
+  confirmVaultPassphrase: string;
+  canSubmitAuth: boolean;
+  isSubmitting: boolean;
+  authError: string | null;
+  authNotice: string | null;
+  emailVerifiedForRegistration: boolean;
+  verificationCooldown: number;
+  verificationLinkInput: string;
+  accessMode: 'login' | 'guest';
+  setAccessMode: (mode: 'login' | 'guest') => void;
+  setAuthMode: (mode: AuthMode) => void;
+  setEmail: (value: string) => void;
+  setPassword: (value: string) => void;
+  setConfirmPassword: (value: string) => void;
+  setVaultPassphrase: (value: string) => void;
+  setConfirmVaultPassphrase: (value: string) => void;
+  setVerificationLinkInput: (value: string) => void;
+  onResendVerificationEmail: () => Promise<void>;
+  onVerifyEmailLinkManually: () => Promise<void>;
+  onResetPassword: () => Promise<void>;
+  handleAuth: () => Promise<void>;
+  onBackToHero: () => void;
+};
 
-export function AuthScreen({ route, navigation }: Props) {
-  const { accessMode: initialAccessMode } = route.params;
-
-  const {
-    isSubmitting,
-    authError,
-    preferredProtection,
-    clearError,
-    signIn,
-    signUp,
-    resendVerificationEmail,
-    completeEmailLinkRegistration,
-    sendPasswordResetEmail,
-    registerGuestAccount,
-    loginGuestAccount,
-  } = useAuth();
-  const { startAuthSetup, unlockVault } = useVaultLock();
-
-  // Form state — all managed locally now.
-  const [accessMode, setAccessMode] = useState<'login' | 'guest'>(initialAccessMode);
-  const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [vaultPassphrase, setVaultPassphrase] = useState('');
-  const [confirmVaultPassphrase, setConfirmVaultPassphrase] = useState('');
-  const [emailVerifiedForRegistration, setEmailVerifiedForRegistration] = useState(false);
-  const [verificationLinkInput, setVerificationLinkInput] = useState('');
-  const [verificationCooldown, setVerificationCooldown] = useState(0);
-  const [verificationEmailSent, setVerificationEmailSent] = useState(false);
-  const [authNotice, setAuthNotice] = useState<string | null>(null);
-
-  // UI animation refs.
+export function AuthScreen({
+  authMode,
+  email,
+  password,
+  confirmPassword,
+  vaultPassphrase,
+  confirmVaultPassphrase,
+  canSubmitAuth,
+  isSubmitting,
+  authError,
+  authNotice,
+  emailVerifiedForRegistration,
+  verificationCooldown,
+  verificationLinkInput,
+  accessMode,
+  setAccessMode,
+  setAuthMode,
+  setEmail,
+  setPassword,
+  setConfirmPassword,
+  setVaultPassphrase,
+  setConfirmVaultPassphrase,
+  setVerificationLinkInput,
+  onResendVerificationEmail,
+  onVerifyEmailLinkManually,
+  onResetPassword,
+  handleAuth,
+  onBackToHero,
+}: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showVaultPassphrase, setShowVaultPassphrase] = useState(false);
@@ -67,29 +84,25 @@ export function AuthScreen({ route, navigation }: Props) {
   const formTransition = useRef(new Animated.Value(1)).current;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
-  // Cooldown timer.
   useEffect(() => {
-    if (verificationCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setVerificationCooldown(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [verificationCooldown]);
+    const show = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
-  // Deep-link email verification.
-  useAuthLinkingFlow({
-    accessMode,
-    authMode,
-    email,
-    isVerificationCallbackUrl,
-    resolveVerificationLink,
-    completeEmailLinkRegistration,
-    setEmailVerifiedForRegistration,
-    setAccountStatus: msg => setAuthNotice(msg),
-    setAuthNotice,
-  });
+  useEffect(() => {
+    formTransition.setValue(0.92);
+    Animated.timing(formTransition, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+  }, [accessMode, authMode, formTransition]);
 
-  // ── Derived state ──────────────────────────────────────────────
+  useEffect(() => {
+    Animated.timing(footerShift, {
+      toValue: isKeyboardVisible ? -6 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [footerShift, isKeyboardVisible]);
+
   const isRegisterLogin = authMode === 'register' && accessMode === 'login';
   const isVerificationPending = isRegisterLogin && !emailVerifiedForRegistration && verificationCooldown > 0;
   const hasTypedPassword = password.trim().length > 0;
@@ -131,137 +144,8 @@ export function AuthScreen({ route, navigation }: Props) {
     return '';
   }, [isVaultPassphraseMismatch, isVaultPassphraseTooShort]);
 
-  const canSubmitAuth = useMemo(() => {
-    if (isSubmitting) return false;
-    if (accessMode === 'guest') {
-      if (authMode === 'register') {
-        return (
-          isPasswordValid &&
-          password === confirmPassword &&
-          vaultPassphrase.trim().length >= 8 &&
-          vaultPassphrase === confirmVaultPassphrase
-        );
-      }
-      return password.trim().length > 0;
-    }
-    if (authMode === 'login') {
-      return email.trim().length > 4 && password.trim().length > 0;
-    }
-    // register + login
-    return (
-      email.trim().length > 4 &&
-      emailVerifiedForRegistration &&
-      isPasswordValid &&
-      password === confirmPassword &&
-      vaultPassphrase.trim().length >= 8 &&
-      vaultPassphrase === confirmVaultPassphrase
-    );
-  }, [
-    accessMode,
-    authMode,
-    confirmPassword,
-    confirmVaultPassphrase,
-    email,
-    emailVerifiedForRegistration,
-    isPasswordValid,
-    isSubmitting,
-    password,
-    vaultPassphrase,
-  ]);
+  const showVerificationLinkInput = verificationCooldown > 0 || verificationLinkInput.length > 0;
 
-  // ── Auth handlers ──────────────────────────────────────────────
-  const handleAuth = async () => {
-    clearError();
-    setAuthNotice(null);
-
-    if (accessMode === 'guest') {
-      if (authMode === 'register') {
-        await initUserKdfPassphrase(vaultPassphrase.trim());
-        const ok = await registerGuestAccount(password.trim());
-        if (ok) {
-          startAuthSetup();
-          navigation.navigate('CompleteAuthSetup');
-        }
-      } else {
-        const ok = await loginGuestAccount(password.trim());
-        if (ok) {
-          if (!preferredProtection) {
-            startAuthSetup();
-            navigation.navigate('CompleteAuthSetup');
-          } else {
-            unlockVault();
-          }
-        }
-      }
-      return;
-    }
-
-    if (authMode === 'login') {
-      const ok = await signIn(email.trim(), password);
-      if (ok) {
-        if (!preferredProtection) {
-          startAuthSetup();
-          navigation.navigate('CompleteAuthSetup');
-        } else {
-          unlockVault();
-        }
-      }
-    } else {
-      await initUserKdfPassphrase(vaultPassphrase.trim());
-      const ok = await signUp(email.trim(), password);
-      if (ok) {
-        startAuthSetup();
-        navigation.navigate('CompleteAuthSetup');
-      }
-    }
-  };
-
-  const handleResendVerificationEmail = async () => {
-    clearError();
-    const ok = await resendVerificationEmail(email.trim());
-    if (ok) {
-      setVerificationCooldown(60);
-      setVerificationEmailSent(true);
-      setAuthNotice('Verification email sent. Check your inbox and spam folder.');
-    }
-  };
-
-  const handleVerifyEmailLinkManually = async () => {
-    clearError();
-    const ok = await completeEmailLinkRegistration(verificationLinkInput.trim(), email.trim());
-    if (ok) {
-      setEmailVerifiedForRegistration(true);
-      setAuthNotice('Email verified. You can now create your account.');
-    }
-  };
-
-  const handleResetPassword = async () => {
-    clearError();
-    const ok = await sendPasswordResetEmail(email.trim());
-    if (ok) setAuthNotice('Password reset email sent. Check your inbox.');
-  };
-
-  // ── Animations ─────────────────────────────────────────────────
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
-
-  useEffect(() => {
-    formTransition.setValue(0.92);
-    Animated.timing(formTransition, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-  }, [accessMode, authMode, formTransition]);
-
-  useEffect(() => {
-    Animated.timing(footerShift, {
-      toValue: isKeyboardVisible ? -6 : 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  }, [footerShift, isKeyboardVisible]);
-
-  // ── Derived UI ─────────────────────────────────────────────────
   const emailBorderColor = isRegisterLogin
     ? emailVerifiedForRegistration
       ? '#22c55e'
@@ -280,7 +164,6 @@ export function AuthScreen({ route, navigation }: Props) {
     hasTypedPassword &&
     Boolean(authError && authError.toLowerCase().includes('invalid email or password'));
 
-  // ── Render ─────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -289,7 +172,7 @@ export function AuthScreen({ route, navigation }: Props) {
       <Header
         title={authMode === 'login' ? 'Welcome Back' : 'Create Your Account'}
         showBack
-        onBack={() => { clearError(); navigation.goBack(); }}
+        onBack={onBackToHero}
       />
 
       <ScrollView
@@ -348,7 +231,7 @@ export function AuthScreen({ route, navigation }: Props) {
                       if (!isRegisterLogin) { passwordInputRef.current?.focus(); return; }
                       if (emailVerifiedForRegistration) { passwordInputRef.current?.focus(); return; }
                       if (verificationCooldown <= 0 && email.trim().length > 4) {
-                        void handleResendVerificationEmail();
+                        void onResendVerificationEmail();
                       }
                     }}
                   />
@@ -369,10 +252,10 @@ export function AuthScreen({ route, navigation }: Props) {
                       <>
                         <PrimaryButton
                           label={verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : 'Send Verification Email'}
-                          onPress={() => void handleResendVerificationEmail()}
+                          onPress={() => void onResendVerificationEmail()}
                           disabled={verificationCooldown > 0 || email.trim().length < 5 || isSubmitting}
                         />
-                        {verificationEmailSent ? (
+                        {showVerificationLinkInput ? (
                           <>
                             <TextInput
                               autoCapitalize="none"
@@ -382,11 +265,11 @@ export function AuthScreen({ route, navigation }: Props) {
                               value={verificationLinkInput}
                               onChangeText={setVerificationLinkInput}
                               returnKeyType="done"
-                              onSubmitEditing={() => { if (verificationLinkInput.trim().length > 0) void handleVerifyEmailLinkManually(); }}
+                              onSubmitEditing={() => { if (verificationLinkInput.trim().length > 0) void onVerifyEmailLinkManually(); }}
                             />
                             <PrimaryButton
                               label="Verify Link"
-                              onPress={() => void handleVerifyEmailLinkManually()}
+                              onPress={() => void onVerifyEmailLinkManually()}
                               disabled={verificationLinkInput.trim().length === 0 || isSubmitting}
                             />
                           </>
@@ -415,7 +298,7 @@ export function AuthScreen({ route, navigation }: Props) {
             </View>
 
             {showForgotPasswordLink ? (
-              <Pressable onPress={() => void handleResetPassword()} disabled={isSubmitting} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+              <Pressable onPress={() => void onResetPassword()} disabled={isSubmitting} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
                 <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Forgot password? Reset password</Text>
               </Pressable>
             ) : null}

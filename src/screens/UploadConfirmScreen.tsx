@@ -13,27 +13,37 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { useAuth } from '../context/AuthContext';
-import { useDocumentVaultContext } from '../context/DocumentVaultContext';
-import { useVaultLock } from '../context/VaultLockContext';
 import { PrimaryButton, SecondaryButton } from '../components/ui';
-import {
-  documentSaveLocal,
-  pickDocumentForUpload,
-  scanDocumentForUpload,
-  toSizeLabel,
-  uploadDocumentToFirebase,
-  UploadableDocument,
-  UploadableDocumentDraft,
-} from '../services/documentVault';
-import { ensureRecoveryPassphrase } from '../services/keyBackup';
-import { getVaultPreferences, saveVaultPreferences } from '../storage/localVault';
+import { toSizeLabel, UploadableDocument } from '../services/documentVault';
 import { styles } from '../theme/styles';
-import type { VaultStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<VaultStackParamList, 'Upload'>;
+type Props = {
+  isUploading: boolean;
+  uploadStatus: string;
+  files: UploadableDocument[];
+  selectedFileIndex: number;
+  documentName: string;
+  documentDescription: string;
+  recoverable: boolean;
+  uploadToCloud: boolean;
+  saveLocalCopy: boolean;
+  canToggleCloudUpload: boolean;
+  canToggleSaveLocal: boolean;
+  setSelectedFileIndex: (value: number) => void;
+  setDocumentName: (value: string) => void;
+  setDocumentDescription: (value: string) => void;
+  setRecoverable: (value: boolean) => void;
+  setUploadToCloud: (value: boolean) => void;
+  setSaveLocalCopy: (value: boolean) => void;
+  onRemoveFile: (index: number) => void;
+  onReorderFiles: (fromIndex: number, toIndex: number) => void;
+  onPickNewFile: () => void;
+  onScanNewFile: () => void;
+  onConfirmUpload: () => Promise<void>;
+  keyBackupEnabled: boolean;
+  onRequestEnableKeyBackup: () => void;
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -194,31 +204,37 @@ function UploadTile({
   );
 }
 
-export function UploadConfirmScreen({ route, navigation }: Props) {
-  const { draft, saveOfflineByDefault, recoverableByDefault, canUseCloud } = route.params;
-  const { user, isGuest } = useAuth();
-  const { setDocuments } = useDocumentVaultContext();
-  const { setIsPickingFile } = useVaultLock();
-
-  const [files, setFiles] = React.useState<UploadableDocument[]>(draft.files);
-  const [documentName, setDocumentName] = React.useState(draft.name);
-  const [documentDescription, setDocumentDescription] = React.useState(draft.description ?? '');
-  const [recoverable, setRecoverable] = React.useState(recoverableByDefault);
-  const [uploadToCloud, setUploadToCloud] = React.useState(canUseCloud);
-  const [saveLocalCopy, setSaveLocalCopy] = React.useState(saveOfflineByDefault || !canUseCloud);
-  const [keyBackupEnabled, setKeyBackupEnabled] = React.useState(false);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadStatus, setUploadStatus] = React.useState('');
-  const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
+export function UploadConfirmScreen({
+  isUploading,
+  uploadStatus,
+  files,
+  selectedFileIndex,
+  documentName,
+  documentDescription,
+  recoverable,
+  uploadToCloud,
+  saveLocalCopy,
+  canToggleCloudUpload,
+  canToggleSaveLocal: _canToggleSaveLocal,
+  setSelectedFileIndex,
+  setDocumentName,
+  setDocumentDescription,
+  setRecoverable,
+  setUploadToCloud,
+  setSaveLocalCopy,
+  onRemoveFile,
+  onReorderFiles,
+  onPickNewFile,
+  onScanNewFile,
+  onConfirmUpload,
+  keyBackupEnabled,
+  onRequestEnableKeyBackup,
+}: Props) {
   const [showFullPreview, setShowFullPreview] = React.useState(false);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
   const [isReorderMode, setIsReorderMode] = React.useState(false);
   const [dragSourceIndex, setDragSourceIndex] = React.useState<number | null>(null);
   const scrollRef = React.useRef<ScrollView | null>(null);
-
-  React.useEffect(() => {
-    void getVaultPreferences().then(prefs => setKeyBackupEnabled(prefs.keyBackupEnabled));
-  }, []);
 
   React.useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -229,84 +245,6 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
   }, []);
 
   const selectedFile = files[selectedFileIndex] ?? files[0];
-  const ownerId = isGuest ? 'guest-local' : (user?.uid ?? 'guest-local');
-
-  const handlePickNewFile = async () => {
-    setIsPickingFile(true);
-    try {
-      const picked = await pickDocumentForUpload();
-      setFiles(prev => [...prev, picked]);
-    } catch {
-      // user cancelled
-    } finally {
-      setIsPickingFile(false);
-    }
-  };
-
-  const handleScanNewFile = async () => {
-    setIsPickingFile(true);
-    try {
-      const scanned = await scanDocumentForUpload();
-      setFiles(prev => [...prev, scanned]);
-    } catch {
-      // user cancelled
-    } finally {
-      setIsPickingFile(false);
-    }
-  };
-
-  const handleRemoveFile = (index: number) => {
-    setFiles(prev => {
-      const next = prev.filter((_, i) => i !== index);
-      setSelectedFileIndex(idx => Math.min(idx, Math.max(0, next.length - 1)));
-      return next;
-    });
-  };
-
-  const handleReorderFiles = (fromIndex: number, toIndex: number) => {
-    setFiles(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      return next;
-    });
-  };
-
-  const handleConfirmUpload = async () => {
-    if (files.length === 0 || documentName.trim() === '') return;
-    setIsUploading(true);
-    setUploadStatus('Preparing upload...');
-    try {
-      const uploadDraft: UploadableDocumentDraft = {
-        name: documentName.trim(),
-        description: documentDescription.trim() || undefined,
-        files,
-      };
-
-      let result;
-      if (uploadToCloud && canUseCloud && !isGuest) {
-        result = await uploadDocumentToFirebase(ownerId, uploadDraft, {
-          alsoSaveLocal: saveLocalCopy,
-          recoverable,
-          onProgress: event => {
-            if (event.stage === 'upload' && event.status === 'start') {
-              setUploadStatus(`Uploading file ${event.fileIndex + 1} of ${files.length}...`);
-            }
-          },
-        });
-      } else {
-        result = await documentSaveLocal(ownerId, uploadDraft, { recoverable });
-      }
-
-      setDocuments(prev => [...prev, result.document]);
-      setUploadStatus('Upload complete!');
-      navigation.navigate('Main');
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Upload failed.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -400,7 +338,7 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
                 isReorderMode={isReorderMode}
                 isDragSource={isReorderMode && dragSourceIndex === index}
                 onSelect={() => setSelectedFileIndex(index)}
-                onRemove={() => handleRemoveFile(index)}
+                onRemove={() => onRemoveFile(index)}
                 onDragStart={() => {
                   setIsReorderMode(true);
                   setDragSourceIndex(index);
@@ -409,12 +347,12 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
                   setIsReorderMode(false);
                   setDragSourceIndex(null);
                 }}
-                onReorder={handleReorderFiles}
+                onReorder={onReorderFiles}
               />
             ))}
 
             <Pressable
-              onPress={() => void handlePickNewFile()}
+              onPress={onPickNewFile}
               style={{
                 width: 78,
                 height: 78,
@@ -475,16 +413,10 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
             </View>
             <Switch
               value={recoverable}
-              onValueChange={async value => {
+              onValueChange={value => {
                 if (value && !keyBackupEnabled) {
-                  try {
-                    await ensureRecoveryPassphrase();
-                    const prefs = await getVaultPreferences();
-                    await saveVaultPreferences({ ...prefs, keyBackupEnabled: true });
-                    setKeyBackupEnabled(true);
-                  } catch {
-                    return;
-                  }
+                  onRequestEnableKeyBackup();
+                  return;
                 }
                 setRecoverable(value);
               }}
@@ -501,10 +433,10 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
             <Switch
               value={uploadToCloud}
               onValueChange={setUploadToCloud}
-              disabled={!canUseCloud || isGuest}
+              disabled={!canToggleCloudUpload}
             />
           </View>
-          {(!canUseCloud || isGuest) ? (
+          {!canToggleCloudUpload ? (
             <Text style={[styles.subtitle, { marginBottom: 0 }]}>
               Cloud upload unavailable for this session. Local save remains enabled.
             </Text>
@@ -527,8 +459,8 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.cardActions}>
-          <SecondaryButton label="Add from Gallery" onPress={() => void handlePickNewFile()} />
-          <SecondaryButton label="Scan to Add" onPress={() => void handleScanNewFile()} />
+          <SecondaryButton label="Add from Gallery" onPress={onPickNewFile} />
+          <SecondaryButton label="Scan to Add" onPress={onScanNewFile} />
         </View>
 
         {uploadStatus ? <Text style={styles.backupStatus}>{uploadStatus}</Text> : null}
@@ -541,7 +473,7 @@ export function UploadConfirmScreen({ route, navigation }: Props) {
             files.length === 0 ||
             (!uploadToCloud && !saveLocalCopy)
           }
-          onPress={() => void handleConfirmUpload()}
+          onPress={() => void onConfirmUpload()}
         />
       </ScrollView>
     </View>

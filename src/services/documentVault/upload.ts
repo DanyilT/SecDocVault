@@ -36,7 +36,6 @@ import {
   toBase64,
   wrapDocumentKey,
 } from '../crypto/documentCrypto.ts';
-import { encodeBase64 } from '../crypto/base64.ts';
 import { VaultDocumentReference } from '../../types/vault';
 import { normalizeReferenceOrder, toHashLabel, toPseudoHash, toSizeLabel } from './formatters';
 import { normalizeDescription, normalizeDocumentName } from './normalizers';
@@ -177,9 +176,9 @@ async function encryptLargeFileWithoutBase64First(
   const encryptMs = Date.now() - encryptStart;
 
   const encrypted = {
-    cipher: encodeBase64(encryptedBuffer),
-    iv: encodeBase64(ivBytes),
-    authTag: encodeBase64(authTag),
+    cipher: Buffer.from(encryptedBuffer).toString('base64'),
+    iv: Buffer.from(ivBytes).toString('base64'),
+    authTag: Buffer.from(authTag).toString('base64'),
     key: fileKeyB64,
     algorithm: 'AES-256-GCM',
     version: 2,

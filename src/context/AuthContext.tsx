@@ -1250,7 +1250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const signOut = async () => {
     setAuthError(null);
-    if (user) {
+    if (firebaseAuth.currentUser) {
       await firebaseSignOut(firebaseAuth);
     }
     setSessionMode(null);

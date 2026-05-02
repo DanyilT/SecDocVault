@@ -309,7 +309,8 @@ export function useAppController(): UseAppControllerApi {
 
     void ensureCurrentUserSharePublicKey(user.uid, user.email).catch(error => {
       const message = error instanceof Error ? error.message : 'Failed to publish sharing public key.';
-      setUploadStatus(message);
+      console.error('[sharing] ensureCurrentUserSharePublicKey failed:', error);
+      setUploadStatus(`Sharing setup failed: ${message}`);
     });
   }, [isAuthenticated, isGuest, setUploadStatus, user?.email, user?.uid]);
 

@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Animated, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import {
   ArrowDownTrayIcon,
   ChevronUpIcon,
@@ -13,74 +11,68 @@ import {
   TrashIcon,
 } from 'react-native-heroicons/solid';
 
-import { useAuth } from '../context/AuthContext';
-import { useDocumentVaultContext } from '../context/DocumentVaultContext';
-import { useVaultLock } from '../context/VaultLockContext';
-import { Header, SecondaryButton, SegmentButton } from '../components/ui';
-import {
-  deleteDocumentFromFirebase,
-  exportDocumentToDevice,
-  pickDocumentForUpload,
-  removeFirebaseReferences,
-  removeLocalDocumentCopy,
-  saveDocumentOffline,
-  saveDocumentToFirebase,
-  scanDocumentForUpload,
-  updateDocumentRecoveryPreference,
-} from '../services/documentVault';
-import type { UploadableDocumentDraft } from '../services/documentVault';
-import { getVaultPreferences } from '../storage/localVault';
+import { SecondaryButton, SegmentButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import type { VaultDocument } from '../types/vault';
-import type { VaultStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<VaultStackParamList, 'Main'>;
 type DocumentViewMode = 'owned' | 'sharedWithMe' | 'sharedByMe';
+
+type Props = {
+  documents: VaultDocument[];
+  incomingShareDecisions: Record<string, 'accepted' | 'declined'>;
+  currentUserId: string | null;
+  currentUserEmail: string | null;
+  isGuest: boolean;
+  isUploading: boolean;
+  uploadStatus: string;
+  openPreview: (doc: VaultDocument) => void;
+  openShare: (doc: VaultDocument) => void;
+  onScanAndUpload: () => void;
+  onPickAndUpload: () => void;
+  onReloadDocuments: () => Promise<void>;
+  onSaveOffline: (doc: VaultDocument) => void;
+  onSaveToFirebase: (doc: VaultDocument) => void;
+  onDeleteLocal: (doc: VaultDocument) => void;
+  onDeleteFromFirebase: (doc: VaultDocument) => void;
+  onExport: (doc: VaultDocument) => Promise<void>;
+  onToggleRecovery: (doc: VaultDocument, enabled: boolean) => Promise<void>;
+  onAcceptIncomingShare: (docId: string) => void;
+  onDeclineIncomingShare: (docId: string) => void;
+};
 
 function normalizeRecipientIdentifier(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? '';
 }
 
-export function MainScreen({ navigation }: Props) {
-  const { user, isGuest } = useAuth();
-  const { setIsPickingFile } = useVaultLock();
-  const {
-    documents,
-    setDocuments,
-    isLoadingDocuments,
-    loadDocuments,
-    incomingShareDecisions,
-    handleAcceptIncomingShare,
-    handleDeclineIncomingShare,
-  } = useDocumentVaultContext();
-
-  const currentUserId = user?.uid ?? null;
-  const currentUserEmail = user?.email ?? null;
-
+export function MainScreen({
+  documents,
+  incomingShareDecisions,
+  currentUserId,
+  currentUserEmail,
+  isGuest,
+  isUploading,
+  uploadStatus,
+  openPreview,
+  openShare,
+  onScanAndUpload,
+  onPickAndUpload,
+  onReloadDocuments,
+  onSaveOffline,
+  onSaveToFirebase,
+  onDeleteLocal,
+  onDeleteFromFirebase,
+  onExport,
+  onToggleRecovery,
+  onAcceptIncomingShare,
+  onDeclineIncomingShare,
+}: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [documentView, setDocumentView] = useState<DocumentViewMode>('owned');
   const [sharedWithMeView, setSharedWithMeView] = useState<'accepted' | 'incoming'>('accepted');
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [vaultPrefs, setVaultPrefs] = useState({
-    saveOfflineByDefault: false,
-    recoverableByDefault: false,
-  });
   const actionReveal = useRef(new Animated.Value(0)).current;
-
-  useFocusEffect(
-    React.useCallback(() => {
-      void getVaultPreferences().then(prefs => {
-        setVaultPrefs({
-          saveOfflineByDefault: prefs.saveOfflineByDefault,
-          recoverableByDefault: prefs.recoverableByDefault,
-        });
-      });
-    }, []),
-  );
 
   useEffect(() => {
     Animated.timing(actionReveal, {
@@ -99,9 +91,9 @@ export function MainScreen({ navigation }: Props) {
   useEffect(() => {
     if (isGuest) return;
     if (documentView === 'sharedWithMe' || documentView === 'sharedByMe') {
-      void loadDocuments();
+      void onReloadDocuments();
     }
-  }, [documentView, isGuest, loadDocuments]);
+  }, [documentView, isGuest, onReloadDocuments]);
 
   const normalizedUserId = currentUserId?.trim() ?? '';
   const normalizedUserEmail = normalizeRecipientIdentifier(currentUserEmail);
@@ -135,21 +127,16 @@ export function MainScreen({ navigation }: Props) {
     return documents.filter(doc => {
       if (normalizedUserId && doc.owner === normalizedUserId) return false;
 
-      const hasFirebaseCopy = Boolean(doc.references?.some(ref => ref.source === 'firebase'));
-
       const sharedWithMatch = (doc.sharedWith ?? []).some(item =>
         recipientKeys.has(normalizeRecipientIdentifier(item)),
       );
       if (sharedWithMatch) return true;
 
-      const grantsMatch = (doc.sharedKeyGrants ?? []).some(
+      return (doc.sharedKeyGrants ?? []).some(
         grant =>
           recipientKeys.has(normalizeRecipientIdentifier(grant.recipientUid)) ||
           recipientKeys.has(normalizeRecipientIdentifier(grant.recipientEmail)),
       );
-      if (grantsMatch) return true;
-
-      return Boolean(normalizedUserId && doc.owner && hasFirebaseCopy);
     });
   }, [documents, isGuest, normalizedUserEmail, normalizedUserId]);
 
@@ -188,142 +175,9 @@ export function MainScreen({ navigation }: Props) {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await loadDocuments();
+      await onReloadDocuments();
     } finally {
       setIsRefreshing(false);
-    }
-  };
-
-  const navigateToUpload = (draft: UploadableDocumentDraft) => {
-    navigation.navigate('Upload', {
-      draft,
-      saveOfflineByDefault: vaultPrefs.saveOfflineByDefault,
-      recoverableByDefault: vaultPrefs.recoverableByDefault,
-      canUseCloud: !isGuest,
-    });
-  };
-
-  const handlePickAndUpload = async () => {
-    setIsUploading(true);
-    setUploadStatus('Picking document...');
-    setIsPickingFile(true);
-    try {
-      const picked = await pickDocumentForUpload();
-      setUploadStatus('');
-      navigateToUpload({ name: picked.name, files: [picked] });
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to pick document.');
-    } finally {
-      setIsPickingFile(false);
-      setIsUploading(false);
-    }
-  };
-
-  const handleScanAndUpload = async () => {
-    setIsUploading(true);
-    setUploadStatus('Opening camera...');
-    setIsPickingFile(true);
-    try {
-      const scanned = await scanDocumentForUpload();
-      setUploadStatus('');
-      navigateToUpload({ name: scanned.name, files: [scanned] });
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to scan document.');
-    } finally {
-      setIsPickingFile(false);
-      setIsUploading(false);
-    }
-  };
-
-  const handleSaveOffline = async (doc: VaultDocument) => {
-    try {
-      const updated = await saveDocumentOffline(doc);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to save offline.');
-    }
-  };
-
-  const handleSaveToFirebase = async (doc: VaultDocument) => {
-    if (!currentUserId) return;
-    try {
-      const updated = await saveDocumentToFirebase(doc, currentUserId);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to save to cloud.');
-    }
-  };
-
-  const handleDeleteLocal = async (doc: VaultDocument) => {
-    const hasFirebaseCopy = Boolean(doc.references?.some(ref => ref.source === 'firebase'));
-    if (!hasFirebaseCopy) {
-      const confirmed = await new Promise<boolean>(resolve =>
-        Alert.alert(
-          'Delete document permanently?',
-          `"${doc.name}" has no cloud copy. Deleting the offline copy will permanently remove this document and it cannot be recovered.`,
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
-          ],
-        ),
-      );
-      if (!confirmed) return;
-    }
-    try {
-      const updated = await removeLocalDocumentCopy(doc);
-      const hasRefs = (updated.references?.length ?? 0) > 0;
-      setDocuments(prev =>
-        hasRefs
-          ? prev.map(d => (d.id === updated.id ? updated : d))
-          : prev.filter(d => d.id !== updated.id),
-      );
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to delete local copy.');
-    }
-  };
-
-  const handleDeleteFromFirebase = async (doc: VaultDocument) => {
-    const hasLocalCopy = Boolean(doc.references?.some(ref => ref.source === 'local'));
-    if (!hasLocalCopy) {
-      const confirmed = await new Promise<boolean>(resolve =>
-        Alert.alert(
-          'Delete document permanently?',
-          `"${doc.name}" has no offline copy. Deleting the cloud copy will permanently remove this document and it cannot be recovered.`,
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
-          ],
-        ),
-      );
-      if (!confirmed) return;
-    }
-    try {
-      await deleteDocumentFromFirebase(doc);
-      const localOnly = removeFirebaseReferences(doc);
-      setDocuments(prev =>
-        localOnly
-          ? prev.map(d => (d.id === doc.id ? localOnly : d))
-          : prev.filter(d => d.id !== doc.id),
-      );
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to delete from cloud.');
-    }
-  };
-
-  const handleExport = async (doc: VaultDocument) => {
-    try {
-      await exportDocumentToDevice(doc);
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to export document.');
-    }
-  };
-
-  const handleToggleRecovery = async (doc: VaultDocument, nextValue: boolean) => {
-    try {
-      const updated = await updateDocumentRecoveryPreference(doc, nextValue);
-      setDocuments(prev => prev.map(d => (d.id === updated.id ? updated : d)));
-    } catch (err) {
-      setUploadStatus(err instanceof Error ? err.message : 'Failed to update recovery setting.');
     }
   };
 
@@ -360,18 +214,13 @@ export function MainScreen({ navigation }: Props) {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header
-        title="Documents"
-        rightLabel="Settings"
-        onRightPress={() => navigation.navigate('Settings')}
-      />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={[styles.scrollContainer, { paddingBottom: 96 }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
-            refreshing={isRefreshing || isLoadingDocuments}
+            refreshing={isRefreshing}
             onRefresh={() => void handleRefresh()}
             tintColor="#93c5fd"
           />
@@ -434,11 +283,11 @@ export function MainScreen({ navigation }: Props) {
             <View style={{ flexDirection: 'row', gap: 10, flex: 1, flexWrap: 'wrap' }}>
               <SecondaryButton
                 label={isUploading ? 'Uploading...' : 'Upload New Document'}
-                onPress={() => void handlePickAndUpload()}
+                onPress={onPickAndUpload}
               />
               <SecondaryButton
                 label={isUploading ? 'Uploading...' : 'Scan & Upload'}
-                onPress={() => void handleScanAndUpload()}
+                onPress={onScanAndUpload}
               />
             </View>
           </View>
@@ -461,11 +310,16 @@ export function MainScreen({ navigation }: Props) {
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <SecondaryButton
                       label="Accept"
-                      onPress={() => handleAcceptIncomingShare(doc.id)}
+                      onPress={() => onAcceptIncomingShare(doc.id)}
                     />
                     <SecondaryButton
                       label="Decline"
-                      onPress={() => handleDeclineIncomingShare(doc.id)}
+                      onPress={() => {
+                        onDeclineIncomingShare(doc.id);
+                        if (incomingSharedWithMeDocuments.length === 1) {
+                          setSharedWithMeView('accepted');
+                        }
+                      }}
                     />
                   </View>
                 </View>
@@ -485,7 +339,7 @@ export function MainScreen({ navigation }: Props) {
             <Pressable
               key={doc.id}
               style={styles.card}
-              onPress={() => navigation.navigate('Preview', { docId: doc.id })}
+              onPress={() => openPreview(doc)}
               onLongPress={() => {
                 setExpandedDocId(prev => (prev === doc.id ? null : doc.id));
               }}
@@ -561,20 +415,20 @@ export function MainScreen({ navigation }: Props) {
                           {renderCompactAction({
                             label: 'Export',
                             icon: ArrowDownTrayIcon,
-                            onPress: () => void handleExport(doc),
+                            onPress: () => void onExport(doc),
                           })}
                           {canShareDoc ? (
                             renderCompactAction({
                               label: 'Share',
                               icon: ShareIcon,
-                              onPress: () => navigation.navigate('Share', { docId: doc.id }),
+                              onPress: () => openShare(doc),
                             })
                           ) : !isOwner && hasFirebase ? (
                             renderCompactAction({
                               label: 'Decline Share',
                               icon: MinusCircleIcon,
                               tone: 'danger',
-                              onPress: () => handleDeclineIncomingShare(doc.id),
+                              onPress: () => onDeclineIncomingShare(doc.id),
                             })
                           ) : (
                             <View style={{ flex: 1 }} />
@@ -588,8 +442,8 @@ export function MainScreen({ navigation }: Props) {
                               tone: hasLocal ? 'danger' : 'default',
                               onPress: () =>
                                 hasLocal
-                                  ? void handleDeleteLocal(doc)
-                                  : void handleSaveOffline(doc),
+                                  ? onDeleteLocal(doc)
+                                  : onSaveOffline(doc),
                             })
                           ) : (
                             <View style={{ flex: 1 }} />
@@ -601,8 +455,8 @@ export function MainScreen({ navigation }: Props) {
                               tone: hasFirebase ? 'danger' : 'default',
                               onPress: () =>
                                 hasFirebase
-                                  ? void handleDeleteFromFirebase(doc)
-                                  : void handleSaveToFirebase(doc),
+                                  ? onDeleteFromFirebase(doc)
+                                  : onSaveToFirebase(doc),
                             })
                           ) : (
                             <View style={{ flex: 1 }} />
@@ -615,7 +469,7 @@ export function MainScreen({ navigation }: Props) {
                                 ? 'Disable Key Backup'
                                 : 'Enable Key Backup',
                               icon: KeyIcon,
-                              onPress: () => void handleToggleRecovery(doc, !doc.recoverable),
+                              onPress: () => void onToggleRecovery(doc, !doc.recoverable),
                             })}
                           </View>
                         ) : null}

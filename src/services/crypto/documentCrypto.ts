@@ -18,7 +18,6 @@ import CryptoJS from 'crypto-js';
 import * as Keychain from 'react-native-keychain';
 import { Buffer } from 'buffer';
 
-import { encodeBase64 } from './base64';
 
 type CryptoRuntime = {
   randomBytes: (size: number) => Buffer;
@@ -111,7 +110,7 @@ function base64ToBytes(value: string) {
 }
 
 function bytesToBase64(value: Uint8Array | Buffer) {
-  return encodeBase64(Buffer.from(value));
+  return Buffer.from(value).toString('base64');
 }
 
 function utf8ToBytes(value: string) {
@@ -497,7 +496,7 @@ export async function wrapDocumentKeyForRecipient(
   );
 
   return {
-    wrappedKeyCipher: encodeBase64(cipherBuffer),
+    wrappedKeyCipher: Buffer.from(cipherBuffer).toString('base64'),
     keyWrapAlgorithm: 'RSA-OAEP-SHA256' as const,
   };
 }
@@ -537,8 +536,7 @@ export async function unwrapDocumentKeyFromShareEnvelope(
       Buffer.from(envelope.wrappedKeyCipher, 'base64'),
     );
 
-    // Use our local safe utility instead of relying on Buffer or global shims that might be missing
-    return encodeBase64(new Uint8Array(plainBuffer));
+    return Buffer.from(plainBuffer).toString('base64');
   } catch (error) {
     // If the standard OAEP-SHA256 fails, it might be due to an older version of the share
     // that used a different padding or hash. Or the cipher is corrupted.

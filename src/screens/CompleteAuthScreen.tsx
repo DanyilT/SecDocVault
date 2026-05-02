@@ -1,22 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Keychain from 'react-native-keychain';
 
-import { useAuth } from '../context/AuthContext';
-import { useVaultLock } from '../context/VaultLockContext';
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
 import { hasKdfPassphrase, restoreKdfPassphrase, setRecoveryPassphrase } from '../services/crypto/documentCrypto';
 import { styles } from '../theme/styles';
 import type { AuthProtection } from '../types/vault';
-import type { AuthStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'CompleteAuthSetup'>;
+type Props = {
+  isSubmitting: boolean;
+  authError: string | null;
+  onComplete: (payload: {
+    method: AuthProtection;
+    pin?: string;
+    useBiometricForPin: boolean;
+  }) => Promise<void>;
+};
 
-export function CompleteAuthScreen(_props: Props) {
-  const { isSubmitting, authError, updateUnlockMethod, clearError } = useAuth();
-  const { finishAuthSetup } = useVaultLock();
-
+export function CompleteAuthScreen({ isSubmitting, authError, onComplete }: Props) {
   const [method, setMethod] = useState<AuthProtection>('pin');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -80,12 +81,11 @@ export function CompleteAuthScreen(_props: Props) {
     method !== 'pin' || (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
 
   const handleComplete = async () => {
-    clearError();
-    const ok = await updateUnlockMethod(method, {
+    await onComplete({
+      method,
       pin: method === 'pin' ? pin : undefined,
-      pinBiometricEnabled: method === 'pin' ? useBiometricForPin : false,
+      useBiometricForPin: method === 'pin' ? useBiometricForPin : false,
     });
-    if (ok) finishAuthSetup();
   };
 
   if (passphraseReady && passphraseNeeded) {
