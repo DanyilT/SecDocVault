@@ -38,6 +38,7 @@ type UseAuthFeatureFlowsParams = {
   setAuthNotice: (value: string | null) => void;
   setShowCompleteAuthSetup: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;
+  setIsFromRegistration: (value: boolean) => void;
   setAuthCredentialSnapshot: (value: { email: string; password: string } | null) => void;
   setIsTransitioningToAuth: (value: boolean) => void;
   setHasUnlockedThisLaunch: (value: boolean) => void;
@@ -113,6 +114,7 @@ export function useAuthFeatureFlows({
   setAuthNotice,
   setShowCompleteAuthSetup,
   setIsCompletingAuthFlow,
+  setIsFromRegistration,
   setAuthCredentialSnapshot,
   setIsTransitioningToAuth,
   setHasUnlockedThisLaunch,
@@ -181,6 +183,7 @@ export function useAuthFeatureFlows({
     setAuthNotice,
     setShowCompleteAuthSetup,
     setIsCompletingAuthFlow,
+    setIsFromRegistration,
     setAuthCredentialSnapshot,
     setIsTransitioningToAuth,
     setHasUnlockedThisLaunch,

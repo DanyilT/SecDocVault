@@ -58,6 +58,7 @@ export function useAppControllerState() {
   const [pendingNewEmail, setPendingNewEmail] = useState('');
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [guestAccountExists, setGuestAccountExists] = useState(false);
+  const [isFromRegistration, setIsFromRegistration] = useState(false);
   const [showVaultPassphrasePrompt, setShowVaultPassphrasePrompt] = useState(false);
   const [vaultPassphrasePromptInput, setVaultPassphrasePromptInput] = useState('');
   const [vaultPassphrasePromptAttemptsLeft, setVaultPassphrasePromptAttemptsLeft] = useState(3);
@@ -140,6 +141,8 @@ export function useAppControllerState() {
     setAuthNotice,
     guestAccountExists,
     setGuestAccountExists,
+    isFromRegistration,
+    setIsFromRegistration,
     showVaultPassphrasePrompt,
     setShowVaultPassphrasePrompt,
     vaultPassphrasePromptInput,

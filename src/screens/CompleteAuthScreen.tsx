@@ -10,6 +10,7 @@ import type { AuthProtection } from '../types/vault';
 type Props = {
   isSubmitting: boolean;
   authError: string | null;
+  passphraseAlreadySet?: boolean;
   onComplete: (payload: {
     method: AuthProtection;
     pin?: string;
@@ -17,7 +18,7 @@ type Props = {
   }) => Promise<void>;
 };
 
-export function CompleteAuthScreen({ isSubmitting, authError, onComplete }: Props) {
+export function CompleteAuthScreen({ isSubmitting, authError, passphraseAlreadySet, onComplete }: Props) {
   const [method, setMethod] = useState<AuthProtection>('pin');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -32,11 +33,16 @@ export function CompleteAuthScreen({ isSubmitting, authError, onComplete }: Prop
   const [isSettingPassphrase, setIsSettingPassphrase] = useState(false);
 
   useEffect(() => {
+    if (passphraseAlreadySet) {
+      setPassphraseNeeded(false);
+      setPassphraseReady(true);
+      return;
+    }
     void hasKdfPassphrase().then(has => {
       setPassphraseNeeded(!has);
       setPassphraseReady(true);
     });
-  }, []);
+  }, [passphraseAlreadySet]);
 
   useEffect(() => {
     void Keychain.getSupportedBiometryType()
@@ -121,7 +127,6 @@ export function CompleteAuthScreen({ isSubmitting, authError, onComplete }: Prop
             onPress={() => void handlePassphraseSetup()}
           />
           <Pressable
-            disabled={isSettingPassphrase}
             onPress={() => setPassphraseNeeded(false)}
             style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#334155', marginTop: 4 }}>
             <Text style={styles.primaryButtonText}>Skip for now</Text>

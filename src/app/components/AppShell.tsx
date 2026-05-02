@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppController } from '../controllers';
 import { AppHeaderController } from './AppHeaderController';
@@ -23,10 +23,10 @@ export function AppShell() {
   } = useAppController();
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0b1220' }}>
       {showVaultShell ? <AppHeaderController {...headerControllerProps} /> : null}
       <AppScreenRouter {...appScreenRouterProps} />
       <AppOverlays {...overlaysProps} />
-    </View>
+    </SafeAreaView>
   );
 }

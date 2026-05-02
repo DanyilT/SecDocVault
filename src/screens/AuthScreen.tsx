@@ -131,15 +131,15 @@ export function AuthScreen({
   }, [authMode, hasTypedPassword, isPasswordMismatch, password]);
 
   const hasTypedVaultPassphrase = vaultPassphrase.trim().length > 0;
-  const isVaultPassphraseTooShort = hasTypedVaultPassphrase && vaultPassphrase.trim().length < 8;
+  const isVaultPassphraseTooShort = hasTypedVaultPassphrase && vaultPassphrase.trim().length < 20;
   const isVaultPassphraseMismatch =
     authMode === 'register' &&
     confirmVaultPassphrase.trim().length > 0 &&
-    vaultPassphrase.trim().length >= 8 &&
+    vaultPassphrase.trim().length >= 20 &&
     vaultPassphrase !== confirmVaultPassphrase;
 
   const vaultPassphraseWarning = useMemo(() => {
-    if (isVaultPassphraseTooShort) return 'Vault passphrase must be at least 8 characters.';
+    if (isVaultPassphraseTooShort) return 'Vault passphrase must be at least 20 characters.';
     if (isVaultPassphraseMismatch) return 'Vault passphrases do not match.';
     return '';
   }, [isVaultPassphraseMismatch, isVaultPassphraseTooShort]);
@@ -331,7 +331,7 @@ export function AuthScreen({
                   <TextInput
                     autoCapitalize="none"
                     secureTextEntry={!showVaultPassphrase}
-                    placeholder="Vault Passphrase (min 8 chars)"
+                    placeholder="Vault Passphrase (min 20 chars)"
                     placeholderTextColor="#6b7280"
                     style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
                     value={vaultPassphrase}

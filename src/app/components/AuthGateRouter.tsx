@@ -23,6 +23,7 @@ type AuthGateRouterProps = {
   isInitializing: boolean;
   firebaseProjectId: string;
   shouldShowCompleteAuthSetup: boolean;
+  passphraseAlreadySet: boolean;
   isAuthenticated: boolean;
   isVaultLocked: boolean;
   authGateStage: AuthGateStage;
@@ -90,6 +91,7 @@ export function AuthGateRouter({
   isInitializing,
   firebaseProjectId,
   shouldShowCompleteAuthSetup,
+  passphraseAlreadySet,
   isAuthenticated,
   isVaultLocked,
   authGateStage,
@@ -155,6 +157,7 @@ export function AuthGateRouter({
         <CompleteAuthScreen
           isSubmitting={isSubmitting}
           authError={authError}
+          passphraseAlreadySet={passphraseAlreadySet}
           onComplete={onCompleteAuthSetup}
         />
       </Animated.View>

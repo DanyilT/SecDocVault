@@ -41,6 +41,7 @@ type UseAuthGateFlowParams = {
   setAuthNotice: (value: string | null) => void;
   setShowCompleteAuthSetup: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;
+  setIsFromRegistration: (value: boolean) => void;
   setAuthCredentialSnapshot: (value: {email: string; password: string} | null) => void;
   setIsTransitioningToAuth: (value: boolean) => void;
   setHasUnlockedThisLaunch: (value: boolean) => void;
@@ -107,6 +108,7 @@ export function useAuthGateFlow({
   setAuthNotice,
   setShowCompleteAuthSetup,
   setIsCompletingAuthFlow,
+  setIsFromRegistration,
   setAuthCredentialSnapshot,
   setIsTransitioningToAuth,
   setHasUnlockedThisLaunch,
@@ -140,7 +142,7 @@ export function useAuthGateFlow({
   const canSubmitAuth = useMemo(() => {
     const hasVaultPassphrase =
       authMode === 'register'
-        ? vaultPassphrase.trim().length >= 8 && vaultPassphrase === confirmVaultPassphrase
+        ? vaultPassphrase.trim().length >= 20 && vaultPassphrase === confirmVaultPassphrase
         : true;
 
     if (accessMode === 'guest') {
@@ -180,6 +182,9 @@ export function useAuthGateFlow({
     }
 
     setIsCompletingAuthFlow(true);
+    if (authMode === 'register') {
+      setIsFromRegistration(true);
+    }
 
     if (accessMode === 'login' && (user || isGuest)) {
       await signOut();
@@ -207,6 +212,7 @@ export function useAuthGateFlow({
           : await signUp(email, password);
 
     if (!isSuccess) {
+      setIsFromRegistration(false);
       setIsCompletingAuthFlow(false);
       return;
     }
@@ -244,6 +250,7 @@ export function useAuthGateFlow({
     await AsyncStorage.removeItem(completeAuthPendingKey);
     setShowCompleteAuthSetup(false);
     setIsCompletingAuthFlow(false);
+    setIsFromRegistration(false);
     resetAuthForm();
     setAuthCredentialSnapshot(null);
     setScreen('main');
@@ -331,6 +338,7 @@ export function useAuthGateFlow({
         await signOut();
         await AsyncStorage.removeItem(completeAuthPendingKey);
         setIsCompletingAuthFlow(false);
+        setIsFromRegistration(false);
         resetAuthForm();
         setShowCompleteAuthSetup(false);
         setAuthCredentialSnapshot(null);
