@@ -1,3 +1,12 @@
+/**
+ * screens/AuthScreen.tsx
+ *
+ * UI wrapper for sign-in and registration flows. This file wires the
+ * presentation components to auth-related hooks and manifests small-screen
+ * specific behaviors. Keep logic thin; auth flows are implemented in
+ * `app/hooks` or `context/AuthContext`.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -10,6 +19,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {
+  CheckCircleIcon,
+  CursorArrowRaysIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from 'react-native-heroicons/solid';
 
 import { GuestLoginNotice } from '../components/GuestLoginNotice.tsx';
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
@@ -46,6 +62,39 @@ type Props = {
   onBackToHero: () => void;
 };
 
+/**
+ * AuthScreen
+ *
+ * Render the authentication UI for login, registration and guest access.
+ * This component wires presentation controls to handlers provided by the
+ * controller layer and displays validation, verification and status hints.
+ *
+ * @param {object} props - Component props
+ * @param {'login'|'guest'} props.accessMode - Selected access mode (login or guest)
+ * @param {AuthMode} props.authMode - Active authentication mode (e.g. 'login'|'register')
+ * @param {string} props.email - Current email input value
+ * @param {string} props.password - Current password input value
+ * @param {string} props.confirmPassword - Current confirm-password input value
+ * @param {boolean} props.canSubmitAuth - Whether the auth form can be submitted
+ * @param {boolean} props.isSubmitting - Whether an auth request is in progress
+ * @param {string|null} props.authError - Optional error message to display
+ * @param {string|null} props.authNotice - Optional notice message to display
+ * @param {boolean} props.emailVerifiedForRegistration - Whether the email has been verified for registration
+ * @param {number} props.verificationCooldown - Seconds remaining until resend is allowed
+ * @param {string} props.verificationLinkInput - Value of the verification link input
+ * @param {(mode: 'login'|'guest') => void} props.setAccessMode - Setter for accessMode
+ * @param {(mode: AuthMode) => void} props.setAuthMode - Setter for authMode
+ * @param {(value: string) => void} props.setEmail - Setter for email
+ * @param {(value: string) => void} props.setPassword - Setter for password
+ * @param {(value: string) => void} props.setConfirmPassword - Setter for confirmPassword
+ * @param {(value: string) => void} props.setVerificationLinkInput - Setter for verificationLinkInput
+ * @param {() => Promise<void>} props.onResendVerificationEmail - Trigger resend verification email
+ * @param {() => Promise<void>} props.onVerifyEmailLinkManually - Verify pasted email link
+ * @param {() => Promise<void>} props.onResetPassword - Trigger reset password flow
+ * @param {() => Promise<void>} props.handleAuth - Trigger auth (login/register) action
+ * @param {() => void} props.onBackToHero - Navigate back to the intro/hero screen
+ * @returns {JSX.Element} Rendered authentication screen
+ */
 export function AuthScreen({
   authMode,
   email,
@@ -80,6 +129,9 @@ export function AuthScreen({
   const [showVaultPassphrase, setShowVaultPassphrase] = useState(false);
   const [showConfirmVaultPassphrase, setShowConfirmVaultPassphrase] = useState(false);
   const passwordInputRef = useRef<TextInput | null>(null);
+  const confirmPasswordInputRef = useRef<TextInput | null>(null);
+  const vaultPassphraseInputRef = useRef<TextInput | null>(null);
+  const confirmVaultPassphraseInputRef = useRef<TextInput | null>(null);
   const footerShift = useRef(new Animated.Value(0)).current;
   const formTransition = useRef(new Animated.Value(1)).current;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -106,6 +158,12 @@ export function AuthScreen({
   const isRegisterLogin = authMode === 'register' && accessMode === 'login';
   const isVerificationPending = isRegisterLogin && !emailVerifiedForRegistration && verificationCooldown > 0;
   const hasTypedPassword = password.trim().length > 0;
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValidEmailFormat = email.trim().length > 0 ? emailRegex.test(email.trim()) : true;
+  const canSendVerification = isValidEmailFormat && verificationCooldown <= 0 && email.trim().length > 0;
+
   const isPasswordValid =
     password.trim().length >= 8 &&
     /[a-zA-Z]/.test(password) &&
@@ -146,13 +204,7 @@ export function AuthScreen({
 
   const showVerificationLinkInput = verificationCooldown > 0 || verificationLinkInput.length > 0;
 
-  const emailBorderColor = isRegisterLogin
-    ? emailVerifiedForRegistration
-      ? '#22c55e'
-      : isVerificationPending
-      ? '#f59e0b'
-      : '#374151'
-    : '#374151';
+  const emailBorderColor = emailVerifiedForRegistration ? '#22c55e' : isVerificationPending ? '#f59e0b' : email.trim().length > 0 && !isValidEmailFormat ? '#ef4444' : '#374151';
 
   const showPasswordErrorBorder =
     authMode === 'register' && hasTypedPassword && (!isPasswordValid || isPasswordMismatch);
@@ -168,7 +220,8 @@ export function AuthScreen({
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}>
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+    >
       <Header
         title={authMode === 'login' ? 'Welcome Back' : 'Create Your Account'}
         showBack
@@ -177,12 +230,14 @@ export function AuthScreen({
 
       <ScrollView
         contentContainerStyle={[styles.scrollContainer, { paddingBottom: 20 }]}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+      >
         <Animated.View
           style={{
             opacity: formTransition,
             transform: [{ translateY: formTransition.interpolate({ inputRange: [0.92, 1], outputRange: [6, 0] }) }],
-          }}>
+          }}
+        >
 
           <View style={[styles.segmentRow, { marginBottom: 10 }]}>
             <SegmentButton
@@ -226,55 +281,69 @@ export function AuthScreen({
                     style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
                     value={email}
                     onChangeText={setEmail}
-                    returnKeyType={isRegisterLogin && emailVerifiedForRegistration ? 'next' : 'send'}
+                    returnKeyType={isRegisterLogin && emailVerifiedForRegistration ? 'next' : canSendVerification ? 'send' : 'default'}
                     onSubmitEditing={() => {
                       if (!isRegisterLogin) { passwordInputRef.current?.focus(); return; }
                       if (emailVerifiedForRegistration) { passwordInputRef.current?.focus(); return; }
-                      if (verificationCooldown <= 0 && email.trim().length > 4) {
+                      if (canSendVerification) {
                         void onResendVerificationEmail();
                       }
                     }}
                   />
                   {isRegisterLogin && emailVerifiedForRegistration ? (
-                    <Text style={{ color: '#22c55e', fontWeight: '700' }}>✓ Verified</Text>
+                    <CheckCircleIcon size={24} color="#22c55e" />
+                  ) : null}
+                  {isRegisterLogin && !emailVerifiedForRegistration ? (
+                    <Pressable
+                      onPress={() => void onResendVerificationEmail()}
+                      disabled={!canSendVerification || isSubmitting}
+                      style={{ opacity: !canSendVerification || isSubmitting ? 0.5 : 1 }}
+                    >
+                      {verificationCooldown > 0 ? (
+                        <Text style={{ color: '#60a5fa', fontWeight: '600', fontSize: 12 }}>
+                          {verificationCooldown}s
+                        </Text>
+                      ) : (
+                        <EnvelopeIcon size={21} color="#60a5fa" />
+                      )}
+                    </Pressable>
                   ) : null}
                 </View>
 
                 {isRegisterLogin ? (
                   <>
+                    {!emailVerifiedForRegistration ? (
+                      <>
+                        {showVerificationLinkInput ? (
+                          <>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12, marginTop: 8 }}>
+                              <TextInput
+                                autoCapitalize="none"
+                                placeholder="Paste verification link here"
+                                placeholderTextColor="#6b7280"
+                                style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                                value={verificationLinkInput}
+                                onChangeText={setVerificationLinkInput}
+                                returnKeyType="done"
+                                onSubmitEditing={() => { if (verificationLinkInput.trim().length > 0) void onVerifyEmailLinkManually(); }}
+                              />
+                              <Pressable
+                                onPress={() => { if (verificationLinkInput.trim().length > 0) void onVerifyEmailLinkManually(); }}
+                                disabled={verificationLinkInput.trim().length === 0 || isSubmitting}
+                                style={{ opacity: verificationLinkInput.trim().length === 0 || isSubmitting ? 0.5 : 1 }}
+                              >
+                                <CursorArrowRaysIcon size={21} color="#60a5fa" />
+                              </Pressable>
+                            </View>
+                          </>
+                        ) : null}
+                      </>
+                    ) : null}
                     {isVerificationPending ? (
                       <Text style={[styles.warningText, { marginTop: 2 }]}>Verification link sent. Check inbox and spam folder.</Text>
                     ) : null}
                     {emailVerifiedForRegistration ? (
                       <Text style={[styles.subtitle, { color: '#22c55e', marginBottom: 0 }]}>Email verified. You can now create your account.</Text>
-                    ) : null}
-                    {!emailVerifiedForRegistration ? (
-                      <>
-                        <PrimaryButton
-                          label={verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : 'Send Verification Email'}
-                          onPress={() => void onResendVerificationEmail()}
-                          disabled={verificationCooldown > 0 || email.trim().length < 5 || isSubmitting}
-                        />
-                        {showVerificationLinkInput ? (
-                          <>
-                            <TextInput
-                              autoCapitalize="none"
-                              placeholder="Paste verification link here"
-                              placeholderTextColor="#6b7280"
-                              style={styles.input}
-                              value={verificationLinkInput}
-                              onChangeText={setVerificationLinkInput}
-                              returnKeyType="done"
-                              onSubmitEditing={() => { if (verificationLinkInput.trim().length > 0) void onVerifyEmailLinkManually(); }}
-                            />
-                            <PrimaryButton
-                              label="Verify Link"
-                              onPress={() => void onVerifyEmailLinkManually()}
-                              disabled={verificationLinkInput.trim().length === 0 || isSubmitting}
-                            />
-                          </>
-                        ) : null}
-                      </>
                     ) : null}
                   </>
                 ) : null}
@@ -291,9 +360,21 @@ export function AuthScreen({
                 style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
                 value={password}
                 onChangeText={setPassword}
+                returnKeyType={authMode === 'login' ? 'done' : 'next'}
+                onSubmitEditing={() => {
+                  if (authMode === 'register') {
+                    confirmPasswordInputRef.current?.focus();
+                  } else if (authMode === 'login') {
+                    void handleAuth();
+                  }
+                }}
               />
               <Pressable onPress={() => setShowPassword(p => !p)}>
-                <Text style={styles.secondaryButtonText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                {showPassword ? (
+                  <EyeSlashIcon size={21} color="#60a5fa" />
+                ) : (
+                  <EyeIcon size={21} color="#60a5fa" />
+                )}
               </Pressable>
             </View>
 
@@ -306,6 +387,7 @@ export function AuthScreen({
             {authMode === 'register' ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: showConfirmErrorBorder ? '#ef4444' : '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
                 <TextInput
+                  ref={confirmPasswordInputRef}
                   autoCapitalize="none"
                   secureTextEntry={!showConfirmPassword}
                   placeholder={accessMode === 'guest' ? 'Confirm Guest Password' : 'Confirm Password'}
@@ -313,9 +395,17 @@ export function AuthScreen({
                   style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
+                  returnKeyType="next"
+                  onSubmitEditing={() => {
+                    vaultPassphraseInputRef.current?.focus();
+                  }}
                 />
                 <Pressable onPress={() => setShowConfirmPassword(p => !p)}>
-                  <Text style={styles.secondaryButtonText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+                  {showConfirmPassword ? (
+                    <EyeSlashIcon size={21} color="#60a5fa" />
+                  ) : (
+                    <EyeIcon size={21} color="#60a5fa" />
+                  )}
                 </Pressable>
               </View>
             ) : null}

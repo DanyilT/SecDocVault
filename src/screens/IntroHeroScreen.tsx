@@ -1,3 +1,11 @@
+/**
+ * screens/IntroHeroScreen.tsx
+ *
+ * Simple landing/intro hero shown before authentication. This presentation
+ * component contains CTA buttons to start login or guest flows and a brief
+ * product blurb. Keep this component purely presentational.
+ */
+
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
@@ -10,6 +18,17 @@ type Props = {
   onGuest: () => void;
 };
 
+/**
+ * IntroHeroScreen
+ *
+ * Presentation-only landing screen shown before authentication. Exposes
+ * callbacks for starting login or guest flows.
+ *
+ * @param {object} props - Component props
+ * @param {() => void} props.onLogin - Callback invoked when the Login CTA is pressed
+ * @param {() => void} props.onGuest - Callback invoked when the Guest CTA is pressed
+ * @returns {JSX.Element} Rendered intro hero screen
+ */
 export function IntroHeroScreen({ onLogin, onGuest }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
