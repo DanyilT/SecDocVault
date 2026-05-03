@@ -77,6 +77,7 @@ type UseVaultFeatureFlowsParams = {
   setSkipUploadDiscardWarning: (value: boolean) => void;
   isPickingFileRef: { current: boolean };
   handleToggleDocumentRecovery: (docMeta: VaultDocument, enabled: boolean) => Promise<void>;
+  onMissingPassphrase?: () => void;
 };
 
 /**
@@ -129,6 +130,7 @@ export function useVaultFeatureFlows({
   setSkipUploadDiscardWarning,
   isPickingFileRef,
   handleToggleDocumentRecovery,
+  onMissingPassphrase,
 }: UseVaultFeatureFlowsParams) {
   const {
     previewImageUri,
@@ -149,6 +151,7 @@ export function useVaultFeatureFlows({
     decryptDocumentPayload,
     exportDocumentToDevice,
     canCurrentUserExportDocument,
+    onMissingPassphrase,
   });
 
   const {

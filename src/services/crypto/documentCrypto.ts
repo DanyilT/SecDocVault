@@ -18,7 +18,6 @@ import CryptoJS from 'crypto-js';
 import * as Keychain from 'react-native-keychain';
 import { Buffer } from 'buffer';
 
-import { encodeBase64 } from './base64';
 
 type CryptoRuntime = {
   randomBytes: (size: number) => Buffer;
@@ -111,7 +110,7 @@ function base64ToBytes(value: string) {
 }
 
 function bytesToBase64(value: Uint8Array | Buffer) {
-  return encodeBase64(Buffer.from(value));
+  return Buffer.from(value).toString('base64');
 }
 
 function utf8ToBytes(value: string) {
@@ -174,13 +173,56 @@ function decryptLegacyCbc(cipherB64: string, ivB64: string, keyB64: string) {
 }
 
 /**
- * Reads or creates PBKDF2 material used to wrap document keys.
+ * Thrown when no vault passphrase is stored in Keychain. The caller should
+ * prompt the user to enter their passphrase and call `restoreKdfPassphrase`.
+ */
+export class MissingKdfPassphraseError extends Error {
+  constructor() {
+    super('Vault passphrase is not set. Please enter your passphrase to unlock your documents.');
+    this.name = 'MissingKdfPassphraseError';
+  }
+}
+
+/**
+ * Returns true when a vault passphrase is currently stored in Keychain.
+ */
+export async function hasKdfPassphrase(): Promise<boolean> {
+  const existing = await Keychain.getGenericPassword({service: KDF_PASSPHRASE_SERVICE});
+  return Boolean(existing);
+}
+
+/**
+ * Persists a user-supplied vault passphrase to Keychain without changing
+ * the existing salt. Use this when the user re-enters their passphrase on a
+ * new device or after Keychain data has been cleared.
+ *
+ * @param passphrase - The passphrase to persist.
+ */
+export async function restoreKdfPassphrase(passphrase: string): Promise<void> {
+  const normalized = passphrase.trim();
+  if (!normalized) {
+    throw new Error('Vault passphrase cannot be empty.');
+  }
+
+  await Keychain.setGenericPassword('vault', normalized, {
+    service: KDF_PASSPHRASE_SERVICE,
+    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  });
+
+  const existingSalt = await AsyncStorage.getItem(KDF_SALT_KEY);
+  if (!existingSalt) {
+    await AsyncStorage.setItem(KDF_SALT_KEY, toBase64(randomWordArray(16)));
+  }
+}
+
+/**
+ * Reads PBKDF2 material (passphrase + salt) used to wrap document keys.
  *
  * - Passphrase is stored in Keychain.
  * - Salt is stored in AsyncStorage.
  *
- * @returns Existing or newly-created `{ passphrase, salt }` pair.
- * @private
+ * @returns Existing `{ passphrase, salt }` pair.
+ * @throws {MissingKdfPassphraseError} If no passphrase has been set yet.
  */
 export async function getOrCreateKdfMaterial() {
   const existing = await Keychain.getGenericPassword({service: KDF_PASSPHRASE_SERVICE});
@@ -190,16 +232,49 @@ export async function getOrCreateKdfMaterial() {
     return {passphrase: existing.password, salt: storedSalt};
   }
 
-  const passphrase = toBase64(randomWordArray(32));
+  if (existing && !storedSalt) {
+    // Passphrase present but salt lost — regenerate salt; passphrase is still valid for unwrapping.
+    const salt = toBase64(randomWordArray(16));
+    await AsyncStorage.setItem(KDF_SALT_KEY, salt);
+    return {passphrase: existing.password, salt};
+  }
+
+  throw new MissingKdfPassphraseError();
+}
+
+/**
+ * Initialises KDF material from a user-supplied vault passphrase.
+ *
+ * Stores the passphrase in the Keychain and generates a fresh random salt in
+ * AsyncStorage, overwriting any previously auto-generated material. The salt
+ * is later fed into PBKDF2 alongside the passphrase to derive the document
+ * wrapping key.
+ *
+ * @param passphrase - User-provided passphrase (at least 8 characters).
+ * @returns The stored passphrase and the newly generated salt.
+ * @throws {Error} If the passphrase is empty.
+ */
+export async function initUserKdfPassphrase(passphrase: string) {
+  const normalized = passphrase.trim();
+  if (!normalized) {
+    throw new Error('Vault passphrase cannot be empty.');
+  }
+
   const salt = toBase64(randomWordArray(16));
 
-  await Keychain.setGenericPassword('vault', passphrase, {
+  await Keychain.setGenericPassword('vault', normalized, {
     service: KDF_PASSPHRASE_SERVICE,
     accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
   await AsyncStorage.setItem(KDF_SALT_KEY, salt);
 
-  return {passphrase, salt};
+  // The vault passphrase doubles as the recovery passphrase for cloud key backup.
+  await Keychain.setGenericPassword('recovery', normalized, {
+    service: RECOVERY_PASSPHRASE_SERVICE,
+    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  });
+
+  return { passphrase: normalized, salt };
 }
 
 export async function setRecoveryPassphrase(passphrase: string) {
@@ -217,6 +292,14 @@ export async function setRecoveryPassphrase(passphrase: string) {
 export async function getRecoveryPassphrase() {
   const existing = await Keychain.getGenericPassword({service: RECOVERY_PASSPHRASE_SERVICE});
   return existing ? existing.password : null;
+}
+
+export async function clearVaultPassphraseData(): Promise<void> {
+  await Promise.allSettled([
+    Keychain.resetGenericPassword({service: KDF_PASSPHRASE_SERVICE}),
+    Keychain.resetGenericPassword({service: RECOVERY_PASSPHRASE_SERVICE}),
+    AsyncStorage.removeItem(KDF_SALT_KEY),
+  ]);
 }
 
 /**
@@ -413,7 +496,7 @@ export async function wrapDocumentKeyForRecipient(
   );
 
   return {
-    wrappedKeyCipher: encodeBase64(cipherBuffer),
+    wrappedKeyCipher: Buffer.from(cipherBuffer).toString('base64'),
     keyWrapAlgorithm: 'RSA-OAEP-SHA256' as const,
   };
 }
@@ -453,8 +536,7 @@ export async function unwrapDocumentKeyFromShareEnvelope(
       Buffer.from(envelope.wrappedKeyCipher, 'base64'),
     );
 
-    // Use our local safe utility instead of relying on Buffer or global shims that might be missing
-    return encodeBase64(new Uint8Array(plainBuffer));
+    return Buffer.from(plainBuffer).toString('base64');
   } catch (error) {
     // If the standard OAEP-SHA256 fails, it might be due to an older version of the share
     // that used a different padding or hash. Or the cipher is corrupted.

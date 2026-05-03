@@ -9,6 +9,7 @@
 
 import { useRef, useState } from 'react';
 
+import { MissingKdfPassphraseError } from '../../services/crypto/documentCrypto';
 import { VaultDocument } from '../../types/vault';
 
 type UsePreviewFlowParams = {
@@ -24,6 +25,7 @@ type UsePreviewFlowParams = {
   }>;
   exportDocumentToDevice: (doc: VaultDocument, fileOrder: number) => Promise<string>;
   canCurrentUserExportDocument: (doc: VaultDocument) => boolean;
+  onMissingPassphrase?: () => void;
 };
 
 export function usePreviewFlow({
@@ -34,6 +36,7 @@ export function usePreviewFlow({
   decryptDocumentPayload,
   exportDocumentToDevice,
   canCurrentUserExportDocument,
+  onMissingPassphrase,
 }: UsePreviewFlowParams) {
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [previewStatus, setPreviewStatus] = useState('');
@@ -116,8 +119,12 @@ export function usePreviewFlow({
         });
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to decrypt document.';
-      setPreviewStatus(message);
+      if (error instanceof MissingKdfPassphraseError) {
+        onMissingPassphrase?.();
+      } else {
+        const message = error instanceof Error ? error.message : 'Failed to decrypt document.';
+        setPreviewStatus(message);
+      }
     } finally {
       setIsPreviewDecrypting(false);
     }
@@ -139,8 +146,12 @@ export function usePreviewFlow({
       const path = await exportDocumentToDevice(selectedDoc, previewFileOrder);
       setPreviewStatus(`Document exported to ${path}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Export failed.';
-      setPreviewStatus(message);
+      if (error instanceof MissingKdfPassphraseError) {
+        onMissingPassphrase?.();
+      } else {
+        const message = error instanceof Error ? error.message : 'Export failed.';
+        setPreviewStatus(message);
+      }
     }
   };
 

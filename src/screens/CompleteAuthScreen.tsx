@@ -1,57 +1,55 @@
-/**
- * screens/CompleteAuthScreen.tsx
- *
- * Screen shown after successful authentication where the user completes
- * device-specific unlock configuration (PIN, passkey, or none). This file
- * focuses on presentation and small-form validation; business logic to store
- * credentials is provided by callers via the `onComplete` callback.
- */
-
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as Keychain from 'react-native-keychain';
 
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
+import { hasKdfPassphrase, restoreKdfPassphrase, setRecoveryPassphrase } from '../services/crypto/documentCrypto';
 import { styles } from '../theme/styles';
-import { AuthProtection } from '../types/vault';
+import type { AuthProtection } from '../types/vault';
 
-/**
- * CompleteAuthScreen
- *
- * Screen displayed immediately after successful authentication where the user
- * chooses a device-specific unlock method (PIN, passkey, or none). The
- * component is presentational — credential persistence is handled by the
- * provided `onComplete` callback.
- *
- * @param {object} props - Component props
- * @param {boolean} props.isSubmitting - Whether the completion action is in progress
- * @param {string|null} props.authError - Optional error message to display
- * @param {(payload: { method: AuthProtection; pin?: string; useBiometricForPin: boolean }) => Promise<void>} props.onComplete - Callback invoked to persist chosen unlock method
- * @returns {JSX.Element} Rendered complete-auth screen
- */
-export function CompleteAuthScreen({
-  isSubmitting,
-  authError,
-  onComplete,
-}: {
+type Props = {
   isSubmitting: boolean;
   authError: string | null;
-  onComplete: (payload: { method: AuthProtection; pin?: string; useBiometricForPin: boolean }) => Promise<void>;
-}) {
+  passphraseAlreadySet?: boolean;
+  onComplete: (payload: {
+    method: AuthProtection;
+    pin?: string;
+    useBiometricForPin: boolean;
+  }) => Promise<void>;
+};
+
+export function CompleteAuthScreen({ isSubmitting, authError, passphraseAlreadySet, onComplete }: Props) {
   const [method, setMethod] = useState<AuthProtection>('pin');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [canUseBiometric, setCanUseBiometric] = useState(false);
   const [useBiometricForPin, setUseBiometricForPin] = useState(false);
 
+  const [passphraseNeeded, setPassphraseNeeded] = useState(false);
+  const [passphraseReady, setPassphraseReady] = useState(false);
+  const [loginPassphrase, setLoginPassphrase] = useState('');
+  const [showLoginPassphrase, setShowLoginPassphrase] = useState(false);
+  const [passphraseError, setPassphraseError] = useState('');
+  const [isSettingPassphrase, setIsSettingPassphrase] = useState(false);
+
+  useEffect(() => {
+    if (passphraseAlreadySet) {
+      setPassphraseNeeded(false);
+      setPassphraseReady(true);
+      return;
+    }
+    void hasKdfPassphrase().then(has => {
+      setPassphraseNeeded(!has);
+      setPassphraseReady(true);
+    });
+  }, [passphraseAlreadySet]);
+
   useEffect(() => {
     void Keychain.getSupportedBiometryType()
       .then(type => {
         const supported = Boolean(type);
         setCanUseBiometric(supported);
-        if (!supported) {
-          setUseBiometricForPin(false);
-        }
+        if (!supported) setUseBiometricForPin(false);
       })
       .catch(() => {
         setCanUseBiometric(false);
@@ -59,22 +57,84 @@ export function CompleteAuthScreen({
       });
   }, []);
 
+  const handlePassphraseSetup = async () => {
+    const normalized = loginPassphrase.trim();
+    if (normalized.length < 8) {
+      setPassphraseError('Passphrase must be at least 8 characters.');
+      return;
+    }
+    setIsSettingPassphrase(true);
+    setPassphraseError('');
+    try {
+      await restoreKdfPassphrase(normalized);
+      await setRecoveryPassphrase(normalized);
+      setPassphraseNeeded(false);
+    } catch (err) {
+      setPassphraseError(err instanceof Error ? err.message : 'Failed to restore passphrase.');
+    } finally {
+      setIsSettingPassphrase(false);
+    }
+  };
+
   const pinError = useMemo(() => {
-    if (method !== 'pin') {
-      return '';
-    }
-    if (pin.length > 0 && pin.length < 4) {
-      return 'PIN must be at least 4 digits.';
-    }
-    if (confirmPin.length > 0 && pin !== confirmPin) {
-      return 'PIN entries do not match.';
-    }
+    if (method !== 'pin') return '';
+    if (pin.length > 0 && pin.length < 4) return 'PIN must be at least 4 digits.';
+    if (confirmPin.length > 0 && pin !== confirmPin) return 'PIN entries do not match.';
     return '';
   }, [confirmPin, method, pin]);
 
   const canContinue =
-    method !== 'pin' ||
-    (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
+    method !== 'pin' || (pin.length >= 4 && confirmPin.length >= 4 && pin === confirmPin);
+
+  const handleComplete = async () => {
+    await onComplete({
+      method,
+      pin: method === 'pin' ? pin : undefined,
+      useBiometricForPin: method === 'pin' ? useBiometricForPin : false,
+    });
+  };
+
+  if (passphraseReady && passphraseNeeded) {
+    return (
+      <View style={styles.container}>
+        <Header title="Enter Vault Passphrase" />
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <Text style={styles.subtitle}>
+            Enter the passphrase you set when you created your account. It is used to protect your encrypted document keys.
+          </Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Vault Passphrase</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
+              <TextInput
+                autoCapitalize="none"
+                secureTextEntry={!showLoginPassphrase}
+                placeholder="Vault passphrase"
+                placeholderTextColor="#6b7280"
+                style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                value={loginPassphrase}
+                onChangeText={text => { setLoginPassphrase(text); setPassphraseError(''); }}
+                editable={!isSettingPassphrase}
+              />
+              <Pressable onPress={() => setShowLoginPassphrase(p => !p)}>
+                <Text style={styles.secondaryButtonText}>{showLoginPassphrase ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            </View>
+            {passphraseError ? <Text style={styles.errorText}>{passphraseError}</Text> : null}
+          </View>
+          <PrimaryButton
+            label={isSettingPassphrase ? 'Please wait...' : 'Continue'}
+            disabled={isSettingPassphrase || loginPassphrase.trim().length < 8}
+            onPress={() => void handlePassphraseSetup()}
+          />
+          <Pressable
+            onPress={() => setPassphraseNeeded(false)}
+            style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#334155', marginTop: 4 }}>
+            <Text style={styles.primaryButtonText}>Skip for now</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -95,8 +155,8 @@ export function CompleteAuthScreen({
             {method === 'pin'
               ? 'PIN unlock is local to this device and does not re-authenticate your account.'
               : method === 'passkey'
-                ? 'Passkey unlock re-authenticates this account from a saved credential.'
-                : 'No unlock method is saved. After lock, you must sign in again.'}
+              ? 'Passkey unlock re-authenticates this account from a saved credential.'
+              : 'No unlock method is saved. After lock, you must sign in again.'}
           </Text>
         </View>
 
@@ -109,7 +169,7 @@ export function CompleteAuthScreen({
               placeholderTextColor="#6b7280"
               style={styles.input}
               value={pin}
-              onChangeText={value => setPin(value.replace(/[^0-9]/g, ''))}
+              onChangeText={v => setPin(v.replace(/[^0-9]/g, ''))}
               secureTextEntry
               editable={!isSubmitting}
               maxLength={12}
@@ -120,7 +180,7 @@ export function CompleteAuthScreen({
               placeholderTextColor="#6b7280"
               style={styles.input}
               value={confirmPin}
-              onChangeText={value => setConfirmPin(value.replace(/[^0-9]/g, ''))}
+              onChangeText={v => setConfirmPin(v.replace(/[^0-9]/g, ''))}
               secureTextEntry
               editable={!isSubmitting}
               maxLength={12}
@@ -144,13 +204,7 @@ export function CompleteAuthScreen({
         <PrimaryButton
           label={isSubmitting ? 'Please wait...' : 'Complete Setup'}
           disabled={isSubmitting || !canContinue || Boolean(pinError)}
-          onPress={() => {
-            void onComplete({
-              method,
-              pin: method === 'pin' ? pin : undefined,
-              useBiometricForPin: method === 'pin' ? useBiometricForPin : false,
-            });
-          }}
+          onPress={() => void handleComplete()}
         />
       </ScrollView>
     </View>

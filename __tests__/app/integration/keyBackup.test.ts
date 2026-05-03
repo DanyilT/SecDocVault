@@ -1,4 +1,4 @@
-import { generateRecoveryPassphrase } from '../../../src/services/keyBackup';
+import { ensureRecoveryPassphrase } from '../../../src/services/keyBackup';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(async () => null),
@@ -34,15 +34,10 @@ jest.mock('react-native-fs', () => ({
   writeFile: jest.fn(async () => undefined),
 }));
 
-describe('generateRecoveryPassphrase', () => {
-  test('returns high-entropy hex groups', () => {
-    const passphrase = generateRecoveryPassphrase();
-
-    expect(passphrase).toMatch(/^[a-f0-9]{8}(?:-[a-f0-9]{8}){4}$/);
-  });
-
-  test('produces different values across invocations', () => {
-    const samples = new Set(Array.from({ length: 20 }, () => generateRecoveryPassphrase()));
-    expect(samples.size).toBeGreaterThan(1);
+describe('ensureRecoveryPassphrase', () => {
+  test('throws when no recovery passphrase is stored', async () => {
+    await expect(ensureRecoveryPassphrase()).rejects.toThrow(
+      'No recovery passphrase configured',
+    );
   });
 });

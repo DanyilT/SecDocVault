@@ -21,7 +21,7 @@ import * as Keychain from 'react-native-keychain';
 
 import { FIREBASE_AUTH_EMAIL_LINK_URL } from '../firebase/project';
 import { AuthProtection, AuthSessionMode } from '../types/vault';
-import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, listVaultDocumentsFromFirebase } from '../services/documentVault';
+import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, deleteUserShareProfile, listVaultDocumentsFromFirebase } from '../services/documentVault';
 import { clearKeyBackupData, deleteKeyBackupFromFirebase } from '../services/keyBackup';
 import { clearLocalVaultData, getLocalDocuments } from '../storage/localVault';
 
@@ -67,7 +67,7 @@ type ModularAuthApi = {
     newEmail: string,
     actionCodeSettings?: FirebaseAuthTypes.ActionCodeSettings,
   ) => Promise<void>;
-  deleteUser: (auth: ReturnType<typeof getAuth>) => Promise<void>;
+  deleteUser: (user: FirebaseAuthTypes.User) => Promise<void>;
 };
 
 let modularAuthApiPromise: Promise<ModularAuthApi | null> | null = null;
@@ -133,7 +133,7 @@ type AuthContextValue = {
   clearPendingEmailLinkVerification: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<boolean>;
   requestEmailChange: (newEmail: string) => Promise<boolean>;
-  deleteAccountAndData: () => Promise<boolean>;
+  deleteAccountAndData: (password?: string) => Promise<boolean>;
   hasGuestAccount: () => Promise<boolean>;
   registerGuestAccount: (password: string, overwriteExisting?: boolean) => Promise<boolean>;
   loginGuestAccount: (password: string) => Promise<boolean>;
@@ -936,7 +936,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteAccountAndData = async () => {
+  const deleteAccountAndData = async (password?: string) => {
     setIsSubmitting(true);
     setAuthError(null);
     try {
@@ -946,7 +946,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const localDocs = await getLocalDocuments();
+      // Firebase requires recent authentication before account deletion.
+      // Try re-auth from stored passkey credentials, then fall back to provided password.
+      if (user?.email) {
+        const stored = await Keychain.getGenericPassword({
+          service: PASSKEY_SERVICE,
+          authenticationPrompt: {
+            title: 'Confirm account deletion',
+            subtitle: 'Authenticate to delete your account',
+          },
+        });
+        if (stored) {
+          await signInWithEmailAndPassword(firebaseAuth, stored.username, stored.password);
+        } else if (password) {
+          await signInWithEmailAndPassword(firebaseAuth, user.email, password);
+        }
+      }
+
+      const localDocs = await getLocalDocuments(ownerId);
       const remoteDocs = ownerId ? await listVaultDocumentsFromFirebase(ownerId) : [];
       const documentIds = Array.from(new Set([...localDocs, ...remoteDocs].map(docItem => docItem.id)));
 
@@ -957,9 +974,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (ownerId) {
         await Promise.allSettled(remoteDocs.map(docItem => deleteDocumentFromFirebase(docItem)));
         await deleteKeyBackupFromFirebase(ownerId).catch(() => undefined);
+        await deleteUserShareProfile(ownerId).catch(() => undefined);
       }
 
-      await clearLocalVaultData();
+      await clearLocalVaultData(ownerId);
       await clearKeyBackupData();
       await resetStoredPasskeys();
       await clearGuestAccount();
@@ -967,9 +985,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         const modularApi = await getModularAuthApi();
         if (modularApi?.deleteUser) {
-          await modularApi.deleteUser(firebaseAuth);
+          await modularApi.deleteUser(user);
         } else {
-          await(user as any).delete(); // Fallback (deprecated)
+          await (user as any).delete();
         }
       }
 
@@ -1232,7 +1250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const signOut = async () => {
     setAuthError(null);
-    if (user) {
+    if (firebaseAuth.currentUser) {
       await firebaseSignOut(firebaseAuth);
     }
     setSessionMode(null);

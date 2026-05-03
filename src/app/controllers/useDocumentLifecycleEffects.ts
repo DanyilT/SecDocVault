@@ -8,6 +8,7 @@
 
 import React, { useEffect, useRef } from 'react';
 
+import { hasKdfPassphrase } from '../../services/crypto/documentCrypto';
 import { autoSyncKeysIfEnabled } from '../../services/keyBackup';
 import { saveLocalDocuments } from '../../storage/localVault';
 import { VaultDocument } from '../../types/vault';
@@ -25,6 +26,7 @@ type UseDocumentLifecycleEffectsParams = {
   setSelectedDoc: React.Dispatch<React.SetStateAction<VaultDocument | null>>;
   setKeyBackupStatus: (value: string) => void;
   setIsVaultLocked: (value: boolean) => void;
+  onPassphraseMissing?: () => void;
 };
 
 /**
@@ -50,8 +52,10 @@ export function useDocumentLifecycleEffects({
   setSelectedDoc,
   setKeyBackupStatus,
   setIsVaultLocked,
+  onPassphraseMissing,
 }: UseDocumentLifecycleEffectsParams) {
   const hasLoadedInitialDocuments = useRef(false);
+  const hasCheckedPassphraseRef = useRef(false);
 
   useEffect(() => {
     if (!isInitializing) {
@@ -108,4 +112,17 @@ export function useDocumentLifecycleEffects({
       setIsVaultLocked(true);
     }
   }, [hasUnlockedThisLaunch, isAuthenticated, setIsVaultLocked]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isGuest || !hasUnlockedThisLaunch || hasCheckedPassphraseRef.current) {
+      return;
+    }
+
+    hasCheckedPassphraseRef.current = true;
+    void hasKdfPassphrase().then(present => {
+      if (!present) {
+        onPassphraseMissing?.();
+      }
+    });
+  }, [isAuthenticated, isGuest, hasUnlockedThisLaunch, onPassphraseMissing]);
 }

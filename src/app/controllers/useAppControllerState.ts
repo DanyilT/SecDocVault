@@ -30,6 +30,8 @@ export function useAppControllerState() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [vaultPassphrase, setVaultPassphrase] = useState('');
+  const [confirmVaultPassphrase, setConfirmVaultPassphrase] = useState('');
   const [emailVerifiedForRegistration, setEmailVerifiedForRegistration] = useState(false);
   const [verificationLinkInput, setVerificationLinkInput] = useState('');
   const [verificationCooldown, setVerificationCooldown] = useState(0);
@@ -56,6 +58,12 @@ export function useAppControllerState() {
   const [pendingNewEmail, setPendingNewEmail] = useState('');
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [guestAccountExists, setGuestAccountExists] = useState(false);
+  const [isFromRegistration, setIsFromRegistration] = useState(false);
+  const [showVaultPassphrasePrompt, setShowVaultPassphrasePrompt] = useState(false);
+  const [vaultPassphrasePromptInput, setVaultPassphrasePromptInput] = useState('');
+  const [vaultPassphrasePromptAttemptsLeft, setVaultPassphrasePromptAttemptsLeft] = useState(3);
+  const [isVaultPassphrasePromptSubmitting, setIsVaultPassphrasePromptSubmitting] = useState(false);
+  const [vaultPassphrasePromptError, setVaultPassphrasePromptError] = useState<string | null>(null);
 
   const transitionOpacity = useRef(new Animated.Value(1)).current;
   const transitionTranslateY = useRef(new Animated.Value(0)).current;
@@ -77,6 +85,10 @@ export function useAppControllerState() {
     setPassword,
     confirmPassword,
     setConfirmPassword,
+    vaultPassphrase,
+    setVaultPassphrase,
+    confirmVaultPassphrase,
+    setConfirmVaultPassphrase,
     emailVerifiedForRegistration,
     setEmailVerifiedForRegistration,
     verificationLinkInput,
@@ -129,6 +141,18 @@ export function useAppControllerState() {
     setAuthNotice,
     guestAccountExists,
     setGuestAccountExists,
+    isFromRegistration,
+    setIsFromRegistration,
+    showVaultPassphrasePrompt,
+    setShowVaultPassphrasePrompt,
+    vaultPassphrasePromptInput,
+    setVaultPassphrasePromptInput,
+    vaultPassphrasePromptAttemptsLeft,
+    setVaultPassphrasePromptAttemptsLeft,
+    isVaultPassphrasePromptSubmitting,
+    setIsVaultPassphrasePromptSubmitting,
+    vaultPassphrasePromptError,
+    setVaultPassphrasePromptError,
     transitionOpacity,
     transitionTranslateY,
   };

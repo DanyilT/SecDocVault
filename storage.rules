@@ -7,8 +7,8 @@ service firebase.storage {
 
     function isDocOwner(docId) {
        let docPath = 'vault/' + docId;
-       return isSignedIn() && firestore.exists(/databases/$(database)/documents/$(docPath))
-         && firestore.get(/databases/$(database)/documents/$(docPath)).data.owner == request.auth.uid;
+       return isSignedIn() && firestore.exists(/databases/(default)/documents/$(docPath))
+         && firestore.get(/databases/(default)/documents/$(docPath)).data.owner == request.auth.uid;
     }
 
     function isOwner(ownerUid) {
@@ -16,11 +16,10 @@ service firebase.storage {
     }
 
     function hasActiveShare(docId) {
-      return isSignedIn() &&
-        firestore.exists(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)) &&
-        firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.get('revokedAt', null) == null &&
-        firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.get('expiresAt', null) != null &&
-        timestamp.value(firestore.get(/databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid)).data.expiresAt) > request.time;
+      let grantPath = /databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid);
+      return isSignedIn()
+        && firestore.exists(grantPath)
+        && !firestore.get(grantPath).data.keys().hasAny(['revokedAt']);
     }
 
     function belowSizeLimit() {

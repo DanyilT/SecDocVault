@@ -16,6 +16,10 @@ const LOCAL_DOCS_KEY = 'secdocvault.local.documents';
 const VAULT_PREFS_KEY = 'secdocvault.local.preferences';
 const INCOMING_SHARE_DECISIONS_KEY = 'secdocvault.local.incomingShareDecisions';
 
+function localDocsKey(uid?: string): string {
+  return uid ? `${LOCAL_DOCS_KEY}.${uid}` : LOCAL_DOCS_KEY;
+}
+
 export type IncomingShareDecision = 'accepted' | 'declined';
 export type IncomingShareDecisionStore = Record<string, Record<string, IncomingShareDecision>>;
 
@@ -33,8 +37,8 @@ const DEFAULT_PREFERENCES: VaultPreferences = {
   recoverableByDefault: false,
 };
 
-export async function getLocalDocuments(): Promise<VaultDocument[]> {
-  const raw = await AsyncStorage.getItem(LOCAL_DOCS_KEY);
+export async function getLocalDocuments(uid?: string): Promise<VaultDocument[]> {
+  const raw = await AsyncStorage.getItem(localDocsKey(uid));
   if (!raw) {
     return [];
   }
@@ -47,17 +51,17 @@ export async function getLocalDocuments(): Promise<VaultDocument[]> {
   }
 }
 
-export async function saveLocalDocuments(documents: VaultDocument[]): Promise<void> {
-  await AsyncStorage.setItem(LOCAL_DOCS_KEY, JSON.stringify(documents));
+export async function saveLocalDocuments(documents: VaultDocument[], uid?: string): Promise<void> {
+  await AsyncStorage.setItem(localDocsKey(uid), JSON.stringify(documents));
 }
 
-export async function seedLocalDocuments(documents: VaultDocument[]): Promise<VaultDocument[]> {
-  const existing = await getLocalDocuments();
+export async function seedLocalDocuments(documents: VaultDocument[], uid?: string): Promise<VaultDocument[]> {
+  const existing = await getLocalDocuments(uid);
   if (existing.length > 0) {
     return existing;
   }
 
-  await saveLocalDocuments(documents);
+  await saveLocalDocuments(documents, uid);
   return documents;
 }
 
@@ -102,9 +106,9 @@ export async function saveIncomingShareDecisionStore(store: IncomingShareDecisio
   await AsyncStorage.setItem(INCOMING_SHARE_DECISIONS_KEY, JSON.stringify(store));
 }
 
-export async function clearLocalVaultData(): Promise<void> {
+export async function clearLocalVaultData(uid?: string): Promise<void> {
   await Promise.allSettled([
-    AsyncStorage.removeItem(LOCAL_DOCS_KEY),
+    AsyncStorage.removeItem(localDocsKey(uid)),
     AsyncStorage.removeItem(VAULT_PREFS_KEY),
     AsyncStorage.removeItem(INCOMING_SHARE_DECISIONS_KEY),
     RNFS.exists(`${RNFS.DocumentDirectoryPath}/vault`).then(async exists => {

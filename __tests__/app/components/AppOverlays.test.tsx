@@ -6,8 +6,6 @@ import { AppOverlays } from '../../../src/app/components/AppOverlays';
 function baseProps(overrides: Record<string, unknown> = {}) {
   return {
     showKeyBackupSetupModal: false,
-    recoveryPassphraseForSettings: null,
-    onCopyPassphrase: jest.fn(async () => undefined),
     onCancelKeyBackupSetup: jest.fn(),
     onConfirmKeyBackupSetup: jest.fn(async () => undefined),
     showUploadDiscardWarning: false,
@@ -15,6 +13,14 @@ function baseProps(overrides: Record<string, unknown> = {}) {
     onToggleDontShowUploadDiscardWarningAgain: jest.fn(),
     onCloseUploadDiscardWarning: jest.fn(),
     onConfirmDiscardUploadDraft: jest.fn(async () => undefined),
+    showVaultPassphrasePrompt: false,
+    vaultPassphrasePromptInput: '',
+    vaultPassphrasePromptAttemptsLeft: 3,
+    isVaultPassphrasePromptSubmitting: false,
+    vaultPassphrasePromptError: null,
+    onVaultPassphraseInputChange: jest.fn(),
+    onVaultPassphraseSubmit: jest.fn(async () => undefined),
+    onVaultPassphrasePromptDismiss: jest.fn(),
     ...overrides,
   } as React.ComponentProps<typeof AppOverlays>;
 }
@@ -51,26 +57,6 @@ describe('AppOverlays', () => {
 
     return current;
   };
-
-  it('copies passphrase when passphrase row is pressed in key-backup modal', async () => {
-    const props = baseProps({
-      showKeyBackupSetupModal: true,
-      recoveryPassphraseForSettings: 'alpha beta gamma',
-    });
-
-    let renderer: TestRenderer.ReactTestRenderer;
-    await act(async () => {
-      renderer = TestRenderer.create(<AppOverlays {...props} />);
-    });
-
-    const copyPressable = findPressableByText(renderer!.root, 'Passphrase: alpha beta gamma');
-
-    await act(async () => {
-      copyPressable.props.onPress();
-    });
-
-    expect(props.onCopyPassphrase).toHaveBeenCalledWith('alpha beta gamma');
-  });
 
   it('calls discard-warning callbacks from overlay actions', async () => {
     const props = baseProps({

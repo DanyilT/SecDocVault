@@ -18,6 +18,10 @@ type UseAuthFeatureFlowsParams = {
   email: string;
   password: string;
   confirmPassword: string;
+  vaultPassphrase: string;
+  confirmVaultPassphrase: string;
+  setVaultPassphrase: (value: string) => void;
+  setConfirmVaultPassphrase: (value: string) => void;
   emailVerifiedForRegistration: boolean;
   verificationLinkInput: string;
   verificationCooldown: number;
@@ -34,6 +38,7 @@ type UseAuthFeatureFlowsParams = {
   setAuthNotice: (value: string | null) => void;
   setShowCompleteAuthSetup: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;
+  setIsFromRegistration: (value: boolean) => void;
   setAuthCredentialSnapshot: (value: { email: string; password: string } | null) => void;
   setIsTransitioningToAuth: (value: boolean) => void;
   setHasUnlockedThisLaunch: (value: boolean) => void;
@@ -89,6 +94,10 @@ export function useAuthFeatureFlows({
   email,
   password,
   confirmPassword,
+  vaultPassphrase,
+  confirmVaultPassphrase,
+  setVaultPassphrase,
+  setConfirmVaultPassphrase,
   emailVerifiedForRegistration,
   verificationLinkInput,
   verificationCooldown,
@@ -105,6 +114,7 @@ export function useAuthFeatureFlows({
   setAuthNotice,
   setShowCompleteAuthSetup,
   setIsCompletingAuthFlow,
+  setIsFromRegistration,
   setAuthCredentialSnapshot,
   setIsTransitioningToAuth,
   setHasUnlockedThisLaunch,
@@ -153,6 +163,10 @@ export function useAuthFeatureFlows({
     email,
     password,
     confirmPassword,
+    vaultPassphrase,
+    confirmVaultPassphrase,
+    setVaultPassphrase,
+    setConfirmVaultPassphrase,
     emailVerifiedForRegistration,
     verificationLinkInput,
     verificationCooldown,
@@ -169,6 +183,7 @@ export function useAuthFeatureFlows({
     setAuthNotice,
     setShowCompleteAuthSetup,
     setIsCompletingAuthFlow,
+    setIsFromRegistration,
     setAuthCredentialSnapshot,
     setIsTransitioningToAuth,
     setHasUnlockedThisLaunch,
