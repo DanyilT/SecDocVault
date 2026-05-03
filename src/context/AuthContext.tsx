@@ -96,6 +96,7 @@ type PendingEmailLinkRegistration = {
   protection?: AuthProtection;
   requestToken?: string;
   verifiedToken?: string;
+  emailVerificationLink?: string;
 };
 
 /**
@@ -437,9 +438,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(PENDING_EMAIL_LINK_REGISTRATION_KEY);
   };
 
-  const extractRegistrationTokenFromEmailLink = (emailLink: string): string | null => {
-    const trimmedLink = emailLink.trim();
-    if (!trimmedLink) {
+  /**
+   * Extracts a parameter from a Firebase email link.
+   * Handles both direct parameters and nested parameters in continueUrl.
+   *
+   * @param emailLink - The Firebase email link from the verification email.
+   * @param paramName - The parameter name to extract (e.g., 'regToken', 'oobCode').
+   * @returns The parameter value, or null if not found.
+   */
+  const extractParameterFromEmailLink = (emailLink: string, paramName: string): string | null => {
+    if (!emailLink?.trim() || !paramName?.trim()) {
       return null;
     }
 
@@ -457,46 +465,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return match ? safeDecode(match[1]) : null;
     };
 
-    const candidates = [trimmedLink];
-    const decodedOnce = safeDecode(trimmedLink);
-    if (decodedOnce !== trimmedLink) {
-      candidates.push(decodedOnce);
-    }
-    const decodedTwice = safeDecode(decodedOnce);
-    if (decodedTwice !== decodedOnce) {
-      candidates.push(decodedTwice);
+    // Try to extract parameter directly from the link
+    let paramValue = readParamViaRegex(emailLink, paramName);
+    if (paramValue) {
+      return paramValue;
     }
 
-    for (const candidate of candidates) {
-      const directToken = readParamViaRegex(candidate, 'regToken');
-      if (directToken) {
-        return directToken;
-      }
-
-      const continueUrl = readParamViaRegex(candidate, 'continueUrl');
-      if (!continueUrl) {
-        continue;
-      }
-
-      const continueCandidates = [continueUrl];
-      const continueDecodedOnce = safeDecode(continueUrl);
-      if (continueDecodedOnce !== continueUrl) {
-        continueCandidates.push(continueDecodedOnce);
-      }
-      const continueDecodedTwice = safeDecode(continueDecodedOnce);
-      if (continueDecodedTwice !== continueDecodedOnce) {
-        continueCandidates.push(continueDecodedTwice);
-      }
-
-      for (const continueCandidate of continueCandidates) {
-        const nestedToken = readParamViaRegex(continueCandidate, 'regToken');
-        if (nestedToken) {
-          return nestedToken;
-        }
+    // Try to extract from continueUrl if nested
+    const continueUrl = readParamViaRegex(emailLink, 'continueUrl');
+    if (continueUrl) {
+      const decodedContinue = safeDecode(continueUrl);
+      paramValue = readParamViaRegex(decodedContinue, paramName);
+      if (paramValue) {
+        return paramValue;
       }
     }
 
     return null;
+  };
+
+  const extractRegistrationTokenFromEmailLink = (emailLink: string): string | null => {
+    return extractParameterFromEmailLink(emailLink, 'regToken');
   };
 
   /**
@@ -656,7 +645,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
+      const credential = await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
+
+      // Send ONE verification email to mark the email as verified in Firebase.
+      // User already verified ownership via the sign-in link they clicked earlier,
+      // so this email just needs to be clicked once more to mark email as verified.
+      try {
+        const modular = await getModularAuthApi();
+        if (modular) {
+          await modular.sendEmailVerification(credential.user);
+        } else {
+          await credential.user.sendEmailVerification();
+        }
+      } catch {
+        // Email verification send is not critical - account is already created
+        // User can verify email later from account settings if needed
+      }
+
+      await reloadUser(credential.user);
       await AsyncStorage.removeItem(PENDING_EMAIL_LINK_REGISTRATION_KEY);
       setSessionMode('cloud');
       return true;
@@ -689,6 +695,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifiedToken: undefined,
       });
 
+      // Send sign-in link for frontend verification only.
+      // When user creates account, Firebase will auto-verify the email since
+      // the user already verified ownership by clicking this link.
       await sendSignInEmailLink(normalizedEmail, getEmailLinkActionCodeSettings(requestToken));
       setAuthError(null);
       return true;
@@ -740,6 +749,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...pending,
         requestToken: expectedToken,
         verifiedToken: expectedToken,
+        emailVerificationLink: emailLink.trim(),
       });
 
       setAuthError(null);

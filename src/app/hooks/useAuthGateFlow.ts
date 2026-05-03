@@ -6,7 +6,7 @@
  * screens vs full authentication screens.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -153,7 +153,7 @@ export function useAuthGateFlow({
     }
 
     const hasEmail = email.trim().length > 4;
-    const hasPassword = password.trim().length > 5;
+    const hasPassword = password.trim().length > 7;
     return authMode === 'register'
       ? hasEmail && hasPassword && password === confirmPassword && emailVerifiedForRegistration && hasVaultPassphrase
       : hasEmail && hasPassword;
@@ -163,6 +163,17 @@ export function useAuthGateFlow({
     preferredProtection === 'passkey' ||
     preferredProtection === 'pin' ||
     preferredProtection === 'biometric';
+
+  // Countdown timer effect - decrement verification cooldown every second
+  useEffect(() => {
+    if (verificationCooldown <= 0) return;
+
+    const interval = setInterval(() => {
+      setVerificationCooldown(prev => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [verificationCooldown, setVerificationCooldown]);
 
   const requestGuestOverwriteConfirmation = () =>
     new Promise<boolean>(resolve => {
