@@ -7,7 +7,6 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
 import { EllipsisHorizontalCircleIcon, PencilSquareIcon } from 'react-native-heroicons/solid';
 
 import { Header } from '../../components/ui';
@@ -20,6 +19,7 @@ type AppHeaderControllerProps = {
   onLeaveUploadScreen: () => void;
   onSetScreen: (screen: AppScreen) => void;
   onLogout: () => void;
+  onEditMetadata?: () => void;
   title: string;
 };
 
@@ -39,6 +39,7 @@ export function AppHeaderController({
   onLeaveUploadScreen,
   onSetScreen,
   onLogout,
+  onEditMetadata,
   title,
 }: AppHeaderControllerProps) {
   const rightIcon = screen === 'preview' ? PencilSquareIcon : screen === 'share' ? EllipsisHorizontalCircleIcon : undefined;
@@ -60,7 +61,7 @@ export function AppHeaderController({
       rightDanger={screen === 'settings'}
       onRightPress={() => {
         if (screen === 'preview') {
-          Alert.alert('Edit document metadata', 'Doc metadata editing are not implemented yet.');
+          onEditMetadata?.();
           return;
         }
 

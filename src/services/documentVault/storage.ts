@@ -359,6 +359,50 @@ export async function saveDocumentToFirebase(docMeta: VaultDocument, ownerId: st
   }
 }
 
+/**
+ * Updates the editable metadata fields (name, description) of a document.
+ *
+ * Applies the same normalization rules used during upload so values stay
+ * consistent across the app. Only writes to Firestore when the current user
+ * is the owner and the document has a cloud copy; otherwise the change is
+ * applied locally only.
+ *
+ * @param docMeta - The document whose metadata should be updated.
+ * @param updates - Partial set of editable fields to apply.
+ * @returns The updated document with normalized fields applied.
+ */
+export async function updateDocumentMetadata(
+  docMeta: VaultDocument,
+  updates: { name?: string; description?: string },
+): Promise<VaultDocument> {
+  const nextName = normalizeDocumentName(updates.name ?? docMeta.name);
+  const nextDescription = normalizeDescription(updates.description ?? docMeta.description);
+
+  const hasFirebaseRef = (docMeta.references ?? []).some(item => item.source === 'firebase');
+  const currentUid = getAuth(getApp()).currentUser?.uid;
+  const isOwner = Boolean(docMeta.owner) && docMeta.owner === currentUid;
+
+  if (isOwner && hasFirebaseRef) {
+    const app = getApp();
+    const db = getFirestore(app);
+    await setDoc(
+      doc(db, STORAGE_PATH_PREFIX, docMeta.id),
+      {
+        name: nextName,
+        description: nextDescription,
+        updatedAt: new Date().toISOString(),
+      },
+      {merge: true},
+    );
+  }
+
+  return {
+    ...docMeta,
+    name: nextName,
+    description: nextDescription,
+  };
+}
+
 export async function updateDocumentRecoveryPreference(
   docMeta: VaultDocument,
   recoverable: boolean,

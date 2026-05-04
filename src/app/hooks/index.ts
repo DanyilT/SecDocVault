@@ -11,6 +11,7 @@ export { useAuthGateFlow } from './useAuthGateFlow';
 export { useAuthLinkingFlow } from './useAuthLinkingFlow';
 export { useDocumentActionsFlow } from './useDocumentActionsFlow';
 export { useDocumentVault } from './useDocumentVault';
+export { useEditMetadataFlow } from './useEditMetadataFlow';
 export { useKeyBackupFlow } from './useKeyBackupFlow';
 export { usePreviewFlow } from './usePreviewFlow';
 export { useShareFlow } from './useShareFlow';
