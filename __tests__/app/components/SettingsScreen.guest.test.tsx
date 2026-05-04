@@ -56,6 +56,6 @@ describe('SettingsScreen guest branch', () => {
     expect(() => renderer!.root.findByProps({children: 'Reset Password'})).toThrow();
     expect(() => renderer!.root.findByProps({placeholder: 'New email address'})).toThrow();
     expect(renderer!.root.findByProps({children: 'Upgrade to Cloud Account'})).toBeTruthy();
-    expect(renderer!.root.findByProps({children: 'To use key backup, upgrade from guest mode to a cloud (Firebase) account.'})).toBeTruthy();
+    expect(renderer!.root.findByProps({children: 'To use key recovery, upgrade from guest mode to a cloud (Firebase) account.'})).toBeTruthy();
   });
 });

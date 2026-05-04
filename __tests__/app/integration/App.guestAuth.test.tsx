@@ -18,7 +18,7 @@ function MockIntroHeroScreen({onGuest}: {onGuest: () => void}) {
   return ReactLocal.createElement(MockAction, {testID: 'go-guest', onPress: onGuest});
 }
 
-function MockAuthScreen({setAuthMode, setPassword, setConfirmPassword, handleAuth}: any) {
+function MockAuthScreen({setAuthMode, setPassword, setConfirmPassword, setVaultPassphrase, setConfirmVaultPassphrase, handleAuth}: any) {
   const ReactLocal = require('react');
   return ReactLocal.createElement(
     ReactLocal.Fragment,
@@ -39,6 +39,9 @@ function MockAuthScreen({setAuthMode, setPassword, setConfirmPassword, handleAut
         onPress: () => {
           setPassword('guest123');
           setConfirmPassword('guest123');
+          const vp = 'a-very-secure-vault-passphrase-123';
+          setVaultPassphrase(vp);
+          setConfirmVaultPassphrase(vp);
         },
       },
     ),
