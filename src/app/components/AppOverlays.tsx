@@ -9,6 +9,7 @@
 import React, { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
+import { EditMetadataModal } from './EditMetadataModal';
 import { overlayStyles } from '../../theme/styleComponents/overlayStyles.ts';
 import { styles } from '../../theme/styles.ts';
 
@@ -29,6 +30,15 @@ type AppOverlaysProps = {
   onVaultPassphraseInputChange: (value: string) => void;
   onVaultPassphraseSubmit: (passphrase: string) => Promise<void>;
   onVaultPassphrasePromptDismiss: () => void;
+  showEditMetadataModal?: boolean;
+  editMetadataNameInput?: string;
+  editMetadataDescriptionInput?: string;
+  isEditMetadataSubmitting?: boolean;
+  editMetadataError?: string | null;
+  onEditMetadataNameChange?: (value: string) => void;
+  onEditMetadataDescriptionChange?: (value: string) => void;
+  onCancelEditMetadata?: () => void;
+  onSaveEditMetadata?: () => void;
 };
 
 /**
@@ -61,6 +71,15 @@ export function AppOverlays({
   onVaultPassphraseInputChange,
   onVaultPassphraseSubmit,
   onVaultPassphrasePromptDismiss,
+  showEditMetadataModal = false,
+  editMetadataNameInput = '',
+  editMetadataDescriptionInput = '',
+  isEditMetadataSubmitting = false,
+  editMetadataError = null,
+  onEditMetadataNameChange,
+  onEditMetadataDescriptionChange,
+  onCancelEditMetadata,
+  onSaveEditMetadata,
 }: AppOverlaysProps) {
   const [showPassphrase, setShowPassphrase] = useState(false);
 
@@ -196,6 +215,18 @@ export function AppOverlays({
           </View>
         </View>
       ) : null}
+
+      <EditMetadataModal
+        visible={showEditMetadataModal}
+        nameInput={editMetadataNameInput}
+        descriptionInput={editMetadataDescriptionInput}
+        isSubmitting={isEditMetadataSubmitting}
+        errorMessage={editMetadataError}
+        onChangeName={onEditMetadataNameChange ?? (() => undefined)}
+        onChangeDescription={onEditMetadataDescriptionChange ?? (() => undefined)}
+        onCancel={onCancelEditMetadata ?? (() => undefined)}
+        onSave={onSaveEditMetadata ?? (() => undefined)}
+      />
     </>
   );
 }

@@ -39,6 +39,7 @@ export {
   removeLocalDocumentCopy,
   saveDocumentOffline,
   saveDocumentToFirebase,
+  updateDocumentMetadata,
   updateDocumentRecoveryPreference,
 } from './storage';
 

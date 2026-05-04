@@ -89,4 +89,38 @@ describe('AppHeaderController', () => {
     headerPropsRef.current.onRightPress();
     expect(onLogout).toHaveBeenCalledTimes(1);
   });
+
+  it('invokes onEditMetadata when the right action is pressed on the preview screen', () => {
+    const onEditMetadata = jest.fn();
+    const onSetScreen = jest.fn();
+    const onLogout = jest.fn();
+
+    renderHeader({
+      screen: 'preview',
+      shareOriginScreen: 'main',
+      onLeaveUploadScreen: jest.fn(),
+      onSetScreen,
+      onLogout,
+      onEditMetadata,
+      title: 'Preview',
+    });
+
+    headerPropsRef.current.onRightPress();
+    expect(onEditMetadata).toHaveBeenCalledTimes(1);
+    expect(onSetScreen).not.toHaveBeenCalled();
+    expect(onLogout).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when the right action is pressed on preview without onEditMetadata supplied', () => {
+    renderHeader({
+      screen: 'preview',
+      shareOriginScreen: 'main',
+      onLeaveUploadScreen: jest.fn(),
+      onSetScreen: jest.fn(),
+      onLogout: jest.fn(),
+      title: 'Preview',
+    });
+
+    expect(() => headerPropsRef.current.onRightPress()).not.toThrow();
+  });
 });

@@ -33,6 +33,7 @@ import {
   useAppConfig,
   useAppRouting,
   useDocumentVault,
+  useEditMetadataFlow,
   useKeyBackupFlow,
 } from '../hooks';
 import { useVaultFeatureFlows } from './useVaultFeatureFlows';
@@ -43,6 +44,7 @@ import {
   enforceExpiredShareRevocations,
   listVaultDocumentsFromFirebase,
   listVaultDocumentsSharedWithUser,
+  updateDocumentMetadata,
   updateDocumentRecoveryPreference,
 } from '../../services/documentVault';
 import {
@@ -373,6 +375,22 @@ export function useAppController(): UseAppControllerApi {
     listVaultDocumentsFromFirebase,
     listVaultDocumentsSharedWithUser,
     enforceExpiredShareRevocations,
+  });
+
+  const {
+    editMetadataState,
+    openEditMetadata,
+    closeEditMetadata,
+    setEditMetadataName,
+    setEditMetadataDescription,
+    saveEditMetadata,
+  } = useEditMetadataFlow({
+    selectedDoc,
+    documents,
+    setDocuments,
+    setSelectedDoc,
+    updateDocumentMetadata,
+    setStatusMessage: setUploadStatus,
   });
 
   useVaultShellTransitionEffect({
@@ -811,6 +829,7 @@ export function useAppController(): UseAppControllerApi {
     onLeaveUploadScreen: handleLeaveUploadScreen,
     onSetScreen: setScreen,
     onLogout: handleHeaderLogout,
+    onEditMetadata: openEditMetadata,
     title: APP_SCREEN_TITLES[screen],
   };
 
@@ -835,6 +854,17 @@ export function useAppController(): UseAppControllerApi {
     onVaultPassphraseInputChange: setVaultPassphrasePromptInput,
     onVaultPassphraseSubmit: handleVaultPassphraseSubmit,
     onVaultPassphrasePromptDismiss: () => setShowVaultPassphrasePrompt(false),
+    showEditMetadataModal: editMetadataState.visible,
+    editMetadataNameInput: editMetadataState.nameInput,
+    editMetadataDescriptionInput: editMetadataState.descriptionInput,
+    isEditMetadataSubmitting: editMetadataState.isSubmitting,
+    editMetadataError: editMetadataState.errorMessage,
+    onEditMetadataNameChange: setEditMetadataName,
+    onEditMetadataDescriptionChange: setEditMetadataDescription,
+    onCancelEditMetadata: closeEditMetadata,
+    onSaveEditMetadata: () => {
+      void saveEditMetadata();
+    },
   };
 
   return {
