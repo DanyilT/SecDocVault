@@ -37,7 +37,7 @@ jest.mock('react-native-fs', () => ({
 describe('ensureRecoveryPassphrase', () => {
   test('throws when no recovery passphrase is stored', async () => {
     await expect(ensureRecoveryPassphrase()).rejects.toThrow(
-      'No recovery passphrase configured',
+      'No recovery passphrase found. Please log in and enter your vault passphrase.',
     );
   });
 });

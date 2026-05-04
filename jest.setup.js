@@ -14,6 +14,7 @@ jest.mock('react-native-fs', () => ({
   CachesDirectoryPath: '/tmp',
   DocumentDirectoryPath: '/tmp',
   TemporaryDirectoryPath: '/tmp',
+  DownloadDirectoryPath: '/tmp',
   readFile: jest.fn(async () => 'ZmFrZUJhc2U2NA=='),
   writeFile: jest.fn(async () => undefined),
   exists: jest.fn(async () => false),
@@ -96,6 +97,7 @@ jest.mock('react-native-keychain', () => ({
   getGenericPassword: jest.fn(async () => false),
   setGenericPassword: jest.fn(async () => true),
   resetGenericPassword: jest.fn(async () => true),
+  getSupportedBiometryType: jest.fn(async () => null),
 }));
 
 jest.mock('react-native-view-shot', () => ({
