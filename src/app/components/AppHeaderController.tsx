@@ -21,6 +21,7 @@ type AppHeaderControllerProps = {
   onLogout: () => void;
   onEditMetadata?: () => void;
   title: string;
+  isRecoverKeysPrompt?: boolean;
 };
 
 /**
@@ -41,13 +42,14 @@ export function AppHeaderController({
   onLogout,
   onEditMetadata,
   title,
+  isRecoverKeysPrompt,
 }: AppHeaderControllerProps) {
   const rightIcon = screen === 'preview' ? PencilSquareIcon : screen === 'share' ? EllipsisHorizontalCircleIcon : undefined;
 
   return (
     <Header
       title={title}
-      showBack={screen !== 'main'}
+      showBack={screen !== 'main' && !isRecoverKeysPrompt}
       onBack={() => {
         if (screen === 'upload') {
           onLeaveUploadScreen();

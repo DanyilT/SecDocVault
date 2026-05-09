@@ -36,6 +36,7 @@ type Props = {
   onDeleteFromFirebase: (doc: VaultDocument) => void;
   onExport: (doc: VaultDocument) => Promise<void>;
   onToggleRecovery: (doc: VaultDocument, enabled: boolean) => Promise<void>;
+  keyBackupEnabled: boolean;
   onAcceptIncomingShare: (docId: string) => void;
   onDeclineIncomingShare: (docId: string) => void;
 };
@@ -65,6 +66,7 @@ export function MainScreen({
   onToggleRecovery,
   onAcceptIncomingShare,
   onDeclineIncomingShare,
+  keyBackupEnabled,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -91,7 +93,7 @@ export function MainScreen({
   useEffect(() => {
     if (isGuest) return;
     if (documentView === 'sharedWithMe' || documentView === 'sharedByMe') {
-      void onReloadDocuments();
+      onReloadDocuments().catch(() => {});
     }
   }, [documentView, isGuest, onReloadDocuments]);
 
@@ -221,7 +223,7 @@ export function MainScreen({
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => void handleRefresh()}
+            onRefresh={() => { handleRefresh().catch(() => {}); }}
             tintColor="#93c5fd"
           />
         }
@@ -437,8 +439,12 @@ export function MainScreen({
                         <View style={styles.cardActions}>
                           {canManageOfflineCopy ? (
                             renderCompactAction({
-                              label: hasLocal ? 'Delete Offline' : 'Save Offline',
-                              icon: hasLocal ? MinusCircleIcon : CloudArrowDownIcon,
+                              label: hasLocal
+                                ? 'Delete Offline'
+                                : 'Save Offline',
+                              icon: hasLocal
+                                ? MinusCircleIcon
+                                : CloudArrowDownIcon,
                               tone: hasLocal ? 'danger' : 'default',
                               onPress: () =>
                                 hasLocal
@@ -450,7 +456,9 @@ export function MainScreen({
                           )}
                           {isOwner ? (
                             renderCompactAction({
-                              label: hasFirebase ? 'Delete from Cloud' : 'Save to Cloud',
+                              label: hasFirebase
+                                ? 'Delete from Cloud'
+                                : 'Save to Cloud',
                               icon: hasFirebase ? TrashIcon : CloudArrowUpIcon,
                               tone: hasFirebase ? 'danger' : 'default',
                               onPress: () =>
@@ -462,14 +470,15 @@ export function MainScreen({
                             <View style={{ flex: 1 }} />
                           )}
                         </View>
-                        {isOwner && hasFirebase ? (
+                        {isOwner && hasFirebase && keyBackupEnabled ? (
                           <View style={styles.cardActions}>
                             {renderCompactAction({
                               label: doc.recoverable
                                 ? 'Disable Key Backup'
                                 : 'Enable Key Backup',
                               icon: KeyIcon,
-                              onPress: () => void onToggleRecovery(doc, !doc.recoverable),
+                              onPress: () =>
+                                void onToggleRecovery(doc, !doc.recoverable),
                             })}
                           </View>
                         ) : null}

@@ -21,9 +21,14 @@ import * as Keychain from 'react-native-keychain';
 
 import { FIREBASE_AUTH_EMAIL_LINK_URL } from '../firebase/project';
 import { AuthProtection, AuthSessionMode } from '../types/vault';
-import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, deleteUserShareProfile, listVaultDocumentsFromFirebase } from '../services/documentVault';
 import { clearKeyBackupData, deleteKeyBackupFromFirebase } from '../services/keyBackup';
 import { clearLocalVaultData, getLocalDocuments } from '../storage/localVault';
+import {
+  clearDocumentKeychainEntries,
+  deleteDocumentFromFirebase,
+  deleteUserShareProfile,
+  listVaultDocumentsFromFirebase,
+} from '../services/documentVault';
 
 /** Keychain service used to persist Firebase credentials for passkey unlock. */
 const PASSKEY_SERVICE = 'secdocvault.passkey.firebase';
@@ -279,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearGuestAccount = async () => {
     await Promise.allSettled([
       AsyncStorage.removeItem(GUEST_ACCOUNT_META_KEY),
-      Keychain.resetGenericPassword({service: GUEST_ACCOUNT_SERVICE}),
+      Keychain.resetGenericPassword({ service: GUEST_ACCOUNT_SERVICE }),
     ]);
   };
 
@@ -545,15 +550,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  /**
-   * Removes all passkey credentials and clears persisted auth preferences.
-   */
   const resetStoredPasskeys = async () => {
-    await Promise.allSettled([
-      Keychain.resetGenericPassword({ service: PASSKEY_SERVICE }),
-      Keychain.resetGenericPassword({ service: GUEST_PASSKEY_SERVICE }),
-    ]);
-    await AsyncStorage.removeItem(AUTH_PREFS_KEY);
+    try {
+      await Keychain.resetGenericPassword({ service: PASSKEY_SERVICE });
+    } catch { }
+    try {
+      await Keychain.resetGenericPassword({ service: GUEST_PASSKEY_SERVICE });
+    } catch { }
+    try {
+      await clearKeyBackupData();
+    } catch { }
+    try {
+      await AsyncStorage.removeItem(AUTH_PREFS_KEY);
+    } catch { }
     setHasSavedPasskey(false);
     setPreferredProtection(null);
   };
@@ -839,10 +848,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await clearLocalVaultData();
         await clearKeyBackupData();
         await Promise.allSettled([
-          Keychain.resetGenericPassword({service: PASSKEY_SERVICE}),
-          Keychain.resetGenericPassword({service: GUEST_PASSKEY_SERVICE}),
-          Keychain.resetGenericPassword({service: PIN_UNLOCK_SERVICE}),
-          Keychain.resetGenericPassword({service: BIOMETRIC_GATE_SERVICE}),
+          Keychain.resetGenericPassword({ service: PASSKEY_SERVICE }),
+          Keychain.resetGenericPassword({ service: GUEST_PASSKEY_SERVICE }),
+          Keychain.resetGenericPassword({ service: PIN_UNLOCK_SERVICE }),
+          Keychain.resetGenericPassword({ service: BIOMETRIC_GATE_SERVICE }),
         ]);
       }
 
@@ -1260,11 +1269,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const signOut = async () => {
     setAuthError(null);
-    if (firebaseAuth.currentUser) {
-      await firebaseSignOut(firebaseAuth);
+    try {
+      if (firebaseAuth.currentUser) {
+        await firebaseSignOut(firebaseAuth);
+      }
+    } finally {
+      await resetStoredPasskeys(); // Clear saved passphrases and preferences
+      setSessionMode(null);
+      setUser(null);
     }
-    setSessionMode(null);
-    setUser(null);
   };
 
   /** Clears any currently shown authentication error. */

@@ -56,11 +56,13 @@ type VaultRouterProps = {
   saveOfflineByDefault: boolean;
   recoverableByDefault: boolean;
   keyBackupEnabled: boolean;
+  recoveryPassphraseForSettings?: string | null;
   backedUpDocs: Array<{id: string; name: string; canRecover: boolean}>;
   notBackedUpDocs: Array<{id: string; name: string; canRecover: boolean}>;
   onSetSaveOfflineByDefault: (value: boolean) => void;
   onSetRecoverableByDefault: (value: boolean) => void;
   onSetKeyBackupEnabled: (value: boolean) => void;
+  onSetRecoveryPassphrase?: (passphrase: string) => Promise<void>;
   onOpenRecoverKeys: () => void;
   onOpenDocumentRecovery: () => void;
   onUpdateUnlockMethod: (payload: any) => Promise<void>;
@@ -115,6 +117,7 @@ type VaultRouterProps = {
 
   keyBackupStatus: string;
   onRestoreKeys: (passphrase: string) => Promise<void>;
+  onSkipForNow?: () => void;
 
   onToggleDocBackupFromSettings: (docId: string, enabled: boolean) => Promise<void>;
 };
@@ -171,6 +174,7 @@ export function VaultRouter(props: VaultRouterProps) {
           onToggleRecovery={props.onToggleRecovery}
           onAcceptIncomingShare={props.onAcceptIncomingShare}
           onDeclineIncomingShare={props.onDeclineIncomingShare}
+          keyBackupEnabled={props.keyBackupEnabled}
         />
       ) : null}
 
@@ -189,11 +193,13 @@ export function VaultRouter(props: VaultRouterProps) {
           saveOfflineByDefault={props.saveOfflineByDefault}
           recoverableByDefault={props.recoverableByDefault}
           keyBackupEnabled={props.keyBackupEnabled}
+          recoveryPassphrase={props.recoveryPassphraseForSettings ?? null}
           backedUpDocs={props.backedUpDocs}
           notBackedUpDocs={props.notBackedUpDocs}
           onSetSaveOfflineByDefault={props.onSetSaveOfflineByDefault}
           onSetRecoverableByDefault={props.onSetRecoverableByDefault}
           onSetKeyBackupEnabled={props.onSetKeyBackupEnabled}
+          onSetRecoveryPassphrase={props.onSetRecoveryPassphrase}
           onOpenRecoverKeys={props.onOpenRecoverKeys}
           onOpenDocumentRecovery={props.onOpenDocumentRecovery}
           onUpdateUnlockMethod={props.onUpdateUnlockMethod}
@@ -304,6 +310,7 @@ export function VaultRouter(props: VaultRouterProps) {
           isSubmitting={props.isSubmitting}
           status={props.keyBackupStatus}
           onRestoreKeys={props.onRestoreKeys}
+          onSkipForNow={props.onSkipForNow}
         />
       ) : null}
 

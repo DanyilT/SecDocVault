@@ -6,20 +6,21 @@
  * `authGateStage` and other small routing flags.
  */
 
-import { AppScreen, RECOVERY_SUB_SCREENS } from './constants';
+import { AppScreen, RECOVERY_SUB_SCREENS, ScreenParams } from './constants';
 
 export type AuthGateStage = 'hero' | 'auth' | 'unlock';
 export type AuthReturnStage = 'hero' | 'unlock';
 
 export type AppRoutingState = {
   screen: AppScreen;
+  screenParams: ScreenParams;
   authGateStage: AuthGateStage;
   authReturnStage: AuthReturnStage;
   shareOriginScreen: 'main' | 'preview';
 };
 
 export type RoutingAction =
-  | {type: 'SET_SCREEN'; payload: AppScreen}
+  | {type: 'SET_SCREEN'; payload: {screen: AppScreen; params?: ScreenParams[AppScreen]}}
   | {type: 'SET_AUTH_GATE_STAGE'; payload: AuthGateStage}
   | {type: 'SET_AUTH_RETURN_STAGE'; payload: AuthReturnStage}
   | {type: 'SET_SHARE_ORIGIN_SCREEN'; payload: 'main' | 'preview'}
@@ -29,6 +30,7 @@ export type RoutingAction =
 
 export const initialRoutingState: AppRoutingState = {
   screen: 'main',
+  screenParams: {},
   authGateStage: 'hero',
   authReturnStage: 'hero',
   shareOriginScreen: 'main',
@@ -39,7 +41,8 @@ export function routingReducer(state: AppRoutingState, action: RoutingAction): A
     case 'SET_SCREEN':
       return {
         ...state,
-        screen: action.payload,
+        screen: action.payload.screen,
+        screenParams: action.payload.params ? {[action.payload.screen]: action.payload.params} : {},
       };
     case 'SET_AUTH_GATE_STAGE':
       return {
@@ -71,6 +74,7 @@ export function routingReducer(state: AppRoutingState, action: RoutingAction): A
       return {
         ...state,
         screen: 'main',
+        screenParams: {},
         authGateStage: 'hero',
         authReturnStage: 'hero',
         shareOriginScreen: 'main',

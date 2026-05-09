@@ -137,7 +137,6 @@ function baseInput(overrides: Record<string, unknown> = {}) {
     preparePreviewForDocument: jest.fn(),
     handleExportDocument: jest.fn(async () => undefined),
     commitUploadDocument: jest.fn(async () => undefined),
-    requestKeyBackupSetup: jest.fn((cb: () => void) => cb()),
     setKeyBackupStatus: jest.fn(),
     setScreen: jest.fn(),
     handleRevokeShareForRecipient: jest.fn(async () => undefined),

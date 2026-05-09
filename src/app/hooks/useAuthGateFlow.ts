@@ -12,7 +12,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AppScreen } from '../navigation/constants';
 import { AuthMode, AuthProtection } from '../../types/vault.ts';
-import { initUserKdfPassphrase } from '../../services/crypto/documentCrypto';
+import { initUserKdfPassphrase, validateRecoveryPassphrase } from '../../services/crypto/documentCrypto';
+import {
+  initRecoveryBackupOnFirebase,
+  checkIfKeyBackupExistsInFirebase,
+  getRecoveryPassphraseForSettings,
+} from '../../services/keyBackup.ts';
+import { getAuth } from '@react-native-firebase/auth';
+import { getApp } from '@react-native-firebase/app';
 
 type UseAuthGateFlowParams = {
   completeAuthPendingKey: string;
@@ -22,9 +29,7 @@ type UseAuthGateFlowParams = {
   password: string;
   confirmPassword: string;
   vaultPassphrase: string;
-  confirmVaultPassphrase: string;
   setVaultPassphrase: (value: string) => void;
-  setConfirmVaultPassphrase: (value: string) => void;
   emailVerifiedForRegistration: boolean;
   verificationLinkInput: string;
   verificationCooldown: number;
@@ -37,7 +42,7 @@ type UseAuthGateFlowParams = {
   setConfirmPassword: (value: string) => void;
   setEmailVerifiedForRegistration: (value: boolean) => void;
   setVerificationLinkInput: (value: string) => void;
-  setVerificationCooldown: (value: number) => void;
+  setVerificationCooldown: (value: number | ((prev: number) => number)) => void;
   setAuthNotice: (value: string | null) => void;
   setShowCompleteAuthSetup: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;
@@ -46,7 +51,7 @@ type UseAuthGateFlowParams = {
   setIsTransitioningToAuth: (value: boolean) => void;
   setHasUnlockedThisLaunch: (value: boolean) => void;
   setIsVaultLocked: (value: boolean) => void;
-  setScreen: (screen: AppScreen) => void;
+  setScreen: <T extends AppScreen>(screen: T, params?: ScreenParams[T]) => void;
   setAuthReturnStage: (stage: 'hero' | 'unlock') => void;
   routeToAuth: (returnStage: 'hero' | 'unlock') => void;
   returnFromAuthGate: () => void;
@@ -89,9 +94,7 @@ export function useAuthGateFlow({
   password,
   confirmPassword,
   vaultPassphrase,
-  confirmVaultPassphrase,
   setVaultPassphrase,
-  setConfirmVaultPassphrase,
   emailVerifiedForRegistration,
   verificationLinkInput,
   verificationCooldown,
@@ -140,24 +143,25 @@ export function useAuthGateFlow({
   resolveVerificationLink,
 }: UseAuthGateFlowParams) {
   const canSubmitAuth = useMemo(() => {
-    const hasVaultPassphrase =
+    // Passphrase is now optional during registration
+    const hasValidPassphrase =
       authMode === 'register'
-        ? vaultPassphrase.trim().length >= 20 && vaultPassphrase === confirmVaultPassphrase
+        ? vaultPassphrase.trim().length === 0 || validateRecoveryPassphrase(vaultPassphrase)
         : true;
 
     if (accessMode === 'guest') {
       const hasPassword = password.trim().length > 5;
       return authMode === 'register'
-        ? hasPassword && password === confirmPassword && hasVaultPassphrase
+        ? hasPassword && password === confirmPassword && hasValidPassphrase
         : hasPassword;
     }
 
     const hasEmail = email.trim().length > 4;
     const hasPassword = password.trim().length > 7;
     return authMode === 'register'
-      ? hasEmail && hasPassword && password === confirmPassword && emailVerifiedForRegistration && hasVaultPassphrase
+      ? hasEmail && hasPassword && password === confirmPassword && emailVerifiedForRegistration && hasValidPassphrase
       : hasEmail && hasPassword;
-  }, [accessMode, authMode, confirmPassword, confirmVaultPassphrase, email, emailVerifiedForRegistration, password, vaultPassphrase]);
+  }, [accessMode, authMode, confirmPassword, email, emailVerifiedForRegistration, password, vaultPassphrase]);
 
   const canUseUnlockButton =
     preferredProtection === 'passkey' ||
@@ -169,7 +173,7 @@ export function useAuthGateFlow({
     if (verificationCooldown <= 0) return;
 
     const interval = setInterval(() => {
-      setVerificationCooldown(prev => Math.max(0, prev - 1));
+      setVerificationCooldown(v => Math.max(0, v - 1));
     }, 1000);
 
     return () => clearInterval(interval);
@@ -228,8 +232,26 @@ export function useAuthGateFlow({
       return;
     }
 
-    if (authMode === 'register') {
+    // Only initialize KDF passphrase if one was provided during registration
+    if (authMode === 'register' && vaultPassphrase.trim().length > 0) {
       await initUserKdfPassphrase(vaultPassphrase.trim());
+
+      // Cloud (non-guest) registration: publish a recovery backup placeholder
+      // to Firestore so other devices know recovery is configured for this
+      // account. Document keys are added on first recoverable upload.
+      if (accessMode === 'login') {
+        try {
+          const currentUid = getAuth(getApp()).currentUser?.uid;
+          if (currentUid) {
+            await initRecoveryBackupOnFirebase(
+              currentUid,
+              vaultPassphrase.trim(),
+            );
+          }
+        } catch (error) {
+          console.warn('[keyBackup] Failed to publish recovery backup:', error);
+        }
+      }
     }
 
     setAuthCredentialSnapshot({email: email.trim(), password});
@@ -267,6 +289,9 @@ export function useAuthGateFlow({
     setScreen('main');
     setHasUnlockedThisLaunch(true);
     setIsVaultLocked(false);
+
+    // After unlock method is configured, check whether to prompt for key recovery
+    await checkForKeyRecoveryPrompt();
   };
 
   const handlePasskeyUnlock = async () => {
@@ -302,6 +327,34 @@ export function useAuthGateFlow({
     }
   };
 
+  const checkForKeyRecoveryPrompt = async () => {
+    // Check if this is a cloud user with encrypted keys on Firebase
+    if (isGuest || authMode === 'register' || !user?.email) {
+      return;
+    }
+
+    try {
+      const currentUid = getAuth(getApp()).currentUser?.uid;
+      if (!currentUid) {
+        return;
+      }
+
+      // Check if a key backup document exists in Firebase for this user
+      const hasFirebaseBackup = await checkIfKeyBackupExistsInFirebase(currentUid);
+
+      if (hasFirebaseBackup) {
+        // If a Firebase backup exists, then check for a local recovery passphrase
+        const passphrase = await getRecoveryPassphraseForSettings();
+
+        if (!passphrase) {
+          setScreen('recoverkeys', { onSkipForNow: () => setScreen('main') });
+        }
+      }
+    } catch (error) {
+      console.warn('[keyBackup] Error checking for recovery prompt:', error);
+    }
+  };
+
   const goToAuthForm = () => {
     setAccessMode('login');
     routeToAuth('unlock');
@@ -314,7 +367,6 @@ export function useAuthGateFlow({
     setVerificationLinkInput('');
     setVerificationCooldown(0);
     setVaultPassphrase('');
-    setConfirmVaultPassphrase('');
     setAuthNotice(null);
     clearError();
   };
@@ -325,7 +377,6 @@ export function useAuthGateFlow({
     setVerificationLinkInput('');
     setVerificationCooldown(0);
     setVaultPassphrase('');
-    setConfirmVaultPassphrase('');
     setAuthNotice(null);
     routeToAuth('hero');
     clearError();
@@ -405,12 +456,6 @@ export function useAuthGateFlow({
     clearError();
   };
 
-  const updateConfirmVaultPassphrase = (value: string) => {
-    setConfirmVaultPassphrase(value);
-    setAuthNotice(null);
-    clearError();
-  };
-
   const handleResendVerificationEmail = async () => {
     if (verificationCooldown > 0) {
       return;
@@ -476,7 +521,6 @@ export function useAuthGateFlow({
     updatePassword,
     updateConfirmPassword,
     updateVaultPassphrase,
-    updateConfirmVaultPassphrase,
     handleResendVerificationEmail,
     handleManualVerificationLink,
     handleResetPassword,

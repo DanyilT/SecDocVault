@@ -31,7 +31,7 @@ export function useAppControllerState() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [vaultPassphrase, setVaultPassphrase] = useState('');
-  const [confirmVaultPassphrase, setConfirmVaultPassphrase] = useState('');
+  const [enableKeyRecovery, setEnableKeyRecovery] = useState(false);
   const [emailVerifiedForRegistration, setEmailVerifiedForRegistration] = useState(false);
   const [verificationLinkInput, setVerificationLinkInput] = useState('');
   const [verificationCooldown, setVerificationCooldown] = useState(0);
@@ -87,8 +87,8 @@ export function useAppControllerState() {
     setConfirmPassword,
     vaultPassphrase,
     setVaultPassphrase,
-    confirmVaultPassphrase,
-    setConfirmVaultPassphrase,
+    enableKeyRecovery,
+    setEnableKeyRecovery,
     emailVerifiedForRegistration,
     setEmailVerifiedForRegistration,
     verificationLinkInput,

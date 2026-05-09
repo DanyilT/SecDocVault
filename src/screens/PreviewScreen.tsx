@@ -219,265 +219,375 @@ export function PreviewScreen({
         contentContainerStyle={[styles.scrollContainer, { paddingBottom: 28 }]}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8 , justifyContent: 'space-between', marginBottom: 8}}>
+          <Text style={styles.pageTitle}>{selectedDoc.name}</Text>
 
-      {previewImageUri ? (
-        <View style={{ alignSelf: 'flex-start', marginBottom: 8 }}>
-          <CensorToggle
-            value={censorEnabled}
-            loading={censorLoading}
-            onChange={setCensorEnabled}
-          />
+          {previewImageUri ? (
+            <CensorToggle
+              value={censorEnabled}
+              loading={censorLoading}
+              onChange={setCensorEnabled}
+            />
+          ) : null}
         </View>
-      ) : null}
 
-      <Pressable
-        {...panResponder.panHandlers}
-        onPress={() => {
-          if (previewImageUri) {
-            setShowFullImage(true);
-            return;
-          }
-          if (!isCurrentFileDecrypted && !isDecrypting) {
-            void onDecrypt();
-          }
-        }}
-        style={{
-          borderWidth: 1,
-          borderColor: '#334155',
-          borderRadius: 14,
-          backgroundColor: '#0f172a',
-          width: '100%',
-          aspectRatio: 1 / 1.414,
-          overflow: 'hidden',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {previewImageUri ? (
-          <CensoredImageView
-            ref={censoredImageRef}
-            uri={previewImageUri}
-            censor={censorEnabled ? censorResult : null}
-            resizeMode="contain"
-            style={[styles.previewImage, { borderWidth: 0, borderRadius: 0, height: '100%' }]}
-          />
-        ) : (
-          <View style={{ width: '100%', height: '100%', padding: 16, justifyContent: 'space-between' }}>
-            <View style={{ gap: 6 }}>
-              <View style={{ height: 6, width: '76%', backgroundColor: '#1e293b', borderRadius: 4 }} />
-              <View style={{ height: 6, width: '58%', backgroundColor: '#1e293b', borderRadius: 4 }} />
-              <View style={{ height: 6, width: '84%', backgroundColor: '#1e293b', borderRadius: 4 }} />
-            </View>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ color: '#64748b', fontSize: 52 }}># # #</Text>
-              <Text style={{ color: '#93c5fd', fontSize: 18, fontWeight: '800', marginTop: 6 }}>
-                Decrypt
-              </Text>
-              <Text style={{ color: '#94a3b8', marginTop: 4 }}>
-                {isDecrypting ? 'Decrypting document...' : 'Tap to decrypt this document'}
-              </Text>
-            </View>
-            <View style={{ gap: 6 }}>
-              <View style={{ height: 6, width: '70%', backgroundColor: '#1e293b', borderRadius: 4 }} />
-              <View style={{ height: 6, width: '64%', backgroundColor: '#1e293b', borderRadius: 4 }} />
-            </View>
-          </View>
-        )}
-      </Pressable>
-
-      {files.length > 1 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 10, marginTop: 10 }}
-        >
-          {files.map((file, index) => {
-            const isSelected = index === selectedIndex;
-            return (
-              <Pressable
-                key={`${file.order}-${file.name}-${index}`}
-                onPress={() => onSelectFile(file.order)}
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 10,
-                  borderWidth: isSelected ? 2 : 1,
-                  borderColor: isSelected ? '#60a5fa' : '#334155',
-                  overflow: 'hidden',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#0f172a',
-                }}
-              >
-                <Text style={{ color: '#bfdbfe', fontWeight: '800' }}>#{file.order}</Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }} numberOfLines={1}>
-                  {file.type}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
-
-      {files.length > 0 ? (
-        <Text style={styles.previewText}>
-          File {selectedIndex + 1} of {files.length} (index {files[selectedIndex]?.order ?? 0})
-        </Text>
-      ) : null}
-
-      <Modal
-        visible={showFullImage}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFullImage(false)}
-      >
         <Pressable
-          onPress={() => setShowFullImage(false)}
+          {...panResponder.panHandlers}
+          onPress={() => {
+            if (previewImageUri) {
+              setShowFullImage(true);
+              return;
+            }
+            if (!isCurrentFileDecrypted && !isDecrypting) {
+              void onDecrypt();
+            }
+          }}
           style={{
-            flex: 1,
-            backgroundColor: 'rgba(2,6,23,0.95)',
+            borderWidth: 1,
+            borderColor: '#334155',
+            borderRadius: 14,
+            backgroundColor: '#0f172a',
+            width: '100%',
+            aspectRatio: 1 / 1.414,
+            overflow: 'hidden',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16,
           }}
         >
           {previewImageUri ? (
-            <View style={{ width: '100%', height: '100%' }}>
-              <CensoredImageView
-                uri={previewImageUri}
-                censor={censorEnabled ? censorResult : null}
-                resizeMode="contain"
+            <CensoredImageView
+              ref={censoredImageRef}
+              uri={previewImageUri}
+              censor={censorEnabled ? censorResult : null}
+              resizeMode="contain"
+              style={[
+                styles.previewImage,
+                { borderWidth: 0, borderRadius: 0, height: '100%' },
+              ]}
+            />
+          ) : (
+            <View
+              style={{
+                width: '100%',
+                height: '100%',
+                padding: 16,
+                justifyContent: 'space-between',
+              }}
+            >
+              <View style={{ gap: 6 }}>
+                <View
+                  style={{
+                    height: 6,
+                    width: '76%',
+                    backgroundColor: '#1e293b',
+                    borderRadius: 4,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 6,
+                    width: '58%',
+                    backgroundColor: '#1e293b',
+                    borderRadius: 4,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 6,
+                    width: '84%',
+                    backgroundColor: '#1e293b',
+                    borderRadius: 4,
+                  }}
+                />
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ color: '#64748b', fontSize: 52 }}># # #</Text>
+                <Text
+                  style={{
+                    color: '#93c5fd',
+                    fontSize: 18,
+                    fontWeight: '800',
+                    marginTop: 6,
+                  }}
+                >
+                  Decrypt
+                </Text>
+                <Text style={{ color: '#94a3b8', marginTop: 4 }}>
+                  {isDecrypting
+                    ? 'Decrypting document...'
+                    : 'Tap to decrypt this document'}
+                </Text>
+              </View>
+              <View style={{ gap: 6 }}>
+                <View
+                  style={{
+                    height: 6,
+                    width: '70%',
+                    backgroundColor: '#1e293b',
+                    borderRadius: 4,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 6,
+                    width: '64%',
+                    backgroundColor: '#1e293b',
+                    borderRadius: 4,
+                  }}
+                />
+              </View>
+            </View>
+          )}
+        </Pressable>
+
+        {files.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, marginTop: 10 }}
+          >
+            {files.map((file, index) => {
+              const isSelected = index === selectedIndex;
+              return (
+                <Pressable
+                  key={`${file.order}-${file.name}-${index}`}
+                  onPress={() => onSelectFile(file.order)}
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 10,
+                    borderWidth: isSelected ? 2 : 1,
+                    borderColor: isSelected ? '#60a5fa' : '#334155',
+                    overflow: 'hidden',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#0f172a',
+                  }}
+                >
+                  <Text style={{ color: '#bfdbfe', fontWeight: '800' }}>
+                    #{file.order}
+                  </Text>
+                  <Text
+                    style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}
+                    numberOfLines={1}
+                  >
+                    {file.type}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {files.length > 0 ? (
+          <Text style={styles.previewText}>
+            File {selectedIndex + 1} of {files.length} (index{' '}
+            {files[selectedIndex]?.order ?? 0})
+          </Text>
+        ) : null}
+
+        <Modal
+          visible={showFullImage}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowFullImage(false)}
+        >
+          <Pressable
+            onPress={() => setShowFullImage(false)}
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(2,6,23,0.95)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            {previewImageUri ? (
+              <View style={{ width: '100%', height: '100%' }}>
+                <CensoredImageView
+                  uri={previewImageUri}
+                  censor={censorEnabled ? censorResult : null}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : null}
+          </Pressable>
+        </Modal>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.previewLabel}>Integrity Tag (AES-GCM)</Text>
+          <Pressable
+            onPress={() => setShowIntegrityInfo(prev => !prev)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle integrity tag info"
+          >
+            <InformationCircleIcon color="#93c5fd" size={18} />
+          </Pressable>
+        </View>
+        {showIntegrityInfo ? (
+          <Text style={styles.previewText}>
+            This tag is verified during decrypt to detect tampering.
+          </Text>
+        ) : null}
+        <Pressable
+          onPress={() => {
+            if (!selectedFileIntegrity) return;
+            Clipboard.setString(selectedFileIntegrity);
+            setIntegrityCopied(true);
+            if (copyResetTimerRef.current)
+              clearTimeout(copyResetTimerRef.current);
+            copyResetTimerRef.current = setTimeout(
+              () => setIntegrityCopied(false),
+              1000,
+            );
+          }}
+        >
+          <Text style={styles.hashBlock}>
+            {integrityCopied ? 'Copied!' : selectedFileIntegrity}
+          </Text>
+        </Pressable>
+
+        {selectedDoc.description ? (
+          <Text style={styles.previewText}>
+            Description: {selectedDoc.description}
+          </Text>
+        ) : null}
+        <Text style={styles.previewText}>Stored Size: {selectedDoc.size}</Text>
+        <Text style={styles.previewText}>Added: {selectedDoc.uploadedAt}</Text>
+        <Text style={styles.previewText}>
+          Recovery: {selectedDoc.recoverable ? 'Enabled' : 'Disabled'}
+        </Text>
+        {!keyBackupEnabled ? (
+          <Pressable
+            onPress={() =>
+              Alert.alert(
+                'Key backup is disabled',
+                'Key backup is currently disabled in Settings. Enable key backup there to allow this document to be included in recovery.',
+              )
+            }
+          >
+            <Text style={styles.warningText}>
+              Key backup is currently off in Settings. Enable key backup in
+              Settings to allow per-document recovery.
+            </Text>
+          </Pressable>
+        ) : null}
+        <Text style={styles.previewText}>
+          Offline: {hasLocalCopy ? 'Saved locally' : 'Not saved'}
+        </Text>
+        <Text style={styles.previewText}>
+          Cloud: {hasFirebaseCopy ? 'Saved in Firebase' : 'Not in cloud'}
+        </Text>
+        {!hasFirebaseCopy ? (
+          <Text style={styles.previewText}>
+            Recovery requires a cloud-saved copy of this document.
+          </Text>
+        ) : null}
+
+        {previewStatus ? (
+          <Text style={styles.backupStatus}>{previewStatus}</Text>
+        ) : null}
+
+        <View style={styles.previewActionsWrap}>
+          <View style={styles.previewActionButton}>
+            <PrimaryButton
+              label="Export"
+              icon={ArrowDownTrayIcon}
+              onPress={() => void onExport()}
+            />
+          </View>
+          {canShareDocument ? (
+            <View style={styles.previewActionButton}>
+              <PrimaryButton
+                label="Share"
+                icon={ShareIcon}
+                onPress={() => onShare(selectedDoc)}
+                disabled={!hasFirebaseCopy}
               />
             </View>
           ) : null}
-        </Pressable>
-      </Modal>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={styles.previewLabel}>Integrity Tag (AES-GCM)</Text>
-        <Pressable
-          onPress={() => setShowIntegrityInfo(prev => !prev)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Toggle integrity tag info"
-        >
-          <InformationCircleIcon color="#93c5fd" size={18} />
-        </Pressable>
-      </View>
-      {showIntegrityInfo ? (
-        <Text style={styles.previewText}>
-          This tag is verified during decrypt to detect tampering.
-        </Text>
-      ) : null}
-      <Pressable
-        onPress={() => {
-          if (!selectedFileIntegrity) return;
-          Clipboard.setString(selectedFileIntegrity);
-          setIntegrityCopied(true);
-          if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
-          copyResetTimerRef.current = setTimeout(() => setIntegrityCopied(false), 1000);
-        }}
-      >
-        <Text style={styles.hashBlock}>{integrityCopied ? 'Copied!' : selectedFileIntegrity}</Text>
-      </Pressable>
-
-      {selectedDoc.description ? (
-        <Text style={styles.previewText}>Description: {selectedDoc.description}</Text>
-      ) : null}
-      <Text style={styles.previewText}>Stored Size: {selectedDoc.size}</Text>
-      <Text style={styles.previewText}>Added: {selectedDoc.uploadedAt}</Text>
-      <Text style={styles.previewText}>
-        Recovery: {selectedDoc.recoverable ? 'Enabled' : 'Disabled'}
-      </Text>
-      {!keyBackupEnabled ? (
-        <Text style={styles.previewText}>Key backup is currently off in settings.</Text>
-      ) : null}
-      <Text style={styles.previewText}>
-        Offline: {hasLocalCopy ? 'Saved locally' : 'Not saved'}
-      </Text>
-      <Text style={styles.previewText}>
-        Cloud: {hasFirebaseCopy ? 'Saved in Firebase' : 'Not in cloud'}
-      </Text>
-      {!hasFirebaseCopy ? (
-        <Text style={styles.previewText}>
-          Recovery requires a cloud-saved copy of this document.
-        </Text>
-      ) : null}
-
-      {previewStatus ? <Text style={styles.backupStatus}>{previewStatus}</Text> : null}
-
-      <View style={styles.previewActionsWrap}>
-        <View style={styles.previewActionButton}>
-          <PrimaryButton label="Export" icon={ArrowDownTrayIcon} onPress={() => void onExport()} />
-        </View>
-        {canShareDocument ? (
-          <View style={styles.previewActionButton}>
-            <PrimaryButton
-              label="Share"
-              icon={ShareIcon}
-              onPress={() => onShare(selectedDoc)}
-              disabled={!hasFirebaseCopy}
-            />
-          </View>
-        ) : null}
-        <View style={styles.previewActionButton}>
-          <PrimaryButton
-            label={isSavingOffline ? 'Saving...' : hasLocalCopy ? 'Delete Offline' : 'Save Offline'}
-            icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
-            variant={hasLocalCopy ? 'danger' : 'default'}
-            disabled={isSavingOffline}
-            onPress={() => hasLocalCopy ? void handleDeleteLocal() : void handleSaveOffline()}
-          />
-        </View>
-        {censorEnabled && censorResult && !censorLoading ? (
-          <View style={styles.previewActionButton}>
-            <PrimaryButton
-              label={isSavingCensored ? 'Saving…' : 'Save Censored Version'}
-              icon={DocumentArrowDownIcon}
-              variant="outline"
-              disabled={isSavingCensored}
-              onPress={() => void saveCensoredVersion()}
-            />
-          </View>
-        ) : null}
-        <View style={styles.previewActionButton}>
-          {isOwner ? (
-            <PrimaryButton
-              label={hasFirebaseCopy ? 'Delete from Cloud' : 'Save to Cloud'}
-              icon={hasFirebaseCopy ? TrashIcon : CloudArrowUpIcon}
-              variant={hasFirebaseCopy ? 'danger' : 'outline'}
-              onPress={() =>
-                hasFirebaseCopy ? void handleDeleteFromFirebase() : void onSaveToFirebase(selectedDoc)
-              }
-            />
-          ) : hasFirebaseCopy ? (
-            <PrimaryButton
-              label="Decline Share"
-              icon={MinusCircleIcon}
-              variant="danger"
-              onPress={() => onDeclineIncomingShare(selectedDoc.id)}
-            />
-          ) : null}
-        </View>
-        {isOwner ? (
           <View style={styles.previewActionButton}>
             <PrimaryButton
               label={
-                selectedDoc.recoverable
-                  ? 'Disable Key Backup for this Doc'
-                  : 'Enable Key Backup for this Doc'
+                isSavingOffline
+                  ? 'Saving...'
+                  : hasLocalCopy
+                  ? 'Delete Offline'
+                  : 'Save Offline'
               }
-              icon={KeyIcon}
-              disabled={!hasFirebaseCopy}
-              onPress={() => void onToggleRecovery(selectedDoc, !selectedDoc.recoverable)}
+              icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
+              variant={hasLocalCopy ? 'danger' : 'default'}
+              disabled={isSavingOffline}
+              onPress={() =>
+                hasLocalCopy
+                  ? void handleDeleteLocal()
+                  : void handleSaveOffline()
+              }
             />
           </View>
-        ) : null}
-      </View>
+          {censorEnabled && censorResult && !censorLoading ? (
+            <View style={styles.previewActionButton}>
+              <PrimaryButton
+                label={isSavingCensored ? 'Saving…' : 'Save Censored Version'}
+                icon={DocumentArrowDownIcon}
+                variant="outline"
+                disabled={isSavingCensored}
+                onPress={() => void saveCensoredVersion()}
+              />
+            </View>
+          ) : null}
+          <View style={styles.previewActionButton}>
+            {isOwner ? (
+              <PrimaryButton
+                label={hasFirebaseCopy ? 'Delete from Cloud' : 'Save to Cloud'}
+                icon={hasFirebaseCopy ? TrashIcon : CloudArrowUpIcon}
+                variant={hasFirebaseCopy ? 'danger' : 'outline'}
+                onPress={() =>
+                  hasFirebaseCopy
+                    ? void handleDeleteFromFirebase()
+                    : void onSaveToFirebase(selectedDoc)
+                }
+              />
+            ) : hasFirebaseCopy ? (
+              <PrimaryButton
+                label="Decline Share"
+                icon={MinusCircleIcon}
+                variant="danger"
+                onPress={() => onDeclineIncomingShare(selectedDoc.id)}
+              />
+            ) : null}
+          </View>
+          {isOwner ? (
+            <View style={styles.previewActionButton}>
+              <PrimaryButton
+                label={
+                  selectedDoc.recoverable
+                    ? 'Disable Key Backup for this Doc'
+                    : 'Enable Key Backup for this Doc'
+                }
+                icon={KeyIcon}
+                disabled={!hasFirebaseCopy || !keyBackupEnabled}
+                onPress={() => {
+                  if (!keyBackupEnabled) {
+                    Alert.alert(
+                      'Key backup is disabled',
+                      'Enable key backup in Settings to allow per-document recovery.',
+                    );
+                    return;
+                  }
+                  void onToggleRecovery(selectedDoc, !selectedDoc.recoverable);
+                }}
+              />
+            </View>
+          ) : null}
+        </View>
 
-      {censorSaveStatus ? (
-        <Text style={[styles.backupStatus, { marginTop: 8 }]}>{censorSaveStatus}</Text>
-      ) : null}
+        {censorSaveStatus ? (
+          <Text style={[styles.backupStatus, { marginTop: 8 }]}>
+            {censorSaveStatus}
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
   );

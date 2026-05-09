@@ -420,6 +420,7 @@ export function UploadConfirmScreen({
                 }
                 setRecoverable(value);
               }}
+              disabled={!keyBackupEnabled}
             />
           </View>
 

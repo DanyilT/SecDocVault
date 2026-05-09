@@ -28,3 +28,10 @@ export const APP_SCREEN_TITLES: Record<AppScreen, string> = {
   upload: 'Upload Document',
   share: 'Share Document',
 };
+
+export type ScreenParams = {
+  recoverkeys?: {
+    onSkipForNow: () => void;
+  };
+  // Add other screen params here as needed
+};

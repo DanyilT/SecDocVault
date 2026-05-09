@@ -15,22 +15,30 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import {
   CheckCircleIcon,
+  ClipboardIcon,
   CursorArrowRaysIcon,
   EnvelopeIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowPathRoundedSquareIcon,
 } from 'react-native-heroicons/solid';
 
 import { GuestLoginNotice } from '../components/GuestLoginNotice.tsx';
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import type { AuthMode } from '../types/vault';
+import {
+  buildPassphraseChangeHandler,
+  buildPassphraseGenerateHandler,
+} from '../services/crypto/passphraseHandlers.ts';
 
 type Props = {
   authMode: AuthMode;
@@ -38,7 +46,6 @@ type Props = {
   password: string;
   confirmPassword: string;
   vaultPassphrase: string;
-  confirmVaultPassphrase: string;
   canSubmitAuth: boolean;
   isSubmitting: boolean;
   authError: string | null;
@@ -47,13 +54,14 @@ type Props = {
   verificationCooldown: number;
   verificationLinkInput: string;
   accessMode: 'login' | 'guest';
+  enableKeyRecovery?: boolean;
+  onSetEnableKeyRecovery?: (value: boolean) => void;
   setAccessMode: (mode: 'login' | 'guest') => void;
   setAuthMode: (mode: AuthMode) => void;
   setEmail: (value: string) => void;
   setPassword: (value: string) => void;
   setConfirmPassword: (value: string) => void;
   setVaultPassphrase: (value: string) => void;
-  setConfirmVaultPassphrase: (value: string) => void;
   setVerificationLinkInput: (value: string) => void;
   onResendVerificationEmail: () => Promise<void>;
   onVerifyEmailLinkManually: () => Promise<void>;
@@ -101,7 +109,6 @@ export function AuthScreen({
   password,
   confirmPassword,
   vaultPassphrase,
-  confirmVaultPassphrase,
   canSubmitAuth,
   isSubmitting,
   authError,
@@ -110,13 +117,14 @@ export function AuthScreen({
   verificationCooldown,
   verificationLinkInput,
   accessMode,
+  enableKeyRecovery = false,
+  onSetEnableKeyRecovery,
   setAccessMode,
   setAuthMode,
   setEmail,
   setPassword,
   setConfirmPassword,
   setVaultPassphrase,
-  setConfirmVaultPassphrase,
   setVerificationLinkInput,
   onResendVerificationEmail,
   onVerifyEmailLinkManually,
@@ -126,15 +134,15 @@ export function AuthScreen({
 }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showVaultPassphrase, setShowVaultPassphrase] = useState(false);
-  const [showConfirmVaultPassphrase, setShowConfirmVaultPassphrase] = useState(false);
+  const [showVaultPassphrase, setShowVaultPassphrase] = useState(true);
+  const [passphraseActionFeedback, setPassphraseActionFeedback] = useState('');
   const passwordInputRef = useRef<TextInput | null>(null);
   const confirmPasswordInputRef = useRef<TextInput | null>(null);
   const vaultPassphraseInputRef = useRef<TextInput | null>(null);
-  const confirmVaultPassphraseInputRef = useRef<TextInput | null>(null);
   const footerShift = useRef(new Animated.Value(0)).current;
   const formTransition = useRef(new Animated.Value(1)).current;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [passphraseError, setPassphraseError] = useState('');
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
@@ -154,6 +162,28 @@ export function AuthScreen({
       useNativeDriver: true,
     }).start();
   }, [footerShift, isKeyboardVisible]);
+
+  const handlePassphraseChange = buildPassphraseChangeHandler({
+    setPassphrase: setVaultPassphrase,
+    setError: setPassphraseError,
+  });
+
+  const handleGeneratePassphrase = buildPassphraseGenerateHandler({
+    setPassphrase: setVaultPassphrase,
+    setError: setPassphraseError,
+    setActionFeedback: setPassphraseActionFeedback,
+  });
+
+  // Handler to copy passphrase to clipboard
+  const handleCopyPassphrase = () => {
+    try {
+      Clipboard.setString(vaultPassphrase);
+      setPassphraseActionFeedback('Copied');
+      setTimeout(() => setPassphraseActionFeedback(''), 2000);
+    } catch {
+      // Silently fail
+    }
+  };
 
   const isRegisterLogin = authMode === 'register' && accessMode === 'login';
   const isVerificationPending = isRegisterLogin && !emailVerifiedForRegistration && verificationCooldown > 0;
@@ -188,20 +218,6 @@ export function AuthScreen({
     return '';
   }, [authMode, hasTypedPassword, isPasswordMismatch, password]);
 
-  const hasTypedVaultPassphrase = vaultPassphrase.trim().length > 0;
-  const isVaultPassphraseTooShort = hasTypedVaultPassphrase && vaultPassphrase.trim().length < 20;
-  const isVaultPassphraseMismatch =
-    authMode === 'register' &&
-    confirmVaultPassphrase.trim().length > 0 &&
-    vaultPassphrase.trim().length >= 20 &&
-    vaultPassphrase !== confirmVaultPassphrase;
-
-  const vaultPassphraseWarning = useMemo(() => {
-    if (isVaultPassphraseTooShort) return 'Vault passphrase must be at least 20 characters.';
-    if (isVaultPassphraseMismatch) return 'Vault passphrases do not match.';
-    return '';
-  }, [isVaultPassphraseMismatch, isVaultPassphraseTooShort]);
-
   const showVerificationLinkInput = verificationCooldown > 0 || verificationLinkInput.length > 0;
 
   const emailBorderColor = emailVerifiedForRegistration ? '#22c55e' : isVerificationPending ? '#f59e0b' : email.trim().length > 0 && !isValidEmailFormat ? '#ef4444' : '#374151';
@@ -235,10 +251,16 @@ export function AuthScreen({
         <Animated.View
           style={{
             opacity: formTransition,
-            transform: [{ translateY: formTransition.interpolate({ inputRange: [0.92, 1], outputRange: [6, 0] }) }],
+            transform: [
+              {
+                translateY: formTransition.interpolate({
+                  inputRange: [0.92, 1],
+                  outputRange: [6, 0],
+                }),
+              },
+            ],
           }}
         >
-
           <View style={[styles.segmentRow, { marginBottom: 10 }]}>
             <SegmentButton
               label={authMode.charAt(0).toUpperCase() + authMode.slice(1)}
@@ -246,7 +268,11 @@ export function AuthScreen({
               onPress={() => setAccessMode('login')}
             />
             <SegmentButton
-              label={authMode.charAt(0).toUpperCase() + authMode.slice(1) + ' as Guest'}
+              label={
+                authMode.charAt(0).toUpperCase() +
+                authMode.slice(1) +
+                ' as Guest'
+              }
               isActive={accessMode === 'guest'}
               onPress={() => setAccessMode('guest')}
             />
@@ -255,7 +281,9 @@ export function AuthScreen({
           {accessMode === 'guest' ? (
             <View style={{ marginBottom: 10 }}>
               <GuestLoginNotice />
-              <Text style={[styles.subtitle, { marginTop: 8, marginBottom: 0 }]}>
+              <Text
+                style={[styles.subtitle, { marginTop: 8, marginBottom: 0 }]}
+              >
                 {authMode === 'register'
                   ? 'Create a local guest account on this device. Registering again can erase the previous guest vault.'
                   : 'Sign in to your local guest account with the same password used at registration.'}
@@ -263,28 +291,54 @@ export function AuthScreen({
             </View>
           ) : null}
 
-          {isRegisterLogin ? (
+          {isRegisterLogin && !emailVerifiedForRegistration ? (
             <Text style={[styles.subtitle, { marginBottom: 12 }]}>
-              Verify your email first. You can open the email link on this phone, or paste the link below if opened on another device.
+              Verify your email first. You can open the email link on this
+              phone, or paste the link below if opened on another device.
             </Text>
           ) : null}
 
           <View style={[styles.fieldGroup, { marginTop: 8 }]}>
             {accessMode === 'login' ? (
               <View style={[styles.fieldGroup, { marginBottom: 8 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: emailBorderColor, borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: emailBorderColor,
+                    borderRadius: 12,
+                    backgroundColor: '#111827',
+                    paddingHorizontal: 12,
+                  }}
+                >
                   <TextInput
                     autoCapitalize="none"
                     keyboardType="email-address"
                     placeholder="Email"
                     placeholderTextColor="#6b7280"
-                    style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                    style={[
+                      styles.input,
+                      { flex: 1, borderWidth: 0, paddingHorizontal: 0 },
+                    ]}
                     value={email}
                     onChangeText={setEmail}
-                    returnKeyType={isRegisterLogin && emailVerifiedForRegistration ? 'next' : canSendVerification ? 'send' : 'default'}
+                    returnKeyType={
+                      isRegisterLogin && emailVerifiedForRegistration
+                        ? 'next'
+                        : canSendVerification
+                        ? 'send'
+                        : 'default'
+                    }
                     onSubmitEditing={() => {
-                      if (!isRegisterLogin) { passwordInputRef.current?.focus(); return; }
-                      if (emailVerifiedForRegistration) { passwordInputRef.current?.focus(); return; }
+                      if (!isRegisterLogin) {
+                        passwordInputRef.current?.focus();
+                        return;
+                      }
+                      if (emailVerifiedForRegistration) {
+                        passwordInputRef.current?.focus();
+                        return;
+                      }
                       if (canSendVerification) {
                         void onResendVerificationEmail();
                       }
@@ -295,12 +349,22 @@ export function AuthScreen({
                   ) : null}
                   {isRegisterLogin && !emailVerifiedForRegistration ? (
                     <Pressable
-                      onPress={() => void onResendVerificationEmail()}
+                      onPress={() => {
+                        onResendVerificationEmail().catch(() => {});
+                      }}
                       disabled={!canSendVerification || isSubmitting}
-                      style={{ opacity: !canSendVerification || isSubmitting ? 0.5 : 1 }}
+                      style={{
+                        opacity: !canSendVerification || isSubmitting ? 0.5 : 1,
+                      }}
                     >
                       {verificationCooldown > 0 ? (
-                        <Text style={{ color: '#60a5fa', fontWeight: '600', fontSize: 12 }}>
+                        <Text
+                          style={{
+                            color: '#60a5fa',
+                            fontWeight: '600',
+                            fontSize: 12,
+                          }}
+                        >
                           {verificationCooldown}s
                         </Text>
                       ) : (
@@ -316,23 +380,59 @@ export function AuthScreen({
                       <>
                         {showVerificationLinkInput ? (
                           <>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12, marginTop: 8 }}>
+                            <View
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: '#374151',
+                                borderRadius: 12,
+                                backgroundColor: '#111827',
+                                paddingHorizontal: 12,
+                                marginTop: 8,
+                              }}
+                            >
                               <TextInput
                                 autoCapitalize="none"
                                 placeholder="Paste verification link here"
                                 placeholderTextColor="#6b7280"
-                                style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                                style={[
+                                  styles.input,
+                                  {
+                                    flex: 1,
+                                    borderWidth: 0,
+                                    paddingHorizontal: 0,
+                                  },
+                                ]}
                                 value={verificationLinkInput}
                                 onChangeText={setVerificationLinkInput}
                                 returnKeyType="done"
-                                onSubmitEditing={() => { if (verificationLinkInput.trim().length > 0) void onVerifyEmailLinkManually(); }}
+                                onSubmitEditing={() => {
+                                  if (verificationLinkInput.trim().length > 0)
+                                    void onVerifyEmailLinkManually();
+                                }}
                               />
                               <Pressable
-                                onPress={() => { if (verificationLinkInput.trim().length > 0) void onVerifyEmailLinkManually(); }}
-                                disabled={verificationLinkInput.trim().length === 0 || isSubmitting}
-                                style={{ opacity: verificationLinkInput.trim().length === 0 || isSubmitting ? 0.5 : 1 }}
+                                onPress={() => {
+                                  if (verificationLinkInput.trim().length > 0)
+                                    void onVerifyEmailLinkManually();
+                                }}
+                                disabled={
+                                  verificationLinkInput.trim().length === 0 ||
+                                  isSubmitting
+                                }
+                                style={{
+                                  opacity:
+                                    verificationLinkInput.trim().length === 0 ||
+                                    isSubmitting
+                                      ? 0.5
+                                      : 1,
+                                }}
                               >
-                                <CursorArrowRaysIcon size={21} color="#60a5fa" />
+                                <CursorArrowRaysIcon
+                                  size={21}
+                                  color="#60a5fa"
+                                />
                               </Pressable>
                             </View>
                           </>
@@ -340,24 +440,48 @@ export function AuthScreen({
                       </>
                     ) : null}
                     {isVerificationPending ? (
-                      <Text style={[styles.warningText, { marginTop: 2 }]}>Verification link sent. Check inbox and spam folder.</Text>
+                      <Text style={[styles.warningText, { marginTop: 2 }]}>
+                        Verification link sent. Check inbox and spam folder.
+                      </Text>
                     ) : null}
                     {emailVerifiedForRegistration ? (
-                      <Text style={[styles.subtitle, { color: '#22c55e', marginBottom: 0 }]}>Email verified. You can now create your account.</Text>
+                      <Text
+                        style={[
+                          styles.subtitle,
+                          { color: '#22c55e', marginBottom: 0 },
+                        ]}
+                      >
+                        Email verified. You can now create your account.
+                      </Text>
                     ) : null}
                   </>
                 ) : null}
               </View>
             ) : null}
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: showPasswordErrorBorder ? '#ef4444' : '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: showPasswordErrorBorder ? '#ef4444' : '#374151',
+                borderRadius: 12,
+                backgroundColor: '#111827',
+                paddingHorizontal: 12,
+              }}
+            >
               <TextInput
                 ref={passwordInputRef}
                 autoCapitalize="none"
                 secureTextEntry={!showPassword}
-                placeholder={accessMode === 'guest' ? 'Guest Password' : 'Password'}
+                placeholder={
+                  accessMode === 'guest' ? 'Guest Password' : 'Password'
+                }
                 placeholderTextColor="#6b7280"
-                style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                style={[
+                  styles.input,
+                  { flex: 1, borderWidth: 0, paddingHorizontal: 0 },
+                ]}
                 value={password}
                 onChangeText={setPassword}
                 returnKeyType={authMode === 'login' ? 'done' : 'next'}
@@ -379,20 +503,47 @@ export function AuthScreen({
             </View>
 
             {showForgotPasswordLink ? (
-              <Pressable onPress={() => void onResetPassword()} disabled={isSubmitting} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-                <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Forgot password? Reset password</Text>
+              <Pressable
+                onPress={() => {
+                  onResetPassword().catch(() => {});
+                }}
+                disabled={isSubmitting}
+                style={{ alignSelf: 'flex-start', marginTop: 4 }}
+              >
+                <Text
+                  style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}
+                >
+                  Forgot password? Reset password
+                </Text>
               </Pressable>
             ) : null}
 
             {authMode === 'register' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: showConfirmErrorBorder ? '#ef4444' : '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: showConfirmErrorBorder ? '#ef4444' : '#374151',
+                  borderRadius: 12,
+                  backgroundColor: '#111827',
+                  paddingHorizontal: 12,
+                }}
+              >
                 <TextInput
                   ref={confirmPasswordInputRef}
                   autoCapitalize="none"
                   secureTextEntry={!showConfirmPassword}
-                  placeholder={accessMode === 'guest' ? 'Confirm Guest Password' : 'Confirm Password'}
+                  placeholder={
+                    accessMode === 'guest'
+                      ? 'Confirm Guest Password'
+                      : 'Confirm Password'
+                  }
                   placeholderTextColor="#6b7280"
-                  style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
+                  style={[
+                    styles.input,
+                    { flex: 1, borderWidth: 0, paddingHorizontal: 0 },
+                  ]}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   returnKeyType="next"
@@ -410,48 +561,139 @@ export function AuthScreen({
               </View>
             ) : null}
 
-            {passwordWarning ? <Text style={styles.errorText}>{passwordWarning}</Text> : null}
+            {passwordWarning ? (
+              <Text style={styles.errorText}>{passwordWarning}</Text>
+            ) : null}
 
-            {authMode === 'register' ? (
+            {authMode === 'register' && accessMode === 'login' ? (
               <>
-                <Text style={[styles.subtitle, { marginTop: 12, marginBottom: 4 }]}>
-                  Passphrase is used to backup encryption keys. Make sure to remember it, as it cannot be recovered.
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isVaultPassphraseTooShort ? '#ef4444' : '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
-                  <TextInput
-                    autoCapitalize="none"
-                    secureTextEntry={!showVaultPassphrase}
-                    placeholder="Vault Passphrase (min 20 chars)"
-                    placeholderTextColor="#6b7280"
-                    style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
-                    value={vaultPassphrase}
-                    onChangeText={setVaultPassphrase}
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>Enable key recovery</Text>
+                  <Switch
+                    value={enableKeyRecovery}
+                    onValueChange={value => {
+                      onSetEnableKeyRecovery?.(value);
+                      if (!value) {
+                        setVaultPassphrase('');
+                        setPassphraseError('');
+                        setPassphraseActionFeedback('');
+                      }
+                    }}
                   />
-                  <Pressable onPress={() => setShowVaultPassphrase(p => !p)}>
-                    <Text style={styles.secondaryButtonText}>{showVaultPassphrase ? 'Hide' : 'Show'}</Text>
-                  </Pressable>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isVaultPassphraseMismatch ? '#ef4444' : '#374151', borderRadius: 12, backgroundColor: '#111827', paddingHorizontal: 12 }}>
-                  <TextInput
-                    autoCapitalize="none"
-                    secureTextEntry={!showConfirmVaultPassphrase}
-                    placeholder="Confirm Vault Passphrase"
-                    placeholderTextColor="#6b7280"
-                    style={[styles.input, { flex: 1, borderWidth: 0, paddingHorizontal: 0 }]}
-                    value={confirmVaultPassphrase}
-                    onChangeText={setConfirmVaultPassphrase}
-                  />
-                  <Pressable onPress={() => setShowConfirmVaultPassphrase(p => !p)}>
-                    <Text style={styles.secondaryButtonText}>{showConfirmVaultPassphrase ? 'Hide' : 'Show'}</Text>
-                  </Pressable>
-                </View>
-                {vaultPassphraseWarning ? <Text style={styles.errorText}>{vaultPassphraseWarning}</Text> : null}
+
+                {enableKeyRecovery ? (
+                  <>
+                    <Text
+                      style={[
+                        styles.subtitle,
+                        { marginTop: 12, marginBottom: 4 },
+                      ]}
+                    >
+                      Recovery passphrase is used to backup and restore your
+                      encryption keys across devices.{' '}
+                      <Text style={{ fontWeight: 'bold' }}>
+                        Be sure remember or keep it safe.
+                      </Text>{' '}
+                      Without this passphrase you will not be able to recover
+                      your vault if you lose access to this device or login to a
+                      new device. (Optional - leave blank to skip)
+                    </Text>
+
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: passphraseError ? '#ef4444' : '#374151',
+                        borderRadius: 12,
+                        backgroundColor: '#111827',
+                        paddingHorizontal: 12,
+                      }}
+                    >
+                      <TextInput
+                        ref={vaultPassphraseInputRef}
+                        autoCapitalize="none"
+                        secureTextEntry={!showVaultPassphrase}
+                        placeholder="Recovery passphrase"
+                        placeholderTextColor="#6b7280"
+                        style={[
+                          styles.input,
+                          { flex: 1, borderWidth: 0, paddingHorizontal: 0 },
+                        ]}
+                        value={vaultPassphrase}
+                        onChangeText={handlePassphraseChange}
+                        returnKeyType="done"
+                      />
+                      <Pressable
+                        onPress={() => setShowVaultPassphrase(p => !p)}
+                        style={{ marginHorizontal: 6 }}
+                      >
+                        {showVaultPassphrase ? (
+                          <EyeSlashIcon size={21} color="#60a5fa" />
+                        ) : (
+                          <EyeIcon size={21} color="#60a5fa" />
+                        )}
+                      </Pressable>
+                    </View>
+
+                    {passphraseError ? (
+                      <Text style={styles.errorText}>{passphraseError}</Text>
+                    ) : null}
+
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        gap: 8,
+                        justifyContent: 'flex-end',
+                      }}
+                    >
+                      {passphraseActionFeedback ? (
+                        <Text
+                          style={{
+                            color: '#60a5fa',
+                            fontWeight: '600',
+                            fontSize: 12,
+                            marginRight: 8,
+                            alignSelf: 'center',
+                          }}
+                        >
+                          {passphraseActionFeedback}
+                        </Text>
+                      ) : null}
+                      <Pressable
+                        onPress={handleGeneratePassphrase}
+                        style={{ padding: 8 }}
+                      >
+                        <ArrowPathRoundedSquareIcon size={20} color="#60a5fa" />
+                      </Pressable>
+                      <Pressable
+                        onPress={handleCopyPassphrase}
+                        disabled={!vaultPassphrase}
+                        style={{
+                          padding: 8,
+                          opacity: !vaultPassphrase ? 0.5 : 1,
+                        }}
+                      >
+                        <ClipboardIcon size={20} color="#60a5fa" />
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={[styles.subtitle, { color: '#fbbf24' }]}>
+                    If disabled, your encryption keys will only be stored locally on this device and cannot be recovered if you lose access or switch devices.
+                  </Text>
+                )}
               </>
             ) : null}
           </View>
 
           {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-          {authNotice ? <Text style={[styles.subtitle, { color: '#fbbf24' }]}>{authNotice}</Text> : null}
+          {authNotice ? (
+            <Text style={[styles.subtitle, { color: '#fbbf24' }]}>
+              {authNotice}
+            </Text>
+          ) : null}
 
           <View style={{ marginTop: 12 }}>
             <PrimaryButton
@@ -467,16 +709,29 @@ export function AuthScreen({
                   : 'Create Account'
               }
               disabled={isSubmitting || !canSubmitAuth}
-              onPress={() => void handleAuth()}
+              onPress={() => {
+                handleAuth().catch(() => {});
+              }}
             />
           </View>
 
-          <Animated.View style={[styles.footerView, { marginTop: 14, transform: [{ translateY: footerShift }] }]}>
+          <Animated.View
+            style={[
+              styles.footerView,
+              { marginTop: 14, transform: [{ translateY: footerShift }] },
+            ]}
+          >
             <View style={styles.footerActions}>
               <SegmentButton
-                label={authMode === 'login' ? 'Need an account? Register' : 'Back to Login'}
+                label={
+                  authMode === 'login'
+                    ? 'Need an account? Register'
+                    : 'Back to Login'
+                }
                 isActive={false}
-                onPress={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                onPress={() =>
+                  setAuthMode(authMode === 'login' ? 'register' : 'login')
+                }
               />
             </View>
           </Animated.View>

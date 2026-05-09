@@ -6,7 +6,7 @@
  * exposes boolean flags used by the controller and settings screens.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getIncomingShareDecisionStore,
@@ -34,6 +34,11 @@ export function useAppConfig({
   const [recoveryPassphraseForSettings, setRecoveryPassphraseForSettings] = useState<string | null>(null);
   const [skipUploadDiscardWarning, setSkipUploadDiscardWarning] = useState(false);
 
+  const refreshRecoveryPassphrase = useCallback(async () => {
+    const passphrase = await getRecoveryPassphraseForSettings();
+    setRecoveryPassphraseForSettings(passphrase);
+  }, []);
+
   // Initialize app config on mount
   useEffect(() => {
     void (async () => {
@@ -48,8 +53,7 @@ export function useAppConfig({
       setKeyBackupEnabled(preferences.keyBackupEnabled);
       await setAutoKeySyncEnabled(derivedAutoSync);
 
-      const recoveryPassphrase = await getRecoveryPassphraseForSettings();
-      setRecoveryPassphraseForSettings(recoveryPassphrase);
+      await refreshRecoveryPassphrase();
 
       const skipDiscardWarning = await AsyncStorage.getItem(uploadDiscardWarningPrefKey);
       setSkipUploadDiscardWarning(skipDiscardWarning === '1');
@@ -57,7 +61,7 @@ export function useAppConfig({
       const guestExists = await hasGuestAccount();
       onGuestAccountChange(guestExists);
     })();
-  }, [uploadDiscardWarningPrefKey, hasGuestAccount, onGuestAccountChange]);
+  }, [uploadDiscardWarningPrefKey, hasGuestAccount, onGuestAccountChange, refreshRecoveryPassphrase]);
 
   return {
     incomingShareDecisionStore,
@@ -74,5 +78,6 @@ export function useAppConfig({
     setRecoveryPassphraseForSettings,
     skipUploadDiscardWarning,
     setSkipUploadDiscardWarning,
+    refreshRecoveryPassphrase,
   };
 }

@@ -10,6 +10,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 
 import { VaultDocument } from '../../types/vault';
+import {
+  generateRecoveryPassphrase,
+  sanitizeRecoveryPassphrase,
+  validateRecoveryPassphrase,
+} from '../../services/crypto/documentCrypto';
 
 type UseKeyBackupFlowParams = {
   isGuest: boolean;
@@ -33,17 +38,16 @@ type UseKeyBackupFlowParams = {
     keyBackupEnabled: boolean;
   }) => Promise<void>;
   setAutoKeySyncEnabled: (value: boolean) => Promise<void>;
+  persistRecoveryPassphraseLocalOnly: (passphrase: string) => Promise<void>;
   ensureRecoveryPassphrase: () => Promise<string>;
-  deleteKeyBackupFromFirebase: (uid: string) => Promise<void>;
+  _deleteKeyBackupFromFirebase?: (uid: string) => Promise<void>;
   backupKeysToFirebase: (
     uid: string,
     docs: VaultDocument[],
     passphrase: string,
-  ) => Promise<{passphrase: string; backedUpCount: number}>;
+  ) => Promise<{ passphrase: string; backedUpCount: number }>;
   updateDocumentRecoveryPreference: (docMeta: VaultDocument, enabled: boolean) => Promise<VaultDocument>;
   restoreKeysFromFirebase: (uid: string, passphrase: string) => Promise<number>;
-  downloadPassphraseFile: (passphrase: string, uid: string) => Promise<string>;
-  downloadKeyBackupFile: (uid: string, passphrase: string) => Promise<string>;
 };
 
 /**
@@ -81,91 +85,28 @@ export function useKeyBackupFlow({
   saveVaultPreferences,
   setAutoKeySyncEnabled,
   ensureRecoveryPassphrase,
-  deleteKeyBackupFromFirebase,
+  _deleteKeyBackupFromFirebase,
   backupKeysToFirebase,
   updateDocumentRecoveryPreference,
   restoreKeysFromFirebase,
-  downloadPassphraseFile,
-  downloadKeyBackupFile,
+  persistRecoveryPassphraseLocalOnly,
 }: UseKeyBackupFlowParams) {
-  const [displayPassphrase, setDisplayPassphrase] = useState<string | null>(null);
+  const [displayPassphrase, setDisplayPassphrase] = useState<string | null>(
+    null,
+  );
   const [keyBackupStatus, setKeyBackupStatus] = useState('');
-  const [showKeyBackupSetupModal, setShowKeyBackupSetupModal] = useState(false);
+  const [customPassphrase, setCustomPassphrase] = useState('');
+  const [passphraseValidationError, setPassphraseValidationError] =
+    useState('');
   const pendingEnableKeyBackupActionRef = useRef<(() => void) | null>(null);
   const keyBackupEnabledRef = useRef(keyBackupEnabled);
-  const keyBackupSetupModalOpenRef = useRef(false);
 
   keyBackupEnabledRef.current = keyBackupEnabled;
-  keyBackupSetupModalOpenRef.current = showKeyBackupSetupModal;
 
   const recoverableDocsCount = useMemo(
     () => documents.filter(item => item.recoverable !== false).length,
     [documents],
   );
-
-  /**
-   * requestKeyBackupSetup
-   *
-   * Show the key-backup setup modal and remember a pending callback to run
-   * after the user confirms setup. Useful when an action (for example
-   * enabling per-document recovery) requires key backup to be configured
-   * first.
-   *
-   * @param onEnabled - callback executed after key backup has been enabled
-   */
-  const requestKeyBackupSetup = (onEnabled: () => void) => {
-    if (keyBackupSetupModalOpenRef.current) {
-      return;
-    }
-
-    pendingEnableKeyBackupActionRef.current = onEnabled;
-    keyBackupSetupModalOpenRef.current = true;
-    setShowKeyBackupSetupModal(true);
-  };
-
-  /**
-   * confirmKeyBackupSetup
-   *
-   * Called when the user confirms key backup setup in the modal. Ensures a
-   * recovery passphrase exists, enables auto-sync, persists preferences, and
-   * runs any pending action that required key backup.
-   */
-  const confirmKeyBackupSetup = async () => {
-    try {
-      const passphrase = await ensureRecoveryPassphrase();
-      setRecoveryPassphraseForSettings(passphrase);
-      setKeyBackupEnabled(true);
-      keyBackupEnabledRef.current = true;
-      setAutoSyncKeys(true);
-      await setAutoKeySyncEnabled(true);
-      await saveVaultPreferences({
-        saveOfflineByDefault,
-        recoverableByDefault,
-        autoSyncKeys: true,
-        keyBackupEnabled: true,
-      });
-      keyBackupSetupModalOpenRef.current = false;
-      setShowKeyBackupSetupModal(false);
-      const pendingAction = pendingEnableKeyBackupActionRef.current;
-      pendingEnableKeyBackupActionRef.current = null;
-      pendingAction?.();
-      setUploadStatus('Key backup enabled. You can now enable recovery per document.');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to set up key backup.';
-      setUploadStatus(message);
-    }
-  };
-
-  /**
-   * cancelKeyBackupSetup
-   *
-   * Close the setup modal and clear any pending post-setup action.
-   */
-  const cancelKeyBackupSetup = () => {
-    keyBackupSetupModalOpenRef.current = false;
-    setShowKeyBackupSetupModal(false);
-    pendingEnableKeyBackupActionRef.current = null;
-  };
 
   /**
    * handleToggleDocumentRecovery
@@ -177,24 +118,32 @@ export function useKeyBackupFlow({
    * @param docMeta - metadata of the document to update
    * @param enabled - desired recoverable state
    */
-  const handleToggleDocumentRecovery = async (docMeta: VaultDocument, enabled: boolean) => {
+  const handleToggleDocumentRecovery = async (
+    docMeta: VaultDocument,
+    enabled: boolean,
+  ) => {
     if (enabled && !keyBackupEnabledRef.current) {
-      requestKeyBackupSetup(() => {
-        void handleToggleDocumentRecovery(docMeta, true);
-      });
       return;
     }
 
     try {
       const updated = await updateDocumentRecoveryPreference(docMeta, enabled);
-      const nextDocuments = documents.map(item => (item.id === updated.id ? updated : item));
+      const nextDocuments = documents.map(item =>
+        item.id === updated.id ? updated : item,
+      );
       setDocuments(nextDocuments);
       setSelectedDoc(prev => (prev?.id === updated.id ? updated : prev));
-      setUploadStatus(enabled ? `${docMeta.name} added to key backup.` : `${docMeta.name} removed from key backup.`);
+      setUploadStatus(
+        enabled
+          ? `${docMeta.name} added to key backup.`
+          : `${docMeta.name} removed from key backup.`,
+      );
 
       if (!isGuest && userUid && keyBackupEnabledRef.current) {
         const recoverableCloudDocs = nextDocuments.filter(item => {
-          const hasCloudCopy = Boolean(item.references?.some(reference => reference.source === 'firebase'));
+          const hasCloudCopy = Boolean(
+            item.references?.some(reference => reference.source === 'firebase'),
+          );
           return item.recoverable !== false && hasCloudCopy;
         });
 
@@ -207,15 +156,27 @@ export function useKeyBackupFlow({
           setKeyBackupStatus('Syncing key backup to Firebase...');
           const passphrase = await ensureRecoveryPassphrase();
           setRecoveryPassphraseForSettings(passphrase);
-          const result = await backupKeysToFirebase(userUid, nextDocuments, passphrase);
-          setKeyBackupStatus(`Key backup synced (${result.backedUpCount} keys).`);
+          const result = await backupKeysToFirebase(
+            userUid,
+            nextDocuments,
+            passphrase,
+          );
+          setKeyBackupStatus(
+            `Key backup synced (${result.backedUpCount} keys).`,
+          );
         } catch (syncError) {
-          const syncMessage = syncError instanceof Error ? syncError.message : 'Failed to sync key backup.';
+          const syncMessage =
+            syncError instanceof Error
+              ? syncError.message
+              : 'Failed to sync key backup.';
           setKeyBackupStatus(`Backup sync failed: ${syncMessage}`);
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update document backup setting.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to update document backup setting.';
       setUploadStatus(message);
     }
   };
@@ -223,21 +184,21 @@ export function useKeyBackupFlow({
   /**
    * handleSetKeyBackupEnabled
    *
-   * Enable or disable key backup globally. When enabling, ensure a
-   * recovery passphrase exists and persist auto-sync preferences.
+   * Enable or disable key backup globally. When enabling without an existing
+   * recovery passphrase, the user must set one through the UI editor before
+   * the backup is fully usable; we do not auto-derive a passphrase.
    *
    * @param enabled - next enabled state
    */
   const handleSetKeyBackupEnabled = async (enabled: boolean) => {
+    setKeyBackupEnabled(enabled);
+    setAutoSyncKeys(enabled);
+
     try {
-      let nextPassphrase = recoveryPassphraseForSettings;
-      if (enabled) {
-        nextPassphrase = await ensureRecoveryPassphrase();
+      if (!enabled) {
+        setRecoveryPassphraseForSettings(null);
       }
 
-      setKeyBackupEnabled(enabled);
-      setAutoSyncKeys(enabled);
-      setRecoveryPassphraseForSettings(nextPassphrase);
       await setAutoKeySyncEnabled(enabled);
       await saveVaultPreferences({
         saveOfflineByDefault,
@@ -245,9 +206,18 @@ export function useKeyBackupFlow({
         autoSyncKeys: enabled,
         keyBackupEnabled: enabled,
       });
-      setAccountStatus(enabled ? 'Key backup enabled.' : 'Key backup disabled.');
+      setAccountStatus(
+        enabled
+          ? 'Key backup enabled. Set a recovery passphrase to finish setup.'
+          : 'Key backup disabled.',
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update key backup setting.';
+      setKeyBackupEnabled(!enabled);
+      setAutoSyncKeys(!enabled);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to update key backup setting.';
       setAccountStatus(message);
     }
   };
@@ -271,7 +241,9 @@ export function useKeyBackupFlow({
     }
 
     if (recoverableDocsCount === 0) {
-      setKeyBackupStatus('No recoverable documents found. Enable recovery per document during upload.');
+      setKeyBackupStatus(
+        'No recoverable documents found. Enable recovery per document during upload.',
+      );
       return;
     }
 
@@ -280,9 +252,12 @@ export function useKeyBackupFlow({
       const passphrase = await ensureRecoveryPassphrase();
       setRecoveryPassphraseForSettings(passphrase);
       const result = await backupKeysToFirebase(userUid, documents, passphrase);
-      setKeyBackupStatus(`Key backup created successfully (${result.backedUpCount} keys).`);
+      setKeyBackupStatus(
+        `Key backup created successfully (${result.backedUpCount} keys).`,
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to backup keys.';
+      const message =
+        error instanceof Error ? error.message : 'Failed to backup keys.';
       setKeyBackupStatus(`Error: ${message}`);
     }
   };
@@ -297,7 +272,9 @@ export function useKeyBackupFlow({
    */
   const handleRestoreKeys = async (passphrase: string) => {
     if (isGuest || !userUid) {
-      setKeyBackupStatus('You must be logged in to restore keys from Firebase.');
+      setKeyBackupStatus(
+        'You must be logged in to restore keys from Firebase.',
+      );
       return;
     }
 
@@ -308,54 +285,28 @@ export function useKeyBackupFlow({
 
     try {
       setKeyBackupStatus('Restoring keys from Firebase backup...');
-      const restored = await restoreKeysFromFirebase(userUid, passphrase.trim());
-      setKeyBackupStatus(`Restore complete: ${restored} keys restored to this device.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to restore keys.';
-      setKeyBackupStatus(`Error: ${message}`);
-    }
-  };
+      const restored = await restoreKeysFromFirebase(
+        userUid,
+        passphrase.trim(),
+      );
+      
+      await persistRecoveryPassphraseLocalOnly(passphrase.trim());
+      setKeyBackupEnabled(true);
+      setAutoSyncKeys(true);
+      await setAutoKeySyncEnabled(true);
+      await saveVaultPreferences({
+        saveOfflineByDefault,
+        recoverableByDefault,
+        autoSyncKeys: true,
+        keyBackupEnabled: true,
+      });
 
-  /**
-   * handleDownloadPassphrase
-   *
-   * Persist the provided passphrase to a platform file using
-   * `downloadPassphraseFile` and report the saved path via UI state.
-   *
-   * @param passphrase - the passphrase to save on disk
-   */
-  const handleDownloadPassphrase = async (passphrase: string) => {
-    try {
-      if (!userUid) {
-        setKeyBackupStatus('You must be logged in to download the passphrase file.');
-        return;
-      }
-      const path = await downloadPassphraseFile(passphrase, userUid);
-      setKeyBackupStatus(`Passphrase file saved to ${path}`);
+      setKeyBackupStatus(
+        `Restore complete: ${restored} keys restored to this device.`,
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to download passphrase.';
-      setKeyBackupStatus(`Error: ${message}`);
-    }
-  };
-
-  /**
-   * handleDownloadBackupFile
-   *
-   * Download the encrypted key backup JSON file for offline transfer or
-   * archival. Reports the destination path via `keyBackupStatus`.
-   *
-   * @param passphrase - passphrase used to decrypt/encrypt the downloaded file
-   */
-  const handleDownloadBackupFile = async (passphrase: string) => {
-    try {
-      if (!userUid) {
-        setKeyBackupStatus('You must be logged in to download backup JSON.');
-        return;
-      }
-      const path = await downloadKeyBackupFile(userUid, passphrase);
-      setKeyBackupStatus(`Encrypted key backup saved to ${path}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to download backup file.';
+      const message =
+        error instanceof Error ? error.message : 'Failed to restore keys.';
       setKeyBackupStatus(`Error: ${message}`);
     }
   };
@@ -369,7 +320,10 @@ export function useKeyBackupFlow({
    * @param passphrase - passphrase to copy
    * @param copyFn - platform copy function (e.g., clipboard setString)
    */
-  const handleCopyPassphrase = (passphrase: string, copyFn: (value: string) => void) => {
+  const handleCopyPassphrase = (
+    passphrase: string,
+    copyFn: (value: string) => void,
+  ) => {
     try {
       copyFn(passphrase);
       setKeyBackupStatus('Passphrase copied.');
@@ -378,21 +332,112 @@ export function useKeyBackupFlow({
     }
   };
 
+  /**
+   * handleGeneratePassphrase
+   *
+   * Generate a random recovery passphrase and set it as the custom passphrase.
+   */
+  const handleGeneratePassphrase = () => {
+    try {
+      const generated = generateRecoveryPassphrase();
+      setCustomPassphrase(generated);
+      setPassphraseValidationError('');
+      setKeyBackupStatus('Random passphrase generated.');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to generate passphrase.';
+      setPassphraseValidationError(message);
+    }
+  };
+
+  /**
+   * handlePassphraseChange
+   *
+   * Handle user input for recovery passphrase. Sanitizes by replacing
+   * spaces with hyphens and validates format.
+   *
+   * @param value - Raw input value from TextInput
+   */
+  const handlePassphraseChange = (value: string) => {
+    const sanitized = sanitizeRecoveryPassphrase(value);
+    setCustomPassphrase(sanitized);
+
+    // Validate format (only lowercase, digits, and hyphens)
+    if (sanitized && !validateRecoveryPassphrase(sanitized)) {
+      setPassphraseValidationError(
+        'Passphrase can only contain lowercase letters, numbers, and hyphens.',
+      );
+    } else {
+      setPassphraseValidationError('');
+    }
+  };
+
+  /**
+   * confirmKeyBackupSetupWithCustomPassphrase
+   *
+   * Confirm key backup setup with a user-provided or generated passphrase.
+   * Validates the passphrase format before proceeding.
+   */
+  const confirmKeyBackupSetupWithCustomPassphrase = async () => {
+    if (!customPassphrase.trim()) {
+      setPassphraseValidationError(
+        'Please enter or generate a recovery passphrase.',
+      );
+      return;
+    }
+
+    if (!validateRecoveryPassphrase(customPassphrase)) {
+      setPassphraseValidationError(
+        'Recovery passphrase must contain only lowercase letters, numbers, and hyphens.',
+      );
+      return;
+    }
+
+    try {
+      // Validate that we can backup with this passphrase
+      setRecoveryPassphraseForSettings(customPassphrase);
+      setKeyBackupEnabled(true);
+      keyBackupEnabledRef.current = true;
+      setAutoSyncKeys(true);
+      await setAutoKeySyncEnabled(true);
+      await saveVaultPreferences({
+        saveOfflineByDefault,
+        recoverableByDefault,
+        autoSyncKeys: true,
+        keyBackupEnabled: true,
+      });
+      const pendingAction = pendingEnableKeyBackupActionRef.current;
+      pendingEnableKeyBackupActionRef.current = null;
+      setCustomPassphrase('');
+      setPassphraseValidationError('');
+      setDisplayPassphrase(customPassphrase);
+      pendingAction?.();
+      setUploadStatus('Key backup enabled with your recovery passphrase.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to set up key backup.';
+      setPassphraseValidationError(message);
+    }
+  };
+
   return {
     displayPassphrase,
     setDisplayPassphrase,
     keyBackupStatus,
     setKeyBackupStatus,
-    showKeyBackupSetupModal,
-    requestKeyBackupSetup,
-    confirmKeyBackupSetup,
-    cancelKeyBackupSetup,
+    customPassphrase,
+    setCustomPassphrase,
+    passphraseValidationError,
+    setPassphraseValidationError,
     handleToggleDocumentRecovery,
     handleSetKeyBackupEnabled,
     handleBackupKeys,
     handleRestoreKeys,
-    handleDownloadPassphrase,
-    handleDownloadBackupFile,
     handleCopyPassphrase,
+    handleGeneratePassphrase,
+    handlePassphraseChange,
+    confirmKeyBackupSetupWithCustomPassphrase,
   };
 }

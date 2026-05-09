@@ -295,11 +295,87 @@ export async function getRecoveryPassphrase() {
 }
 
 export async function clearVaultPassphraseData(): Promise<void> {
-  await Promise.allSettled([
-    Keychain.resetGenericPassword({service: KDF_PASSPHRASE_SERVICE}),
-    Keychain.resetGenericPassword({service: RECOVERY_PASSPHRASE_SERVICE}),
-    AsyncStorage.removeItem(KDF_SALT_KEY),
-  ]);
+  try {
+    await Keychain.resetGenericPassword({service: KDF_PASSPHRASE_SERVICE});
+  } catch {}
+  try {
+    await Keychain.resetGenericPassword({service: RECOVERY_PASSPHRASE_SERVICE});
+  } catch {}
+  try {
+    await AsyncStorage.removeItem(KDF_SALT_KEY);
+  } catch {}
+}
+
+/**
+ * Generates a cryptographically secure recovery passphrase with exactly 5 words.
+ *
+ * Generates 20 bytes of random data and formats it as exactly 5 lowercase hexadecimal
+ * words separated by hyphens (e.g., `a1b2c3d4-e5f6g7h8-i9j0k1l2-m3n4o5p6-q7r8s9t0`).
+ * Each word is 8 hexadecimal characters, providing approximately 160 bits of entropy.
+ *
+ * @returns A randomly generated recovery passphrase with 5 words.
+ * @throws {Error} If a secure random source is not available.
+ */
+export function generateRecoveryPassphrase(): string {
+  const cryptoApi = (globalThis as { crypto?: { getRandomValues: (arr: Uint8Array) => Uint8Array } }).crypto;
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error('Secure random source is unavailable.');
+  }
+
+  const bytes = new Uint8Array(20); // 160 bits of entropy
+  cryptoApi.getRandomValues(bytes);
+  const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+
+  // Split into exactly 5 words of 8 characters each
+  return hex.match(/.{1,8}/g)?.slice(0, 5).join('-') ?? hex;
+}
+
+/**
+ * Validates a recovery passphrase format.
+ *
+ * A valid recovery passphrase must have:
+ * - Exactly 5 words separated by hyphens
+ * - Each word containing only lowercase letters and numbers
+ * - No spaces, uppercase letters, or special characters (except hyphens as separators)
+ *
+ * @param passphrase - The passphrase to validate.
+ * @returns true if valid, false otherwise.
+ */
+export function validateRecoveryPassphrase(passphrase: string): boolean {
+  const normalized = passphrase.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  // Must contain only lowercase letters, numbers, and hyphens
+  if (!/^[a-z0-9-]+$/.test(normalized)) {
+    return false;
+  }
+
+  // Split by hyphens and check for exactly 5 words
+  const words = normalized.split('-');
+  if (words.length !== 5) {
+    return false;
+  }
+
+  // Each word must have at least 1 character (no empty segments)
+  return words.every(word => word.length > 0);
+}
+
+/**
+ * Sanitizes a recovery passphrase by replacing spaces with hyphens.
+ *
+ * Converts the passphrase to lowercase, replaces all spaces with hyphens,
+ * and removes any characters that are not lowercase alphanumeric or hyphens.
+ *
+ * @param passphrase - The passphrase to sanitize.
+ * @returns Sanitized passphrase.
+ */
+export function sanitizeRecoveryPassphrase(passphrase: string): string {
+  return passphrase
+    .toLowerCase() // Convert to lowercase
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/[^a-z0-9-]/g, ''); // Remove any invalid characters
 }
 
 /**

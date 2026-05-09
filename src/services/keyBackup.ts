@@ -30,6 +30,7 @@ import {
   setRecoveryPassphrase,
   toBase64,
   unwrapDocumentKey,
+  validateRecoveryPassphrase,
   wrapDocumentKey,
 } from './crypto/documentCrypto.ts';
 import { VaultDocument, VaultEncryptedKeyEnvelope } from '../types/vault';
@@ -129,6 +130,12 @@ export async function backupKeysToFirebase(
   }
 
   const normalizedPassphrase = passphrase.trim();
+
+  // Validate passphrase format: lowercase, hyphens and alphanumerics only
+  if (!validateRecoveryPassphrase(normalizedPassphrase)) {
+    throw new Error('Recovery passphrase must contain only lowercase letters, numbers, and hyphens.');
+  }
+
   const recoverySalt = toBase64(randomWordArray(16));
   const items: SerializedBackupEntry[] = [];
 
@@ -273,6 +280,72 @@ export async function ensureRecoveryPassphrase(): Promise<string> {
   }
 }
 
+/**
+ * Persist an empty key backup document to Firestore so other devices can
+ * detect that a recovery passphrase has been configured for this account.
+ * The document stores only a recovery salt and metadata — no document keys
+ * are uploaded until the user creates their first recoverable document.
+ *
+ * @param ownerId - Firebase user uid that owns the backup
+ * @param passphrase - the recovery passphrase to validate and persist locally
+ */
+export async function initRecoveryBackupOnFirebase(
+  ownerId: string,
+  passphrase: string,
+): Promise<void> {
+  if (!ownerId) {
+    throw new Error('Missing account identifier for recovery backup.');
+  }
+
+  const normalized = passphrase.trim();
+  if (!normalized) {
+    throw new Error('Recovery passphrase is required.');
+  }
+
+  if (!validateRecoveryPassphrase(normalized)) {
+    throw new Error('Recovery passphrase must contain only lowercase letters, numbers, and hyphens.');
+  }
+
+  const recoverySalt = toBase64(randomWordArray(16));
+
+  const app = getApp();
+  const db = getFirestore(app);
+  const backupRef = doc(db, KEY_BACKUP_COLLECTION, ownerId);
+
+  const payload: SerializedKeyBackup = {
+    owner: ownerId,
+    recoverySalt,
+    keyCount: 0,
+    items: [],
+    createdAtIso: new Date().toISOString(),
+  };
+
+  await setDoc(backupRef, {
+    ...payload,
+    updatedAt: serverTimestamp(),
+  });
+
+  await setRecoveryPassphrase(normalized);
+}
+
+/**
+ * Checks if a key backup document exists in Firestore for the given ownerId.
+ * This indicates that key recovery has been enabled and initialized.
+ *
+ * @param ownerId - Firebase user uid that owns the backup
+ * @returns true if a key backup document exists, false otherwise.
+ */
+export async function checkIfKeyBackupExistsInFirebase(ownerId: string): Promise<boolean> {
+  if (!ownerId) {
+    return false;
+  }
+  const app = getApp();
+  const db = getFirestore(app);
+  const backupRef = doc(db, KEY_BACKUP_COLLECTION, ownerId);
+  const snapshot = await getDoc(backupRef);
+  return snapshot.exists();
+}
+
 async function getOrCreateAutoSyncPassphrase(): Promise<string> {
   const existing = await Keychain.getGenericPassword({ service: AUTO_SYNC_KEYS_PASSPHRASE });
   if (existing) {
@@ -303,41 +376,6 @@ export async function autoSyncKeysIfEnabled(ownerId: string, documents: VaultDoc
   return true;
 }
 
-export async function downloadPassphraseFile(passphrase: string, backupId: string): Promise<string> {
-  const safeBackupId = backupId.replace(/[^a-zA-Z0-9-_]/g, '_');
-  const outputDir = Platform.OS === 'android' ? RNFS.DownloadDirectoryPath : RNFS.DocumentDirectoryPath;
-  const outputPath = `${outputDir}/secdocvault-passphrase-${safeBackupId}.txt`;
-  const content = [
-    'SecDocVault Recovery Passphrase',
-    `Backup ID: ${backupId}`,
-    `Generated: ${new Date().toISOString()}`,
-    '',
-    passphrase,
-    '',
-    'Store this passphrase securely. Anyone with this passphrase can restore your document keys.',
-  ].join('\n');
-
-  await RNFS.writeFile(outputPath, content, 'utf8');
-  return outputPath;
-}
-
-export async function downloadKeyBackupFile(ownerId: string, _passphrase?: string): Promise<string> {
-  const app = getApp();
-  const db = getFirestore(app);
-  const backupRef = doc(db, KEY_BACKUP_COLLECTION, ownerId);
-  const snapshot = await getDoc(backupRef);
-
-  if (!snapshot.exists()) {
-    throw new Error('No key backup found to download.');
-  }
-
-  const data = snapshot.data();
-  const outputDir = Platform.OS === 'android' ? RNFS.DownloadDirectoryPath : RNFS.DocumentDirectoryPath;
-  const outputPath = `${outputDir}/secdocvault-keys-backup-${ownerId}.json`;
-  await RNFS.writeFile(outputPath, JSON.stringify(data, null, 2), 'utf8');
-  return outputPath;
-}
-
 export async function deleteKeyBackupFromFirebase(ownerId: string): Promise<void> {
   const app = getApp();
   const db = getFirestore(app);
@@ -345,11 +383,15 @@ export async function deleteKeyBackupFromFirebase(ownerId: string): Promise<void
 }
 
 export async function clearKeyBackupData(): Promise<void> {
-  await Promise.allSettled([
-    AsyncStorage.removeItem(AUTO_SYNC_KEYS_ENABLED),
-    Keychain.resetGenericPassword({service: AUTO_SYNC_KEYS_PASSPHRASE}),
-    clearVaultPassphraseData(),
-  ]);
+  try {
+    await AsyncStorage.removeItem(AUTO_SYNC_KEYS_ENABLED);
+  } catch {}
+  try {
+    await Keychain.resetGenericPassword({service: AUTO_SYNC_KEYS_PASSPHRASE});
+  } catch {}
+  try {
+    await clearVaultPassphraseData();
+  } catch {}
 }
 
 /**
@@ -416,3 +458,6 @@ export async function restoreDocumentKeysFromPassphrase(
   await restoreKdfPassphrase(normalized);
   return restoredCount;
 }
+
+// Re-export recovery passphrase utilities for UI use
+export { generateRecoveryPassphrase, sanitizeRecoveryPassphrase, validateRecoveryPassphrase } from './crypto/documentCrypto.ts';

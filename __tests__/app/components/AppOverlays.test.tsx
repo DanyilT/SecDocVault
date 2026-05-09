@@ -5,22 +5,12 @@ import { AppOverlays } from '../../../src/app/components/AppOverlays';
 
 function baseProps(overrides: Record<string, unknown> = {}) {
   return {
-    showKeyBackupSetupModal: false,
-    onCancelKeyBackupSetup: jest.fn(),
-    onConfirmKeyBackupSetup: jest.fn(async () => undefined),
     showUploadDiscardWarning: false,
     dontShowUploadDiscardWarningAgain: false,
     onToggleDontShowUploadDiscardWarningAgain: jest.fn(),
     onCloseUploadDiscardWarning: jest.fn(),
     onConfirmDiscardUploadDraft: jest.fn(async () => undefined),
     showVaultPassphrasePrompt: false,
-    vaultPassphrasePromptInput: '',
-    vaultPassphrasePromptAttemptsLeft: 3,
-    isVaultPassphrasePromptSubmitting: false,
-    vaultPassphrasePromptError: null,
-    onVaultPassphraseInputChange: jest.fn(),
-    onVaultPassphraseSubmit: jest.fn(async () => undefined),
-    onVaultPassphrasePromptDismiss: jest.fn(),
     ...overrides,
   } as React.ComponentProps<typeof AppOverlays>;
 }
