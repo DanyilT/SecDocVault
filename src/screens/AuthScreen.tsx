@@ -349,6 +349,7 @@ export function AuthScreen({
                   ) : null}
                   {isRegisterLogin && !emailVerifiedForRegistration ? (
                     <Pressable
+                      testID="resend-verification-btn"
                       onPress={() => {
                         onResendVerificationEmail().catch(() => {});
                       }}

@@ -37,6 +37,7 @@ describe('useUploadFlow', () => {
       setScreen: jest.fn(),
       skipUploadDiscardWarning: false,
       dontShowUploadDiscardWarningAgain: false,
+      isPickingFileRef: { current: false },
       getLocalDocuments: jest.fn(async () => []),
       saveLocalDocuments: jest.fn(async () => undefined),
       scanDocumentForUpload: jest.fn(async () => ({
@@ -106,5 +107,66 @@ describe('useUploadFlow', () => {
     await api.commitUploadDocument({name: 'Draft', files: []});
 
     expect(params.setUploadStatus).toHaveBeenCalledWith('Add at least one file before uploading.');
+  });
+
+  it('selectUploadDocument opens scan and updates draft', async () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('scan');
+
+    expect(params.scanDocumentForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).toHaveBeenCalled();
+    expect(params.setScreen).toHaveBeenCalledWith('upload');
+  });
+
+  it('commitUploadDocument handles cloud upload success', async () => {
+    const params = buildParams({
+      pendingUploadToCloud: true,
+      pendingUploadAlsoSaveLocal: false,
+    });
+    const api = useUploadFlow(params as never);
+
+    await api.commitUploadDocument({
+      name: 'Test Doc',
+      files: [{ uri: 'file://a.jpg', name: 'a.jpg', size: 1024, type: 'image/jpeg' }],
+    });
+
+    expect(params.uploadDocumentToFirebase).toHaveBeenCalled();
+    expect(params.setUploadStatus).toHaveBeenCalledWith(expect.stringContaining('uploaded to Firebase Storage'));
+    expect(params.setScreen).toHaveBeenCalledWith('main');
+  });
+
+  it('handleRemoveUploadFile removes file and clears draft if empty', () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    // Mock setPendingUploadDraft to capture the callback
+    const setDraftMock = params.setPendingUploadDraft;
+    
+    api.handleRemoveUploadFile(0);
+
+    expect(setDraftMock).toHaveBeenCalled();
+    const callback = setDraftMock.mock.calls[0][0];
+    
+    // Test the callback logic
+    const draft = { name: 'Test', files: [{ uri: '1' }] };
+    expect(callback(draft)).toBeNull(); // Should be null if files become empty
+    expect(params.setScreen).toHaveBeenCalledWith('main');
+  });
+
+  it('handleReorderUploadFiles reorders files', () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    const setDraftMock = params.setPendingUploadDraft;
+    api.handleReorderUploadFiles(0, 1);
+
+    expect(setDraftMock).toHaveBeenCalled();
+    const callback = setDraftMock.mock.calls[0][0];
+    const draft = { name: 'Test', files: [{ uri: '1' }, { uri: '2' }] };
+    const result = callback(draft);
+    expect(result.files[0].uri).toBe('2');
+    expect(result.files[1].uri).toBe('1');
   });
 });

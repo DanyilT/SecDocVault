@@ -30,7 +30,7 @@ describe('KeyRecoveryScreen', () => {
     act(() => {
       renderer = ReactTestRenderer.create(<KeyRecoveryScreen {...baseProps} />);
     });
-    expect(renderer!.root.findByProps({ placeholder: 'Recovery passphrase' })).toBeTruthy();
+    expect(renderer!.root.findByProps({ placeholder: 'Recovery passphrase (5 words separated by hyphens)' })).toBeTruthy();
   });
 
   test('shows Confirm Key Recovery button text when not submitting', () => {
@@ -65,13 +65,13 @@ describe('KeyRecoveryScreen', () => {
     act(() => {
       renderer = ReactTestRenderer.create(<KeyRecoveryScreen {...baseProps} />);
     });
-    const input = renderer!.root.findByProps({ placeholder: 'Recovery passphrase' });
-    await act(async () => { input.props.onChangeText('secure-passphrase'); });
+    const input = renderer!.root.findByProps({ placeholder: 'Recovery passphrase (5 words separated by hyphens)' });
+    await act(async () => { input.props.onChangeText('apple-banana-cherry-date-elderberry'); });
     const btn = renderer!.root.findByProps({ label: 'Confirm Key Recovery' });
     expect(btn.props.disabled).toBe(false);
   });
 
-  test('calls onRestoreKeys with trimmed passphrase when pressed', async () => {
+  test('calls onRestoreKeys with exact passphrase when pressed', async () => {
     const onRestore = jest.fn(async () => undefined);
     let renderer: ReactTestRenderer.ReactTestRenderer;
     act(() => {
@@ -79,11 +79,11 @@ describe('KeyRecoveryScreen', () => {
         <KeyRecoveryScreen {...baseProps} onRestoreKeys={onRestore} />,
       );
     });
-    const input = renderer!.root.findByProps({ placeholder: 'Recovery passphrase' });
-    await act(async () => { input.props.onChangeText('  my-passphrase  '); });
+    const input = renderer!.root.findByProps({ placeholder: 'Recovery passphrase (5 words separated by hyphens)' });
+    await act(async () => { input.props.onChangeText('apple-banana-cherry-date-elderberry'); });
     const btn = renderer!.root.findByProps({ label: 'Confirm Key Recovery' });
     await act(async () => { btn.props.onPress(); });
-    expect(onRestore).toHaveBeenCalledWith('my-passphrase');
+    expect(onRestore).toHaveBeenCalledWith('apple-banana-cherry-date-elderberry');
   });
 
   test('displays status text when status prop provided', () => {
@@ -103,7 +103,7 @@ describe('KeyRecoveryScreen', () => {
         <KeyRecoveryScreen {...baseProps} isGuest />,
       );
     });
-    const input = renderer!.root.findByProps({ placeholder: 'Recovery passphrase' });
+    const input = renderer!.root.findByProps({ placeholder: 'Recovery passphrase (5 words separated by hyphens)' });
     await act(async () => { input.props.onChangeText('valid-passphrase'); });
     const btn = renderer!.root.findByProps({ label: 'Confirm Key Recovery' });
     expect(btn.props.disabled).toBe(true);

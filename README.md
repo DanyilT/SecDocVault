@@ -49,12 +49,12 @@ sharing, and key backup/recovery flows.
 - If user uploads to the cloud, encrypted file is stored in Firebase Storage
   and document metadata (name, size, owner, references) is stored in
   Firestore. An encrypted version of the document key is stored with metadata so
-  that it can be restored via passphrase.
+  only authorized user can decrypt it, and the document key can be restored with passphrase.
 
 **Encrypting / Decrypting**
-- When a document is added, a random key is generated for it. Each file within 
-  a document is encrypted with that key and a
-  per-file IV. The cleartext document key may be stored in the device keychain for
+- When a document is added, a random document key is generated for that document.
+  Each file within a document is encrypted with that key and a
+  per-file IV. The raw (cleartext) document key may be stored in the device keychain for
   decryption (device-local), and an encrypted version of the key is
   stored in Firestore for other devices or recipients to decrypt it if they
   have appropriate credentials.
@@ -75,8 +75,10 @@ sharing, and key backup/recovery flows.
   user unwrap the document key and decrypt the file locally.
 
 **Key backup & recovery**
-- The app supports creation of a key backup encrypted by user's passphrase.
-  This recovering document keys on a new device when the owner provides the passphrase.
+- The app supports creation of a recoverable backup of key material by user's passphrase.
+  A random passphrase is generated (or created by user) and/or you can back up KDF material to
+  Firestore (encrypted). This allows re-wrapping and recovering document keys
+  on a new device when the owner provides the passphrase.
 
 **Authentication**
 - Guest mode: no Firebase auth, all data stays local on device.
@@ -134,11 +136,10 @@ into how the app is implemented.
   include allowExport and expiry metadata and can be revoked.
 
 **Key backup details**
-- The key backup flow requires the user to enter a passphrase at account 
-  creation, this is the only method for creating a backup. KDF material 
-  is derived from that passphrase. Backup metadata is stored in Firestore 
-  (per-owner doc in a `vaultKeyBackups` collection). Functions such as 
-  `downloadKeyBackupFile` and `deleteKeyBackupFromFirebase` exist 
+- The key backup flow requires a user to create a passphrase at account 
+  creation or later in settings. KDF material is derived from that passphrase.
+  Backup metadata is stored in Firestore (per-owner doc in a `vaultKeyBackups` collection).
+  Functions such as `downloadKeyBackupFile` and `deleteKeyBackupFromFirebase` exist 
   in `src/services/keyBackup.ts`.
 
 **Auth & session protection**
@@ -380,7 +381,7 @@ npm test -- --coverage --watch=false
 
 ## Copyright & attribution
 
-SecDocVault
+[SecDocVault](https://github.com/DanyilT/SecDocVault)
 
 Copyright © 2026 [Danyil Tymchuk](https://github.com/DanyilT), [Illia Stefanovskyi](https://github.com/IlliaStefanovskyi), [Artem Surzhenko](https://github.com/artemsa223)
 

@@ -1,3 +1,11 @@
+/**
+ * screens/PreviewScreen.tsx
+ *
+ * Document preview UI. Displays decrypted previews for images and offers
+ * export actions for non-image file types. Delegates decryption and export
+ * logic to controller hooks so the screen remains presentational.
+ */
+
 import React from 'react';
 import { Alert, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -48,6 +56,40 @@ type Props = {
   onDeclineIncomingShare: (docId: string) => void;
 };
 
+/**
+ * PreviewScreen
+ *
+ * Presentational screen that displays a decrypted preview of a selected
+ * document (images or placeholders for other types) and exposes export and
+ * storage actions. Decryption and persistence are delegated to provided
+ * callbacks.
+ *
+ * @param {object} props - Component props
+ * @param {VaultDocument} props.selectedDoc - Currently selected document to preview
+ * @param {number} props.previewFileOrder - Order/index of the file within the document references
+ * @param {string|null} props.previewImageUri - Local URI for the decrypted image preview
+ * @param {string} props.previewStatus - Optional status message for preview actions
+ * @param {boolean} props.isDecrypting - Whether a decrypt operation is underway
+ * @param {boolean} props.isCurrentFileDecrypted - Whether the current file is decrypted
+ * @param {boolean} props.isGuest - Whether the session is a guest session
+ * @param {boolean} props.canShareDocument - Whether sharing is allowed for this document
+ * @param {boolean} props.canSaveOfflineDocument - Whether offline save is allowed
+ * @param {boolean} props.hasLocalCopy - Whether a local copy exists
+ * @param {boolean} props.hasFirebaseCopy - Whether a cloud copy exists
+ * @param {boolean} props.keyBackupEnabled - Whether key backup is enabled globally
+ * @param {string|null} props.currentUserId - Current user's id
+ * @param {() => Promise<void>} props.onDecrypt - Trigger decryption for current file
+ * @param {() => Promise<void>} props.onExport - Export the current file
+ * @param {(order: number) => void} props.onSelectFile - Select a different file in the document
+ * @param {(doc: VaultDocument) => void} props.onShare - Open the share flow for the document
+ * @param {(doc: VaultDocument) => Promise<void>} props.onSaveOffline - Save document offline
+ * @param {(doc: VaultDocument) => Promise<void>} props.onSaveToFirebase - Save document to cloud
+ * @param {(doc: VaultDocument) => Promise<void>} props.onDeleteLocal - Delete local copy
+ * @param {(doc: VaultDocument) => Promise<void>} props.onDeleteFromFirebase - Delete cloud copy
+ * @param {(doc: VaultDocument, nextValue: boolean) => Promise<void>} props.onToggleRecovery - Toggle key backup for this document
+ * @param {(docId: string) => void} props.onDeclineIncomingShare - Decline an incoming share request
+ * @returns {JSX.Element} Rendered preview screen
+ */
 export function PreviewScreen({
   selectedDoc,
   previewFileOrder,
@@ -57,7 +99,7 @@ export function PreviewScreen({
   isCurrentFileDecrypted,
   isGuest: _isGuest,
   canShareDocument,
-  canSaveOfflineDocument: _canSaveOfflineDocument,
+  canSaveOfflineDocument,
   hasLocalCopy,
   hasFirebaseCopy,
   keyBackupEnabled,
@@ -219,7 +261,15 @@ export function PreviewScreen({
         contentContainerStyle={[styles.scrollContainer, { paddingBottom: 28 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8 , justifyContent: 'space-between', marginBottom: 8}}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            justifyContent: 'space-between',
+            marginBottom: 8,
+          }}
+        >
           <Text style={styles.pageTitle}>{selectedDoc.name}</Text>
 
           {previewImageUri ? (
@@ -232,6 +282,7 @@ export function PreviewScreen({
         </View>
 
         <Pressable
+          testID="decrypt-pressable"
           {...panResponder.panHandlers}
           onPress={() => {
             if (previewImageUri) {
@@ -507,25 +558,27 @@ export function PreviewScreen({
               />
             </View>
           ) : null}
-          <View style={styles.previewActionButton}>
-            <PrimaryButton
-              label={
-                isSavingOffline
-                  ? 'Saving...'
-                  : hasLocalCopy
-                  ? 'Delete Offline'
-                  : 'Save Offline'
-              }
-              icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
-              variant={hasLocalCopy ? 'danger' : 'default'}
-              disabled={isSavingOffline}
-              onPress={() =>
-                hasLocalCopy
-                  ? void handleDeleteLocal()
-                  : void handleSaveOffline()
-              }
-            />
-          </View>
+          {canSaveOfflineDocument ? (
+            <View style={styles.previewActionButton}>
+              <PrimaryButton
+                label={
+                  isSavingOffline
+                    ? 'Saving...'
+                    : hasLocalCopy
+                      ? 'Delete Offline'
+                      : 'Save Offline'
+                }
+                icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
+                variant={hasLocalCopy ? 'danger' : 'default'}
+                disabled={isSavingOffline}
+                onPress={() =>
+                  hasLocalCopy
+                    ? void handleDeleteLocal()
+                    : void handleSaveOffline()
+                }
+              />
+            </View>
+          ) : null}
           {censorEnabled && censorResult && !censorLoading ? (
             <View style={styles.previewActionButton}>
               <PrimaryButton

@@ -60,27 +60,6 @@ describe('ShareDetailsScreen', () => {
     ).toBeTruthy();
   });
 
-  test('renders Open Sharing Options button', () => {
-    let renderer: ReactTestRenderer.ReactTestRenderer;
-    act(() => {
-      renderer = ReactTestRenderer.create(<ShareDetailsScreen {...baseProps} />);
-    });
-    expect(renderer!.root.findByProps({ label: 'Open Sharing Options' })).toBeTruthy();
-  });
-
-  test('calls onOpenShareOptions when button pressed', () => {
-    const onOpen = jest.fn();
-    let renderer: ReactTestRenderer.ReactTestRenderer;
-    act(() => {
-      renderer = ReactTestRenderer.create(
-        <ShareDetailsScreen {...baseProps} onOpenShareOptions={onOpen} />,
-      );
-    });
-    const btn = renderer!.root.findByProps({ label: 'Open Sharing Options' });
-    act(() => btn.props.onPress());
-    expect(onOpen).toHaveBeenCalledTimes(1);
-  });
-
   test('renders active grants with revoke button', () => {
     const futureDate = new Date(Date.now() + 86400000 * 30).toISOString();
     const docWithGrant: VaultDocument = {

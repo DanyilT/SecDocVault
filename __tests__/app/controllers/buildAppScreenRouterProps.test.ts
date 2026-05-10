@@ -141,6 +141,7 @@ function baseInput(overrides: Record<string, unknown> = {}) {
     setScreen: jest.fn(),
     handleRevokeShareForRecipient: jest.fn(async () => undefined),
     runBackup: jest.fn(),
+    screenParams: {},
     ...overrides,
   } as any;
 }
