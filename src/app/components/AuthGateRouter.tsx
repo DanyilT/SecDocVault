@@ -46,20 +46,20 @@ type AuthGateRouterProps = {
   password: string;
   confirmPassword: string;
   vaultPassphrase: string;
-  confirmVaultPassphrase: string;
   canSubmitAuth: boolean;
   authNotice: string | null;
   emailVerifiedForRegistration: boolean;
   verificationCooldown: number;
   verificationLinkInput: string;
   accessMode: 'login' | 'guest';
+  enableKeyRecovery?: boolean;
+  onSetEnableKeyRecovery?: (value: boolean) => void;
   setAccessMode: (mode: 'login' | 'guest') => void;
   setAuthMode: (mode: AuthMode) => void;
   setEmail: (value: string) => void;
   setPassword: (value: string) => void;
   setConfirmPassword: (value: string) => void;
   setVaultPassphrase: (value: string) => void;
-  setConfirmVaultPassphrase: (value: string) => void;
   setVerificationLinkInput: (value: string) => void;
   onResendVerificationEmail: () => Promise<void>;
   onVerifyEmailLinkManually: () => Promise<void>;
@@ -114,20 +114,20 @@ export function AuthGateRouter({
   password,
   confirmPassword,
   vaultPassphrase,
-  confirmVaultPassphrase,
   canSubmitAuth,
   authNotice,
   emailVerifiedForRegistration,
   verificationCooldown,
   verificationLinkInput,
   accessMode,
+  enableKeyRecovery,
+  onSetEnableKeyRecovery,
   setAccessMode,
   setAuthMode,
   setEmail,
   setPassword,
   setConfirmPassword,
   setVaultPassphrase,
-  setConfirmVaultPassphrase,
   setVerificationLinkInput,
   onResendVerificationEmail,
   onVerifyEmailLinkManually,
@@ -198,7 +198,6 @@ export function AuthGateRouter({
           password={password}
           confirmPassword={confirmPassword}
           vaultPassphrase={vaultPassphrase}
-          confirmVaultPassphrase={confirmVaultPassphrase}
           canSubmitAuth={canSubmitAuth}
           isSubmitting={isSubmitting}
           authError={authError}
@@ -207,13 +206,14 @@ export function AuthGateRouter({
           verificationCooldown={verificationCooldown}
           verificationLinkInput={verificationLinkInput}
           accessMode={accessMode}
+          enableKeyRecovery={enableKeyRecovery}
+          onSetEnableKeyRecovery={onSetEnableKeyRecovery}
           setAccessMode={setAccessMode}
           setAuthMode={setAuthMode}
           setEmail={setEmail}
           setPassword={setPassword}
           setConfirmPassword={setConfirmPassword}
           setVaultPassphrase={setVaultPassphrase}
-          setConfirmVaultPassphrase={setConfirmVaultPassphrase}
           setVerificationLinkInput={setVerificationLinkInput}
           onResendVerificationEmail={onResendVerificationEmail}
           onVerifyEmailLinkManually={onVerifyEmailLinkManually}

@@ -8,7 +8,7 @@
 import React from 'react';
 
 import { AppScreenRouter } from '../components/AppScreenRouter';
-import { AppScreen } from '../navigation/constants';
+import { AppScreen, ScreenParams } from '../navigation/constants';
 import { UploadableDocumentDraft } from '../../services/documentVault';
 import { VaultDocument } from '../../types/vault';
 
@@ -23,7 +23,6 @@ type BuildAppScreenRouterPropsInput = Omit<
   | 'onOpenRecoverKeys'
   | 'onOpenDocumentRecovery'
   | 'onConfirmUpload'
-  | 'onRequestEnableKeyBackup'
   | 'onOpenShareOptions'
   | 'onRevokeShareForRecipient'
 > & {
@@ -34,11 +33,10 @@ type BuildAppScreenRouterPropsInput = Omit<
   handleExportDocument: () => Promise<void>;
   pendingUploadDraft: UploadableDocumentDraft | null;
   commitUploadDocument: (draft: UploadableDocumentDraft) => Promise<void>;
-  requestKeyBackupSetup: (onEnabled: () => void) => void;
   setPendingUploadRecoverable: (value: boolean) => void;
-  setKeyBackupStatus: (value: string) => void;
   setScreen: (screen: AppScreen) => void;
   handleRevokeShareForRecipient: (recipient: string) => Promise<void>;
+  screenParams: ScreenParams;
 };
 
 /**
@@ -62,12 +60,12 @@ export function buildAppScreenRouterProps(input: BuildAppScreenRouterPropsInput)
     handleExportDocument,
     pendingUploadDraft,
     commitUploadDocument,
-    requestKeyBackupSetup,
     setPendingUploadRecoverable,
     setKeyBackupStatus,
     setScreen,
     setShareTarget,
     handleRevokeShareForRecipient,
+    screenParams,
     ...rest
   } = input;
 
@@ -95,15 +93,11 @@ export function buildAppScreenRouterProps(input: BuildAppScreenRouterPropsInput)
       setScreen('recoverkeys');
     },
     onOpenDocumentRecovery: () => setScreen('recoverydocs'),
+    onSkipForNow: screenParams.recoverkeys?.onSkipForNow,
     onConfirmUpload: async () => {
       if (pendingUploadDraft) {
         await commitUploadDocument(pendingUploadDraft);
       }
-    },
-    onRequestEnableKeyBackup: () => {
-      requestKeyBackupSetup(() => {
-        setPendingUploadRecoverable(true);
-      });
     },
     onOpenShareOptions: () => setScreen('share'),
     onRevokeShareForRecipient: (recipient: string) => {

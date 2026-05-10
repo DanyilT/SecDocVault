@@ -26,7 +26,6 @@ type UseVaultLockLifecycleParams = {
   isVaultLocked: boolean;
   isCompletingAuthFlow: boolean;
   isTransitioningToAuth: boolean;
-  shouldRequireUnlock: boolean;
   preferredProtection: AuthProtection | null;
   pendingUploadDraft: UploadableDocumentDraft | null;
   recoverableByDefault: boolean;
@@ -77,7 +76,6 @@ export function useVaultLockLifecycle({
   isVaultLocked,
   isCompletingAuthFlow,
   isTransitioningToAuth,
-  shouldRequireUnlock,
   preferredProtection,
   pendingUploadDraft,
   recoverableByDefault,
@@ -172,7 +170,7 @@ export function useVaultLockLifecycle({
       const isGoingToBackground = currentState === 'active' && nextState !== 'active';
       currentState = nextState;
 
-      if (isGoingToBackground && isAuthenticated && shouldRequireUnlock && !isPickingFileRef.current) {
+      if (isGoingToBackground && isAuthenticated && !isPickingFileRef.current) {
         if (preferredProtection === 'none' && !isCompletingAuthFlow) {
           forceReloginFromLockRef.current();
           return;
@@ -184,7 +182,7 @@ export function useVaultLockLifecycle({
     return () => {
       subscription.remove();
     };
-  }, [enterLockScreen, isAuthenticated, isCompletingAuthFlow, preferredProtection, shouldRequireUnlock]);
+  }, [enterLockScreen, isAuthenticated, isCompletingAuthFlow, preferredProtection]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {

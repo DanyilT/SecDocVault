@@ -2,7 +2,7 @@ import { getBackTargetScreen, initialRoutingState, RoutingAction, routingReducer
 
 describe('routingReducer', () => {
   it('updates screen directly', () => {
-    const next = routingReducer(initialRoutingState, {type: 'SET_SCREEN', payload: 'settings'});
+    const next = routingReducer(initialRoutingState, {type: 'SET_SCREEN', payload: {screen: 'settings'}});
     expect(next.screen).toBe('settings');
   });
 

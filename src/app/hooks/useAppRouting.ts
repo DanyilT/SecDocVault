@@ -9,15 +9,16 @@
 
 import { useCallback, useReducer } from 'react';
 
-import { AppScreen } from '../navigation/constants';
+import { AppScreen, ScreenParams } from '../navigation/constants';
 import { AuthGateStage, AuthReturnStage, initialRoutingState, routingReducer } from '../navigation/routingReducer';
 
 export type UseAppRoutingApi = {
   screen: AppScreen;
+  screenParams: ScreenParams;
   authGateStage: AuthGateStage;
   authReturnStage: AuthReturnStage;
   shareOriginScreen: 'main' | 'preview';
-  setScreen: (screen: AppScreen) => void;
+  setScreen: <T extends AppScreen>(screen: T, params?: ScreenParams[T]) => void;
   setAuthGateStage: (stage: AuthGateStage) => void;
   setAuthReturnStage: (stage: AuthReturnStage) => void;
   setShareOriginScreen: (screen: 'main' | 'preview') => void;
@@ -29,8 +30,8 @@ export type UseAppRoutingApi = {
 export function useAppRouting(): UseAppRoutingApi {
   const [state, dispatch] = useReducer(routingReducer, initialRoutingState);
 
-  const setScreen = useCallback((screen: AppScreen) => {
-    dispatch({type: 'SET_SCREEN', payload: screen});
+  const setScreen = useCallback(<T extends AppScreen>(screen: T, params?: ScreenParams[T]) => {
+    dispatch({type: 'SET_SCREEN', payload: {screen, params}});
   }, []);
 
   const setAuthGateStage = useCallback((stage: AuthGateStage) => {

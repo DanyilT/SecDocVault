@@ -24,7 +24,6 @@ function buildParams(overrides: Record<string, unknown> = {}) {
     isVaultLocked: false,
     isCompletingAuthFlow: false,
     isTransitioningToAuth: false,
-    shouldRequireUnlock: true,
     preferredProtection: 'passkey' as const,
     pendingUploadDraft: null,
     recoverableByDefault: false,

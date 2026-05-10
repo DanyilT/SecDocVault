@@ -32,6 +32,7 @@ import {
   encryptBase64Payload,
   getOrCreateKdfMaterial,
   getRecoveryPassphrase,
+  MissingKdfPassphraseError,
   randomWordArray,
   toBase64,
   wrapDocumentKey,
@@ -72,6 +73,39 @@ type EncryptedPayloadResult = {
   readMs: number;
   encryptMs: number;
 };
+
+async function resolveEncryptedDocKeyEnvelope(
+  documentKey: string,
+  recoverable?: boolean,
+) {
+  if (recoverable) {
+    const recoveryPassphrase = await getRecoveryPassphrase();
+    if (!recoveryPassphrase) {
+      throw new Error('Recovery is enabled for this document, but no recovery passphrase is configured.');
+    }
+    return {
+      envelope: await wrapDocumentKey(documentKey, recoveryPassphrase, undefined, {wrapMode: 'recovery'}),
+      recoverable: true,
+    } as const;
+  }
+
+  try {
+    const {passphrase, salt} = await getOrCreateKdfMaterial();
+    return {
+      envelope: await wrapDocumentKey(documentKey, passphrase, salt, {wrapMode: 'device'}),
+      recoverable: false,
+    } as const;
+  } catch (error) {
+    if (error instanceof MissingKdfPassphraseError) {
+      // Allow non-recoverable docs to upload/save when no vault passphrase exists yet.
+      return {
+        envelope: undefined,
+        recoverable: false,
+      } as const;
+    }
+    throw error;
+  }
+}
 
 /**
  * Reads a local file into a Base64 string using RNFS (React Native File System).
@@ -559,19 +593,10 @@ export async function uploadDocumentToFirebase(
       accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     });
 
-    const recoveryPassphrase = await getRecoveryPassphrase();
-    const shouldUseRecoveryWrap = Boolean(options?.recoverable && recoveryPassphrase);
-
-    if (options?.recoverable && !recoveryPassphrase) {
-      throw new Error('Recovery is enabled for this document, but no recovery passphrase is configured.');
-    }
-
-    const wrappedDocKey = shouldUseRecoveryWrap
-      ? await wrapDocumentKey(documentKey, recoveryPassphrase!, undefined, {wrapMode: 'recovery'})
-      : await (async () => {
-          const {passphrase, salt} = await getOrCreateKdfMaterial();
-          return wrapDocumentKey(documentKey, passphrase, salt, {wrapMode: 'device'});
-        })();
+    const {
+      envelope: wrappedDocKey,
+      recoverable: shouldUseRecoveryWrap,
+    } = await resolveEncryptedDocKeyEnvelope(documentKey, options?.recoverable);
 
     const normalizedReferences = normalizeReferenceOrder(references);
     const firebaseReferences = normalizedReferences.filter(item => item.source === 'firebase');
@@ -591,7 +616,7 @@ export async function uploadDocumentToFirebase(
       sharedKeyGrants: [],
       references: firebaseReferences,
       fileCount: document.files.length,
-      encryptedDocKey: wrappedDocKey,
+      ...(wrappedDocKey ? {encryptedDocKey: wrappedDocKey} : {}),
       createdAt: serverTimestamp(),
       saveMode: 'firebase',
       offlineAvailable: options?.alsoSaveLocal ?? false,
@@ -610,7 +635,7 @@ export async function uploadDocumentToFirebase(
         sharedWith: [],
         sharedKeyGrants: [],
         references: normalizedReferences,
-        encryptedDocKey: wrappedDocKey,
+        ...(wrappedDocKey ? {encryptedDocKey: wrappedDocKey} : {}),
         saveMode: 'firebase',
         offlineAvailable: options?.alsoSaveLocal ?? false,
         recoverable: shouldUseRecoveryWrap,
@@ -697,19 +722,10 @@ export async function documentSaveLocal(
     accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
 
-  const recoveryPassphrase = await getRecoveryPassphrase();
-  const shouldUseRecoveryWrap = Boolean(options?.recoverable && recoveryPassphrase);
-
-  if (options?.recoverable && !recoveryPassphrase) {
-    throw new Error('Recovery is enabled for this document, but no recovery passphrase is configured.');
-  }
-
-  const wrappedDocKey = shouldUseRecoveryWrap
-    ? await wrapDocumentKey(documentKey, recoveryPassphrase!, undefined, {wrapMode: 'recovery'})
-    : await (async () => {
-        const {passphrase, salt} = await getOrCreateKdfMaterial();
-        return wrapDocumentKey(documentKey, passphrase, salt, {wrapMode: 'device'});
-      })();
+  const {
+    envelope: wrappedDocKey,
+    recoverable: shouldUseRecoveryWrap,
+  } = await resolveEncryptedDocKeyEnvelope(documentKey, options?.recoverable);
   const normalizedReferences = normalizeReferenceOrder(references);
   const totalSize = document.files.reduce((sum, item) => sum + item.size, 0);
   const documentName = normalizeDocumentName(document.name);
@@ -728,7 +744,7 @@ export async function documentSaveLocal(
       sharedWith: [],
       sharedKeyGrants: [],
       references: normalizedReferences,
-      encryptedDocKey: wrappedDocKey,
+      ...(wrappedDocKey ? {encryptedDocKey: wrappedDocKey} : {}),
       saveMode: 'local',
       offlineAvailable: true,
       recoverable: shouldUseRecoveryWrap,

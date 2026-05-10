@@ -186,4 +186,13 @@ describe('VaultRouter', () => {
     expect(mockShareScreen).toHaveBeenCalledTimes(1);
     expect(mockShareScreen.mock.calls[0][0].canManageShares).toBe(true);
   });
+
+  it('passes keyBackupEnabled to MainScreen', () => {
+    renderRouter(baseProps({ screen: 'main', keyBackupEnabled: true }));
+    expect(mockMainScreen).toHaveBeenCalledWith(expect.objectContaining({ keyBackupEnabled: true }));
+
+    mockMainScreen.mockClear();
+    renderRouter(baseProps({ screen: 'main', keyBackupEnabled: false }));
+    expect(mockMainScreen).toHaveBeenCalledWith(expect.objectContaining({ keyBackupEnabled: false }));
+  });
 });

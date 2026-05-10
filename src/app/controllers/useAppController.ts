@@ -50,13 +50,12 @@ import {
 import {
   backupKeysToFirebase,
   deleteKeyBackupFromFirebase,
-  downloadKeyBackupFile,
-  downloadPassphraseFile,
   ensureRecoveryPassphrase,
-  restoreDocumentKeysFromPassphrase,
+  initRecoveryBackupOnFirebase,
   restoreKeysFromFirebase,
   setAutoKeySyncEnabled,
 } from '../../services/keyBackup';
+import { setRecoveryPassphrase } from '../../services/crypto/documentCrypto';
 import {
   getLocalDocuments,
   saveVaultPreferences,
@@ -89,6 +88,7 @@ export function useAppController(): UseAppControllerApi {
 
   const {
     screen,
+    screenParams,
     authGateStage,
     shareOriginScreen,
     setScreen,
@@ -147,8 +147,8 @@ export function useAppController(): UseAppControllerApi {
     setConfirmPassword,
     vaultPassphrase,
     setVaultPassphrase,
-    confirmVaultPassphrase,
-    setConfirmVaultPassphrase,
+    enableKeyRecovery,
+    setEnableKeyRecovery,
     emailVerifiedForRegistration,
     setEmailVerifiedForRegistration,
     verificationLinkInput,
@@ -203,16 +203,6 @@ export function useAppController(): UseAppControllerApi {
     setGuestAccountExists,
     isFromRegistration,
     setIsFromRegistration,
-    showVaultPassphrasePrompt,
-    setShowVaultPassphrasePrompt,
-    vaultPassphrasePromptInput,
-    setVaultPassphrasePromptInput,
-    vaultPassphrasePromptAttemptsLeft,
-    setVaultPassphrasePromptAttemptsLeft,
-    isVaultPassphrasePromptSubmitting,
-    setIsVaultPassphrasePromptSubmitting,
-    vaultPassphrasePromptError,
-    setVaultPassphrasePromptError,
     transitionOpacity,
     transitionTranslateY,
   } = useAppControllerState();
@@ -232,11 +222,19 @@ export function useAppController(): UseAppControllerApi {
     setRecoveryPassphraseForSettings,
     skipUploadDiscardWarning,
     setSkipUploadDiscardWarning,
+    refreshRecoveryPassphrase,
   } = useAppConfig({
     uploadDiscardWarningPrefKey: UPLOAD_DISCARD_WARNING_PREF_KEY,
     hasGuestAccount,
     onGuestAccountChange: setGuestAccountExists,
   });
+  
+  // Clear sensitive configuration state when user logs out
+  useEffect(() => {
+    if (!isAuthenticated && !isGuest) {
+      setRecoveryPassphraseForSettings(null);
+    }
+  }, [isAuthenticated, isGuest, setRecoveryPassphraseForSettings]);
 
   const currentUserIdentifiers = useCurrentUserIdentifiers(user);
   const currentShareDecisionOwnerKey = useCurrentShareDecisionOwnerKey(user);
@@ -261,36 +259,6 @@ export function useAppController(): UseAppControllerApi {
 
   const uploadCanUseCloud = !isGuest && backupCloud && Boolean(user?.uid);
 
-  const openVaultPassphrasePrompt = () => {
-    setVaultPassphrasePromptInput('');
-    setVaultPassphrasePromptError(null);
-    setVaultPassphrasePromptAttemptsLeft(3);
-    setShowVaultPassphrasePrompt(true);
-  };
-
-  const handleVaultPassphraseSubmit = async (passphrase: string) => {
-    setIsVaultPassphrasePromptSubmitting(true);
-    setVaultPassphrasePromptError(null);
-    try {
-      await restoreDocumentKeysFromPassphrase(documents, passphrase);
-      setShowVaultPassphrasePrompt(false);
-      setVaultPassphrasePromptInput('');
-    } catch (error) {
-      const remaining = vaultPassphrasePromptAttemptsLeft - 1;
-      if (remaining <= 0) {
-        setShowVaultPassphrasePrompt(false);
-        setVaultPassphrasePromptInput('');
-      } else {
-        setVaultPassphrasePromptAttemptsLeft(remaining);
-        const message = error instanceof Error ? error.message : 'Incorrect passphrase.';
-        setVaultPassphrasePromptError(message);
-      }
-    } finally {
-      setIsVaultPassphrasePromptSubmitting(false);
-    }
-  };
-  const shouldRequireUnlock = isAuthenticated;
-
   const resetAuthForm = () => {
     setAuthMode('login');
     setAccessMode('login');
@@ -298,7 +266,7 @@ export function useAppController(): UseAppControllerApi {
     setPassword('');
     setConfirmPassword('');
     setVaultPassphrase('');
-    setConfirmVaultPassphrase('');
+    setEnableKeyRecovery(false);
     setEmailVerifiedForRegistration(false);
     setVerificationLinkInput('');
     setVerificationCooldown(0);
@@ -323,16 +291,10 @@ export function useAppController(): UseAppControllerApi {
     setDisplayPassphrase,
     keyBackupStatus,
     setKeyBackupStatus,
-    showKeyBackupSetupModal,
-    requestKeyBackupSetup,
-    confirmKeyBackupSetup,
-    cancelKeyBackupSetup,
     handleToggleDocumentRecovery,
     handleSetKeyBackupEnabled,
     handleBackupKeys,
     handleRestoreKeys,
-    handleDownloadPassphrase,
-    handleDownloadBackupFile,
     handleCopyPassphrase,
   } = useKeyBackupFlow({
     isGuest,
@@ -356,8 +318,11 @@ export function useAppController(): UseAppControllerApi {
     backupKeysToFirebase,
     updateDocumentRecoveryPreference,
     restoreKeysFromFirebase,
-    downloadPassphraseFile,
-    downloadKeyBackupFile,
+    persistRecoveryPassphraseLocalOnly: async (passphrase: string) => {
+      await setRecoveryPassphrase(passphrase);
+      setRecoveryPassphraseForSettings(passphrase);
+      await refreshRecoveryPassphrase();
+    },
   });
 
   const { reloadDocuments } = useDocumentVault({
@@ -393,6 +358,36 @@ export function useAppController(): UseAppControllerApi {
     setStatusMessage: setUploadStatus,
   });
 
+  const handleSetRecoveryPassphrase = async (passphrase: string) => {
+    const normalized = passphrase.trim();
+    if (!normalized) {
+      setKeyBackupStatus('Recovery passphrase cannot be empty.');
+      return;
+    }
+
+    try {
+      // 1. Persist the new passphrase locally
+      await setRecoveryPassphrase(normalized);
+      setRecoveryPassphraseForSettings(normalized);
+      await refreshRecoveryPassphrase(); // Refresh the state in useAppConfig from Keychain
+
+      // 2. If a user is logged in, update the Firestore backup document
+      if (user?.uid) {
+        // Delete the old backup (as it's now invalid with the new passphrase)
+        await deleteKeyBackupFromFirebase(user.uid);
+        // Create a new placeholder backup with the new passphrase's salt
+        await initRecoveryBackupOnFirebase(user.uid, normalized);
+      }
+
+      setKeyBackupStatus('Recovery passphrase updated.');
+    } catch (error) {
+      console.error('[keyBackup] Failed to set/update recovery passphrase:', error);
+      setKeyBackupStatus(`Failed to update passphrase: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Revert local state if Firestore update fails
+      setRecoveryPassphraseForSettings(null); // Or try to restore previous passphrase
+    }
+  };
+
   useVaultShellTransitionEffect({
     transitionOpacity,
     transitionTranslateY,
@@ -417,7 +412,6 @@ export function useAppController(): UseAppControllerApi {
     setSelectedDoc,
     setKeyBackupStatus,
     setIsVaultLocked,
-    onPassphraseMissing: openVaultPassphrasePrompt,
   });
 
   useVaultLockLifecycle({
@@ -431,7 +425,6 @@ export function useAppController(): UseAppControllerApi {
     isVaultLocked,
     isCompletingAuthFlow,
     isTransitioningToAuth,
-    shouldRequireUnlock,
     preferredProtection,
     pendingUploadDraft,
     recoverableByDefault,
@@ -478,7 +471,6 @@ export function useAppController(): UseAppControllerApi {
     updatePassword,
     updateConfirmPassword,
     updateVaultPassphrase,
-    updateConfirmVaultPassphrase,
     handleResendVerificationEmail,
     handleManualVerificationLink,
     handleResetPassword,
@@ -490,9 +482,7 @@ export function useAppController(): UseAppControllerApi {
     password,
     confirmPassword,
     vaultPassphrase,
-    confirmVaultPassphrase,
     setVaultPassphrase,
-    setConfirmVaultPassphrase,
     emailVerifiedForRegistration,
     verificationLinkInput,
     verificationCooldown,
@@ -623,7 +613,6 @@ export function useAppController(): UseAppControllerApi {
     setSkipUploadDiscardWarning,
     isPickingFileRef,
     handleToggleDocumentRecovery,
-    onMissingPassphrase: openVaultPassphrasePrompt,
   });
 
   const {
@@ -703,15 +692,15 @@ export function useAppController(): UseAppControllerApi {
     password,
     confirmPassword,
     vaultPassphrase,
-    confirmVaultPassphrase,
     setVaultPassphrase: updateVaultPassphrase,
-    setConfirmVaultPassphrase: updateConfirmVaultPassphrase,
     canSubmitAuth,
     authNotice,
     emailVerifiedForRegistration,
     verificationCooldown,
     verificationLinkInput,
     accessMode,
+    enableKeyRecovery,
+    onSetEnableKeyRecovery: setEnableKeyRecovery,
     setAccessMode,
     setAuthMode: switchAuthMode,
     setEmail: updateEmail,
@@ -758,6 +747,7 @@ export function useAppController(): UseAppControllerApi {
     onSetSaveOfflineByDefault: handleSetSaveOfflineByDefault,
     onSetRecoverableByDefault: handleSetRecoverableByDefault,
     onSetKeyBackupEnabled: handleSetKeyBackupEnabled,
+    onSetRecoveryPassphrase: handleSetRecoveryPassphrase,
     setKeyBackupStatus,
     setScreen,
     onUpdateUnlockMethod: handleUpdateUnlockMethod,
@@ -792,7 +782,6 @@ export function useAppController(): UseAppControllerApi {
     onRemoveUploadFile: handleRemoveUploadFile,
     onReorderUploadFiles: handleReorderUploadFiles,
     commitUploadDocument,
-    requestKeyBackupSetup,
     shareTarget,
     allowDownload,
     shareStatus,
@@ -817,15 +806,15 @@ export function useAppController(): UseAppControllerApi {
     onBackupKeys: handleBackupKeys,
     onClearPassphrase: () => setDisplayPassphrase(null),
     onCopyPassphrase: onCopyPassphrase,
-    onDownloadPassphrase: handleDownloadPassphrase,
-    onDownloadBackupFile: handleDownloadBackupFile,
     onRestoreKeys: handleRestoreKeys,
     onToggleDocBackupFromSettings: handleToggleDocBackupFromSettings,
+    screenParams,
   } as any);
 
   const headerControllerProps: React.ComponentProps<typeof AppHeaderController> = {
     screen,
     shareOriginScreen,
+    isRecoverKeysPrompt: screen === 'recoverkeys' && !!screenParams?.recoverkeys?.onSkipForNow,
     onLeaveUploadScreen: handleLeaveUploadScreen,
     onSetScreen: setScreen,
     onLogout: handleHeaderLogout,
@@ -834,9 +823,6 @@ export function useAppController(): UseAppControllerApi {
   };
 
   const overlaysProps: React.ComponentProps<typeof AppOverlays> = {
-    showKeyBackupSetupModal,
-    onCancelKeyBackupSetup: cancelKeyBackupSetup,
-    onConfirmKeyBackupSetup: confirmKeyBackupSetup,
     showUploadDiscardWarning,
     dontShowUploadDiscardWarningAgain,
     onToggleDontShowUploadDiscardWarningAgain: () => {
@@ -846,14 +832,6 @@ export function useAppController(): UseAppControllerApi {
       setShowUploadDiscardWarning(false);
     },
     onConfirmDiscardUploadDraft: confirmDiscardUploadDraft,
-    showVaultPassphrasePrompt,
-    vaultPassphrasePromptInput,
-    vaultPassphrasePromptAttemptsLeft,
-    isVaultPassphrasePromptSubmitting,
-    vaultPassphrasePromptError,
-    onVaultPassphraseInputChange: setVaultPassphrasePromptInput,
-    onVaultPassphraseSubmit: handleVaultPassphraseSubmit,
-    onVaultPassphrasePromptDismiss: () => setShowVaultPassphrasePrompt(false),
     showEditMetadataModal: editMetadataState.visible,
     editMetadataNameInput: editMetadataState.nameInput,
     editMetadataDescriptionInput: editMetadataState.descriptionInput,

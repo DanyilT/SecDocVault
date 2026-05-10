@@ -18,7 +18,7 @@ function MockIntroHeroScreen({onGuest}: {onGuest: () => void}) {
   return ReactLocal.createElement(MockAction, {testID: 'go-guest', onPress: onGuest});
 }
 
-function MockAuthScreen({setAuthMode, setPassword, setConfirmPassword, setVaultPassphrase, setConfirmVaultPassphrase, handleAuth}: any) {
+function MockAuthScreen({setAuthMode, setPassword, setConfirmPassword, handleAuth}: any) {
   const ReactLocal = require('react');
   return ReactLocal.createElement(
     ReactLocal.Fragment,
@@ -39,9 +39,6 @@ function MockAuthScreen({setAuthMode, setPassword, setConfirmPassword, setVaultP
         onPress: () => {
           setPassword('guest123');
           setConfirmPassword('guest123');
-          const vp = 'a-very-secure-vault-passphrase-123';
-          setVaultPassphrase(vp);
-          setConfirmVaultPassphrase(vp);
         },
       },
     ),
@@ -131,8 +128,6 @@ jest.mock('../../../src/services/documentVault', () => ({
 jest.mock('../../../src/services/keyBackup', () => ({
   autoSyncKeysIfEnabled: jest.fn(async () => false),
   backupKeysToFirebase: jest.fn(async () => ({passphrase: 'p', backedUpCount: 0})),
-  downloadKeyBackupFile: jest.fn(async () => '/tmp/backup.json'),
-  downloadPassphraseFile: jest.fn(async () => '/tmp/passphrase.txt'),
   ensureRecoveryPassphrase: jest.fn(async () => 'passphrase'),
   getRecoveryPassphraseForSettings: jest.fn(async () => null),
   generateRecoveryPassphrase: jest.fn(() => 'passphrase'),

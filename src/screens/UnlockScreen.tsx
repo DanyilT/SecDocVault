@@ -1,3 +1,11 @@
+/**
+ * screens/UnlockScreen.tsx
+ *
+ * Unlock UI shown when the vault is locked. Supports PIN, passkey, and
+ * biometric shortcut presentation. This file remains a presentational layer
+ * and delegates actual unlock operations to `onUnlock` / `onUnlockWithPin`.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -32,6 +40,24 @@ type Props = {
   onGoToAuth: () => void;
 };
 
+/**
+ * UnlockScreen
+ *
+ * Presentational screen shown when the vault is locked. Supports PIN entry,
+ * passkey flow and biometric shortcut UI. Actual unlock operations are
+ * performed by the handlers supplied via props.
+ *
+ * @param {object} props - Component props
+ * @param {AuthProtection | null} props.preferredProtection - Configured unlock method
+ * @param {boolean} props.pinBiometricEnabled - Whether biometric shortcut for PIN is enabled
+ * @param {boolean} props.canUnlock - Whether unlocking is currently allowed
+ * @param {boolean} props.isSubmitting - Whether an unlock request is in progress
+ * @param {string|null} props.authError - Optional authentication error to display
+ * @param {() => Promise<void>} props.onUnlock - Trigger a biometric/passkey unlock
+ * @param {(pin: string) => Promise<void>} props.onUnlockWithPin - Unlock using a PIN
+ * @param {() => void} props.onGoToAuth - Navigate to the auth screen (login/register)
+ * @returns {JSX.Element} Rendered unlock screen
+ */
 export function UnlockScreen({
   preferredProtection,
   pinBiometricEnabled,
@@ -125,10 +151,12 @@ export function UnlockScreen({
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}>
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+    >
       <ScrollView
         contentContainerStyle={[styles.scrollContainer, { flexGrow: 1 }]}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={{ flex: 1 }}>
           <View style={styles.introHero}>
             <Animated.View style={[styles.logoPlaceholder, { opacity: lockOpacity }]}>

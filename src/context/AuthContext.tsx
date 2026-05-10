@@ -21,9 +21,14 @@ import * as Keychain from 'react-native-keychain';
 
 import { FIREBASE_AUTH_EMAIL_LINK_URL } from '../firebase/project';
 import { AuthProtection, AuthSessionMode } from '../types/vault';
-import { clearDocumentKeychainEntries, deleteDocumentFromFirebase, deleteUserShareProfile, listVaultDocumentsFromFirebase } from '../services/documentVault';
 import { clearKeyBackupData, deleteKeyBackupFromFirebase } from '../services/keyBackup';
 import { clearLocalVaultData, getLocalDocuments } from '../storage/localVault';
+import {
+  clearDocumentKeychainEntries,
+  deleteDocumentFromFirebase,
+  deleteUserShareProfile,
+  listVaultDocumentsFromFirebase,
+} from '../services/documentVault';
 
 /** Keychain service used to persist Firebase credentials for passkey unlock. */
 const PASSKEY_SERVICE = 'secdocvault.passkey.firebase';
@@ -96,6 +101,7 @@ type PendingEmailLinkRegistration = {
   protection?: AuthProtection;
   requestToken?: string;
   verifiedToken?: string;
+  emailVerificationLink?: string;
 };
 
 /**
@@ -278,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearGuestAccount = async () => {
     await Promise.allSettled([
       AsyncStorage.removeItem(GUEST_ACCOUNT_META_KEY),
-      Keychain.resetGenericPassword({service: GUEST_ACCOUNT_SERVICE}),
+      Keychain.resetGenericPassword({ service: GUEST_ACCOUNT_SERVICE }),
     ]);
   };
 
@@ -437,9 +443,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(PENDING_EMAIL_LINK_REGISTRATION_KEY);
   };
 
-  const extractRegistrationTokenFromEmailLink = (emailLink: string): string | null => {
-    const trimmedLink = emailLink.trim();
-    if (!trimmedLink) {
+  /**
+   * Extracts a parameter from a Firebase email link.
+   * Handles both direct parameters and nested parameters in continueUrl.
+   *
+   * @param emailLink - The Firebase email link from the verification email.
+   * @param paramName - The parameter name to extract (e.g., 'regToken', 'oobCode').
+   * @returns The parameter value, or null if not found.
+   */
+  const extractParameterFromEmailLink = (emailLink: string, paramName: string): string | null => {
+    if (!emailLink?.trim() || !paramName?.trim()) {
       return null;
     }
 
@@ -457,46 +470,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return match ? safeDecode(match[1]) : null;
     };
 
-    const candidates = [trimmedLink];
-    const decodedOnce = safeDecode(trimmedLink);
-    if (decodedOnce !== trimmedLink) {
-      candidates.push(decodedOnce);
-    }
-    const decodedTwice = safeDecode(decodedOnce);
-    if (decodedTwice !== decodedOnce) {
-      candidates.push(decodedTwice);
+    // Try to extract parameter directly from the link
+    let paramValue = readParamViaRegex(emailLink, paramName);
+    if (paramValue) {
+      return paramValue;
     }
 
-    for (const candidate of candidates) {
-      const directToken = readParamViaRegex(candidate, 'regToken');
-      if (directToken) {
-        return directToken;
-      }
-
-      const continueUrl = readParamViaRegex(candidate, 'continueUrl');
-      if (!continueUrl) {
-        continue;
-      }
-
-      const continueCandidates = [continueUrl];
-      const continueDecodedOnce = safeDecode(continueUrl);
-      if (continueDecodedOnce !== continueUrl) {
-        continueCandidates.push(continueDecodedOnce);
-      }
-      const continueDecodedTwice = safeDecode(continueDecodedOnce);
-      if (continueDecodedTwice !== continueDecodedOnce) {
-        continueCandidates.push(continueDecodedTwice);
-      }
-
-      for (const continueCandidate of continueCandidates) {
-        const nestedToken = readParamViaRegex(continueCandidate, 'regToken');
-        if (nestedToken) {
-          return nestedToken;
-        }
+    // Try to extract from continueUrl if nested
+    const continueUrl = readParamViaRegex(emailLink, 'continueUrl');
+    if (continueUrl) {
+      const decodedContinue = safeDecode(continueUrl);
+      paramValue = readParamViaRegex(decodedContinue, paramName);
+      if (paramValue) {
+        return paramValue;
       }
     }
 
     return null;
+  };
+
+  const extractRegistrationTokenFromEmailLink = (emailLink: string): string | null => {
+    return extractParameterFromEmailLink(emailLink, 'regToken');
   };
 
   /**
@@ -556,15 +550,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  /**
-   * Removes all passkey credentials and clears persisted auth preferences.
-   */
   const resetStoredPasskeys = async () => {
-    await Promise.allSettled([
-      Keychain.resetGenericPassword({ service: PASSKEY_SERVICE }),
-      Keychain.resetGenericPassword({ service: GUEST_PASSKEY_SERVICE }),
-    ]);
-    await AsyncStorage.removeItem(AUTH_PREFS_KEY);
+    try {
+      await Keychain.resetGenericPassword({ service: PASSKEY_SERVICE });
+    } catch { }
+    try {
+      await Keychain.resetGenericPassword({ service: GUEST_PASSKEY_SERVICE });
+    } catch { }
+    try {
+      await clearKeyBackupData();
+    } catch { }
+    try {
+      await AsyncStorage.removeItem(AUTH_PREFS_KEY);
+    } catch { }
     setHasSavedPasskey(false);
     setPreferredProtection(null);
   };
@@ -656,7 +654,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
+      const credential = await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
+
+      // Send ONE verification email to mark the email as verified in Firebase.
+      // User already verified ownership via the sign-in link they clicked earlier,
+      // so this email just needs to be clicked once more to mark email as verified.
+      try {
+        const modular = await getModularAuthApi();
+        if (modular) {
+          await modular.sendEmailVerification(credential.user);
+        } else {
+          await credential.user.sendEmailVerification();
+        }
+      } catch {
+        // Email verification send is not critical - account is already created
+        // User can verify email later from account settings if needed
+      }
+
+      await reloadUser(credential.user);
       await AsyncStorage.removeItem(PENDING_EMAIL_LINK_REGISTRATION_KEY);
       setSessionMode('cloud');
       return true;
@@ -689,6 +704,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifiedToken: undefined,
       });
 
+      // Send sign-in link for frontend verification only.
+      // When user creates account, Firebase will auto-verify the email since
+      // the user already verified ownership by clicking this link.
       await sendSignInEmailLink(normalizedEmail, getEmailLinkActionCodeSettings(requestToken));
       setAuthError(null);
       return true;
@@ -740,6 +758,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...pending,
         requestToken: expectedToken,
         verifiedToken: expectedToken,
+        emailVerificationLink: emailLink.trim(),
       });
 
       setAuthError(null);
@@ -829,10 +848,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await clearLocalVaultData();
         await clearKeyBackupData();
         await Promise.allSettled([
-          Keychain.resetGenericPassword({service: PASSKEY_SERVICE}),
-          Keychain.resetGenericPassword({service: GUEST_PASSKEY_SERVICE}),
-          Keychain.resetGenericPassword({service: PIN_UNLOCK_SERVICE}),
-          Keychain.resetGenericPassword({service: BIOMETRIC_GATE_SERVICE}),
+          Keychain.resetGenericPassword({ service: PASSKEY_SERVICE }),
+          Keychain.resetGenericPassword({ service: GUEST_PASSKEY_SERVICE }),
+          Keychain.resetGenericPassword({ service: PIN_UNLOCK_SERVICE }),
+          Keychain.resetGenericPassword({ service: BIOMETRIC_GATE_SERVICE }),
         ]);
       }
 
@@ -1250,11 +1269,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const signOut = async () => {
     setAuthError(null);
-    if (firebaseAuth.currentUser) {
-      await firebaseSignOut(firebaseAuth);
+    try {
+      if (firebaseAuth.currentUser) {
+        await firebaseSignOut(firebaseAuth);
+      }
+    } finally {
+      await resetStoredPasskeys(); // Clear saved passphrases and preferences
+      setSessionMode(null);
+      setUser(null);
     }
-    setSessionMode(null);
-    setUser(null);
   };
 
   /** Clears any currently shown authentication error. */
