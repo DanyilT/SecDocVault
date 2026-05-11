@@ -12,6 +12,7 @@ import {
   saveVaultPreferences,
   getIncomingShareDecisionStore,
   saveIncomingShareDecisionStore,
+  clearLocalVaultData,
 } from '../../../src/storage/localVault';
 
 import type { VaultDocument } from '../../../src/types/vault';
@@ -196,3 +197,27 @@ describe('saveIncomingShareDecisionStore', () => {
   });
 });
 
+describe('clearLocalVaultData', () => {
+  test('removes storage keys and does not unlink when vault dir missing', async () => {
+    const rnfs = jest.requireMock('react-native-fs');
+    // ensure exists resolves false
+    (rnfs.exists as jest.Mock).mockResolvedValueOnce(false);
+
+    await expect(clearLocalVaultData()).resolves.toBeUndefined();
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalled();
+    // unlink should not be called because exists returned false
+    expect(rnfs.unlink).not.toHaveBeenCalled();
+  });
+
+  test('removes storage keys and unlinks when vault dir exists', async () => {
+    const rnfs = jest.requireMock('react-native-fs');
+    (rnfs.exists as jest.Mock).mockResolvedValueOnce(true);
+
+    await expect(clearLocalVaultData('user42')).resolves.toBeUndefined();
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(expect.stringContaining('user42'));
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(expect.any(String));
+    expect(rnfs.unlink).toHaveBeenCalled();
+  });
+});

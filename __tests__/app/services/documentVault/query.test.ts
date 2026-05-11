@@ -91,6 +91,26 @@ describe('Document Vault Query Services', () => {
       expect(result[0].id).toBe('doc-2');
       expect(result[1].id).toBe('doc-1');
     });
+
+    it('normalizes offline flag and size from first reference when size is not a string', async () => {
+      (getDocs as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'doc-local-ref',
+          data: () => ({
+            name: 'Doc with local ref',
+            uploadedAt: '2023-01-03',
+            owner: 'user-1',
+            size: 2048,
+            references: [{ source: 'local', size: 2048, type: 'text/plain', order: 0 }],
+          }),
+        },
+      ]);
+
+      const result = await listVaultDocumentsFromFirebase('user-1');
+      expect(result).toHaveLength(1);
+      expect(result[0].size).toBe('2.0 KB');
+      expect(result[0].offlineAvailable).toBe(true);
+    });
   });
 
   describe('listVaultDocumentsSharedWithUser', () => {
@@ -143,6 +163,193 @@ describe('Document Vault Query Services', () => {
       const result = await listVaultDocumentsSharedWithUser(['user-2']);
       expect(result.length).toBe(1);
       expect(result[0].id).toBe('doc-fallback');
+    });
+
+    it('returns empty when both grant queries are denied and fallback has no data', async () => {
+      (getDocs as jest.Mock)
+        // loadGrantMatches recipientUid
+        .mockRejectedValueOnce({ code: 'permission-denied' })
+        // loadGrantMatches recipientEmail
+        .mockRejectedValueOnce({ code: 'permission-denied' })
+        // fallback sharedWith query for uid
+        .mockRejectedValueOnce({ code: 'permission-denied' })
+        // fallback sharedWith query for email
+        .mockRejectedValueOnce({ code: 'permission-denied' });
+
+      const result = await listVaultDocumentsSharedWithUser(['recipient-uid', 'recipient@example.com']);
+      expect(result).toEqual([]);
+    });
+
+    it('handles index errors and warns for collectionGroup and fallback queries', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      (getDocs as jest.Mock)
+        // loadGrantMatches recipientUid -> index error
+        .mockRejectedValueOnce({ message: 'FAILED_PRECONDITION: index required' })
+        // fallback query -> index error
+        .mockRejectedValueOnce({ message: 'FAILED_PRECONDITION: index required' });
+
+      const result = await listVaultDocumentsSharedWithUser(['recipient-uid']);
+      expect(result).toEqual([]);
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('keeps fallback docs when getDoc for grant is permission denied', async () => {
+      const activeGrant = {
+        recipientUid: 'recipient-uid',
+        recipientEmail: 'recipient@example.com',
+        allowExport: true,
+        wrappedKeyCipher: 'wrapped',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+
+      (getDocs as jest.Mock)
+        // loadGrantMatches for uid
+        .mockResolvedValueOnce({
+          forEach: (cb: (item: any) => void) =>
+            cb({
+              ref: { parent: { parent: { id: 'doc-grant' } } },
+              data: () => activeGrant,
+            }),
+        })
+        // fallback sharedWith query
+        .mockResolvedValueOnce({
+          forEach: (cb: (item: any) => void) =>
+            cb({
+              id: 'doc-fallback-only',
+              data: () => ({ uploadedAt: '2025-01-01', owner: 'owner-a', sharedWith: ['recipient-uid'] }),
+            }),
+        });
+
+      (getDoc as jest.Mock).mockRejectedValueOnce({ code: 'permission-denied' });
+
+      const result = await listVaultDocumentsSharedWithUser(['recipient-uid']);
+      expect(result.map(item => item.id)).toContain('doc-fallback-only');
+    });
+
+    it('drops inactive grants and ignores non-existing grant docs', async () => {
+      const expiredGrant = {
+        recipientUid: 'recipient-uid',
+        recipientEmail: 'recipient@example.com',
+        allowExport: true,
+        wrappedKeyCipher: 'wrapped',
+        createdAt: new Date(Date.now() - 120_000).toISOString(),
+        expiresAt: new Date(Date.now() - 60_000).toISOString(),
+      };
+
+      const activeGrant = {
+        recipientUid: 'recipient-uid',
+        recipientEmail: 'recipient@example.com',
+        allowExport: true,
+        wrappedKeyCipher: 'wrapped',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+
+      (getDocs as jest.Mock)
+        // loadGrantMatches for uid with one expired and one active entry
+        .mockResolvedValueOnce({
+          forEach: (cb: (item: any) => void) => {
+            cb({
+              ref: { parent: { parent: { id: 'doc-expired' } } },
+              data: () => expiredGrant,
+            });
+            cb({
+              ref: { parent: { parent: { id: 'doc-missing' } } },
+              data: () => activeGrant,
+            });
+          },
+        })
+        // fallback query returns none
+        .mockResolvedValueOnce({ forEach: (_cb: (item: any) => void) => undefined });
+
+      (getDoc as jest.Mock).mockResolvedValueOnce({ exists: () => false });
+
+      const result = await listVaultDocumentsSharedWithUser(['recipient-uid']);
+      expect(result).toEqual([]);
+    });
+
+    it('merges duplicate fallback documents across identifiers', async () => {
+      (getDocs as jest.Mock)
+        // loadGrantMatches recipientUid
+        .mockResolvedValueOnce({ forEach: (_cb: (item: any) => void) => undefined })
+        // loadGrantMatches recipientEmail
+        .mockResolvedValueOnce({ forEach: (_cb: (item: any) => void) => undefined })
+        // fallback for uid identifier
+        .mockResolvedValueOnce({
+          forEach: (cb: (item: any) => void) =>
+            cb({
+              id: 'dup-doc',
+              data: () => ({
+                owner: 'owner-1',
+                uploadedAt: '2025-01-01',
+                sharedWith: ['recipient-uid'],
+                references: [{ source: 'firebase', storagePath: 'vault/a', order: 1 }],
+              }),
+            }),
+        })
+        // fallback for email identifier (same doc id, local reference)
+        .mockResolvedValueOnce({
+          forEach: (cb: (item: any) => void) =>
+            cb({
+              id: 'dup-doc',
+              data: () => ({
+                owner: 'owner-1',
+                uploadedAt: '2025-01-02',
+                sharedWith: ['recipient@example.com'],
+                references: [{ source: 'local', localPath: '/tmp/x', order: 0 }],
+              }),
+            }),
+        });
+
+      const result = await listVaultDocumentsSharedWithUser(['recipient-uid', 'recipient@example.com']);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('dup-doc');
+      expect(result[0].references?.length).toBe(2);
+      expect(result[0].offlineAvailable).toBe(true);
+      expect(result[0].sharedWith).toEqual(expect.arrayContaining(['recipient-uid', 'recipient@example.com']));
+    });
+
+    it('throws unknown errors from collectionGroup lookup', async () => {
+      (getDocs as jest.Mock).mockRejectedValueOnce(new Error('group lookup failed'));
+      await expect(listVaultDocumentsSharedWithUser(['recipient-uid'])).rejects.toThrow('group lookup failed');
+    });
+
+    it('throws unknown errors from fallback sharedWith lookup', async () => {
+      (getDocs as jest.Mock)
+        // loadGrantMatches recipientUid succeeds with no grant docs
+        .mockResolvedValueOnce({ forEach: (_cb: (item: any) => void) => undefined })
+        // fallback query throws unknown
+        .mockRejectedValueOnce(new Error('fallback lookup failed'));
+
+      await expect(listVaultDocumentsSharedWithUser(['recipient-uid'])).rejects.toThrow('fallback lookup failed');
+    });
+
+    it('throws unknown errors while loading document metadata from deduped grants', async () => {
+      const activeGrant = {
+        recipientUid: 'recipient-uid',
+        recipientEmail: 'recipient@example.com',
+        allowExport: true,
+        wrappedKeyCipher: 'wrapped',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+
+      (getDocs as jest.Mock)
+        // loadGrantMatches recipientUid -> one active grant
+        .mockResolvedValueOnce({
+          forEach: (cb: (item: any) => void) =>
+            cb({
+              ref: { parent: { parent: { id: 'doc-grant' } } },
+              data: () => activeGrant,
+            }),
+        })
+        // fallback query returns no docs
+        .mockResolvedValueOnce({ forEach: (_cb: (item: any) => void) => undefined });
+
+      (getDoc as jest.Mock).mockRejectedValueOnce(new Error('getDoc failed'));
+      await expect(listVaultDocumentsSharedWithUser(['recipient-uid'])).rejects.toThrow('getDoc failed');
     });
   });
 });

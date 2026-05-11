@@ -181,6 +181,86 @@ describe('Document Vault Upload Services', () => {
       await expect(uploadDocumentToFirebase(mockUser, mockDraft)).rejects.toThrow('Upload failed');
       expect(Keychain.resetGenericPassword).toHaveBeenCalled();
     });
+
+    it('throws when recoverable option is true but no recovery passphrase is configured', async () => {
+      // make getRecoveryPassphrase return null to simulate missing passphrase
+      const crypto = jest.requireMock('../../../../src/services/crypto/documentCrypto');
+      (crypto.getRecoveryPassphrase as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(uploadDocumentToFirebase(mockUser, mockDraft, { recoverable: true })).rejects.toThrow(
+        /Recovery is enabled for this document/,
+      );
+    });
+
+    it('supports recoverable upload when recovery passphrase exists', async () => {
+      const crypto = jest.requireMock('../../../../src/services/crypto/documentCrypto');
+      (crypto.getRecoveryPassphrase as jest.Mock).mockResolvedValueOnce('recovery-passphrase');
+
+      const result = await uploadDocumentToFirebase(mockUser, mockDraft, { recoverable: true });
+      expect(result.document.encryptedDocKey).toBe('wrapped-key-env');
+      expect(setDoc).toHaveBeenCalled();
+    });
+
+    it('continues when KDF passphrase missing (MissingKdfPassphraseError) and allows non-recoverable upload', async () => {
+      const crypto = jest.requireMock('../../../../src/services/crypto/documentCrypto');
+      // cause getOrCreateKdfMaterial to throw MissingKdfPassphraseError
+      (crypto.getOrCreateKdfMaterial as jest.Mock).mockRejectedValueOnce(new crypto.MissingKdfPassphraseError('missing'));
+
+      const result = await uploadDocumentToFirebase(mockUser, mockDraft);
+      expect(result.document).toBeDefined();
+      // wrapped key may be absent when MissingKdfPassphraseError occurred
+      // but upload should still succeed
+      expect(uploadString).toHaveBeenCalled();
+    });
+
+    it('rethrows non-MissingKdfPassphraseError from KDF material resolution', async () => {
+      const crypto = jest.requireMock('../../../../src/services/crypto/documentCrypto');
+      (crypto.getOrCreateKdfMaterial as jest.Mock).mockRejectedValueOnce(new Error('KDF crashed'));
+
+      await expect(uploadDocumentToFirebase(mockUser, mockDraft)).rejects.toThrow('KDF crashed');
+    });
+
+    it('encrypts using large-file fallback when file exceeds large-file threshold', async () => {
+      // create a draft with a large file to hit encryptLargeFileWithoutBase64First fallback
+      const largeDraft = {
+        ...mockDraft,
+        files: [{ name: 'big.bin', uri: 'file://big', size: 6 * 1024 * 1024, type: 'application/octet-stream' }],
+      };
+      // ensure RNFS.readFile is used for fallback and returns base64
+      (RNFS.readFile as jest.Mock).mockResolvedValueOnce('large-file-base64');
+
+      const result = await uploadDocumentToFirebase(mockUser, largeDraft);
+      expect(uploadString).toHaveBeenCalled();
+      expect(result.document.references?.[0]?.storagePath).toContain('vault/user-123');
+    });
+
+    it('normalizeSelectedDocumentForUpload throws if asset has no uri', async () => {
+      (launchImageLibrary as jest.Mock).mockResolvedValueOnce({ assets: [{}] });
+      await expect(pickDocumentForUpload()).rejects.toThrow(/No file selected/);
+    });
+
+    it('emits progress events when callback is provided', async () => {
+      const onProgress = jest.fn();
+      await uploadDocumentToFirebase(mockUser, mockDraft, { onProgress });
+      expect(onProgress).toHaveBeenCalled();
+    });
+
+    it('throws when files exceed MAX_FILES_PER_DOCUMENT', async () => {
+      const manyFiles = new Array(11).fill(0).map((_, i) => ({ name: `f${i}`, uri: `file://${i}`, size: 10, type: 'text/plain' }));
+      await expect(uploadDocumentToFirebase(mockUser, { ...mockDraft, files: manyFiles })).rejects.toThrow(/at most/);
+    });
+
+    it('cleans up saved local files on failure (unlink called)', async () => {
+      // fail after upload/local save succeeds so cleanup has savedLocalPaths to remove
+      (setDoc as jest.Mock).mockRejectedValueOnce(new Error('Metadata write failed'));
+      // simulate alsoSaveLocal path saved
+      (RNFS.exists as jest.Mock).mockResolvedValue(true);
+
+      await expect(uploadDocumentToFirebase(mockUser, mockDraft, { alsoSaveLocal: true })).rejects.toThrow('Metadata write failed');
+      // cleanup should attempt to unlink saved local paths
+      expect(RNFS.unlink).toHaveBeenCalled();
+      expect(Keychain.resetGenericPassword).toHaveBeenCalled();
+    });
   });
 
   describe('documentSaveLocal', () => {
@@ -220,5 +300,25 @@ describe('Document Vault Upload Services', () => {
       expect(result.document.offlineAvailable).toBe(true);
       expect(result.document.references?.[0]?.source).toBe('local');
     });
+
+    it('throws when local save receives too many files', async () => {
+      const manyFiles = new Array(11).fill(0).map((_, i) => ({ name: `f${i}`, uri: `file://${i}`, size: 10, type: 'text/plain' }));
+      await expect(documentSaveLocal(mockUser, { ...mockDraft, files: manyFiles })).rejects.toThrow(/at most/);
+    });
+
+    it('throws when no document key can be generated', async () => {
+      (encryptBase64Payload as jest.Mock).mockResolvedValueOnce({
+        version: 1,
+        algorithm: 'AES-256-GCM',
+        iv: 'iv',
+        cipher: 'cipher',
+        authTag: 'tag',
+        key: undefined,
+      });
+
+      await expect(documentSaveLocal(mockUser, mockDraft)).rejects.toThrow('Failed to generate document key.');
+    });
   });
+
+  // Additional quick-crypto runtime coverage can be added with isolated module mocks.
 });

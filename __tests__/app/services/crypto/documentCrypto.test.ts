@@ -253,6 +253,123 @@ describe('getRecoveryPassphrase', () => {
 // ---------------------------------------------------------------------------
 
 describe('clearVaultPassphraseData', () => {
+  test('clears all passphrase-related keychain entries', async () => {
+    await clearVaultPassphraseData();
+    expect(Keychain.resetGenericPassword).toHaveBeenCalled();
+  });
+
+  test('removes KDF material from async storage', async () => {
+    await clearVaultPassphraseData();
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(expect.stringContaining('kdf'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasKdfPassphrase
+// ---------------------------------------------------------------------------
+
+describe('hasKdfPassphrase', () => {
+  test('returns true when KDF passphrase exists in keychain', async () => {
+    (Keychain.getGenericPassword as jest.Mock).mockResolvedValueOnce({ password: 'passphrase' });
+    const result = await hasKdfPassphrase();
+    expect(result).toBe(true);
+  });
+
+  test('returns false when no KDF passphrase in keychain', async () => {
+    (Keychain.getGenericPassword as jest.Mock).mockResolvedValueOnce(false);
+    const result = await hasKdfPassphrase();
+    expect(result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error cases and edge conditions
+// ---------------------------------------------------------------------------
+
+describe('documentCrypto edge cases', () => {
+  test('toBase64 handles empty word array', () => {
+    const empty = CryptoJS.enc.Utf8.parse('');
+    const b64 = toBase64(empty);
+    expect(typeof b64).toBe('string');
+  });
+
+  test('fromBase64 handles valid base64 strings', () => {
+    const original = CryptoJS.enc.Utf8.parse('test data');
+    const b64 = toBase64(original);
+    const restored = fromBase64(b64);
+    expect(restored.toString(CryptoJS.enc.Utf8)).toBe('test data');
+  });
+
+  test('randomWordArray respects the requested byte length', () => {
+    const sizes = [8, 16, 32, 64];
+    for (const size of sizes) {
+      const wa = randomWordArray(size);
+      expect(wa.sigBytes).toBe(size);
+    }
+  });
+
+  test('initUserKdfPassphrase normalizes whitespace', async () => {
+    const result = await initUserKdfPassphrase('   test   passphrase   ');
+    expect(result.passphrase).toBe('test   passphrase');
+  });
+
+  test('setRecoveryPassphrase normalizes whitespace', async () => {
+    await setRecoveryPassphrase('  normalized  ');
+    expect(Keychain.setGenericPassword).toHaveBeenCalledWith(
+      'recovery',
+      'normalized',
+      expect.any(Object),
+    );
+  });
+
+  test('getOrCreateKdfMaterial salt generation creates new if missing', async () => {
+    (Keychain.getGenericPassword as jest.Mock).mockResolvedValueOnce({ password: 'pass' });
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
+
+    await getOrCreateKdfMaterial();
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      expect.stringContaining('kdf.salt'),
+      expect.any(String),
+    );
+  });
+
+  test('MissingKdfPassphraseError is properly throwable', () => {
+    const err = new MissingKdfPassphraseError();
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toBeDefined();
+  });
+
+  test('clearVaultPassphraseData handles missing entries gracefully', async () => {
+    (AsyncStorage.removeItem as jest.Mock).mockRejectedValueOnce(new Error('Not found'));
+    (Keychain.resetGenericPassword as jest.Mock).mockRejectedValueOnce(new Error('Not found'));
+
+    // Should not throw
+    await expect(clearVaultPassphraseData()).resolves.toBeUndefined();
+  });
+
+  test('restoreKdfPassphrase retrieves existing salt', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('existing-salt');
+
+    await restoreKdfPassphrase('passphrase');
+
+    expect(AsyncStorage.getItem).toHaveBeenCalled();
+  });
+
+  test('initUserKdfPassphrase stores salt in async storage', async () => {
+    await initUserKdfPassphrase('secure-passphrase');
+
+    const calls = (AsyncStorage.setItem as jest.Mock).mock.calls;
+    const saltCall = calls.find((c: any) => c[0].includes('kdf.salt'));
+    expect(saltCall).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clearVaultPassphraseData
+// ---------------------------------------------------------------------------
+
+describe('clearVaultPassphraseData', () => {
   test('resets both keychain services and removes the salt from AsyncStorage', async () => {
     await clearVaultPassphraseData();
     expect(Keychain.resetGenericPassword).toHaveBeenCalledTimes(2);
@@ -261,4 +378,3 @@ describe('clearVaultPassphraseData', () => {
     );
   });
 });
-

@@ -12,5 +12,6 @@
 - fix: key recovery enabled and set passphrase in settings after registration (@DanyilT)
 - fix: all `npx tsc --noEmit` and `npm run lint` errors (@DanyilT)
 - small fixes (@DanyilT)
+- improve test coverage (@DanyilT)
 
 ## Unreleased
