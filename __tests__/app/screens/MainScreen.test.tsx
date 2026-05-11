@@ -1,11 +1,9 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { MainScreen } from '../../../src/screens/MainScreen';
-import { Pressable } from 'react-native';
+import { MainScreen } from '../../../src/screens';
 
 jest.mock('react-native-heroicons/solid', () => ({
   ArrowDownTrayIcon: () => null,
-  ChevronUpIcon: () => null,
   CloudArrowDownIcon: () => null,
   CloudArrowUpIcon: () => null,
   KeyIcon: () => null,
@@ -30,7 +28,7 @@ describe('MainScreen', () => {
     uploadedAt: '2023-01-01',
     hash: 'hash123',
     owner: 'user1',
-    references: [{ source: 'local' }],
+    references: [{ source: 'local' as const, name: 'file.txt', size: 1024, type: 'text/plain' }],
   };
 
   const defaultProps = {

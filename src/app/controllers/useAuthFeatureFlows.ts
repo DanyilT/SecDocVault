@@ -10,6 +10,7 @@ import { useAuthGateFlow, useAuthLinkingFlow } from '../hooks';
 import { isVerificationCallbackUrl, resolveVerificationLink } from '../navigation/urlVerification';
 import { AuthMode, AuthProtection } from '../../types/vault';
 import { AppScreen } from '../navigation/constants';
+import React from 'react';
 
 type UseAuthFeatureFlowsParams = {
   completeAuthPendingKey: string;
@@ -32,7 +33,7 @@ type UseAuthFeatureFlowsParams = {
   setConfirmPassword: (value: string) => void;
   setEmailVerifiedForRegistration: (value: boolean) => void;
   setVerificationLinkInput: (value: string) => void;
-  setVerificationCooldown: (value: number) => void;
+  setVerificationCooldown: React.Dispatch<React.SetStateAction<number>>;
   setAuthNotice: (value: string | null) => void;
   setShowCompleteAuthSetup: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;

@@ -121,14 +121,18 @@ export function ShareScreen({
               : 'Create Share Key'
           }
           disabled={!canManageShares || isSubmitting || !shareTarget.includes('@')}
-          onPress={() => void onCreateShare()}
+          onPress={() => {
+            onCreateShare();
+          }}
         />
         {canManageShares && isSharedWithTarget ? (
           <PrimaryButton
             label={isSubmitting ? 'Revoking Share Key...' : 'Revoke Shared Key'}
             variant="danger"
             disabled={isSubmitting}
-            onPress={() => void onRevokeShare()}
+            onPress={() => {
+              onRevokeShare();
+            }}
           />
         ) : null}
         {shareStatus ? <Text style={styles.backupStatus}>{shareStatus}</Text> : null}

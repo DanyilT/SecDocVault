@@ -42,6 +42,7 @@ function buildParams(overrides: Record<string, unknown> = {}) {
     setAuthNotice: jest.fn(),
     setShowCompleteAuthSetup: jest.fn(),
     setIsCompletingAuthFlow: jest.fn(),
+    setIsFromRegistration: jest.fn(),
     setAuthCredentialSnapshot: jest.fn(),
     setIsTransitioningToAuth: jest.fn(),
     setHasUnlockedThisLaunch: jest.fn(),

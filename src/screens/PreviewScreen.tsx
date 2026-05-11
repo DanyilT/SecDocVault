@@ -545,7 +545,9 @@ export function PreviewScreen({
             <PrimaryButton
               label="Export"
               icon={ArrowDownTrayIcon}
-              onPress={() => void onExport()}
+              onPress={() => {
+                onExport();
+              }}
             />
           </View>
           {canShareDocument ? (
@@ -571,11 +573,13 @@ export function PreviewScreen({
                 icon={hasLocalCopy ? MinusCircleIcon : CloudArrowDownIcon}
                 variant={hasLocalCopy ? 'danger' : 'default'}
                 disabled={isSavingOffline}
-                onPress={() =>
-                  hasLocalCopy
-                    ? void handleDeleteLocal()
-                    : void handleSaveOffline()
-                }
+                onPress={() => {
+                  if (hasLocalCopy) {
+                    handleDeleteLocal();
+                  } else {
+                    handleSaveOffline();
+                  }
+                }}
               />
             </View>
           ) : null}
@@ -586,7 +590,9 @@ export function PreviewScreen({
                 icon={DocumentArrowDownIcon}
                 variant="outline"
                 disabled={isSavingCensored}
-                onPress={() => void saveCensoredVersion()}
+                onPress={() => {
+                  saveCensoredVersion();
+                }}
               />
             </View>
           ) : null}
@@ -596,11 +602,13 @@ export function PreviewScreen({
                 label={hasFirebaseCopy ? 'Delete from Cloud' : 'Save to Cloud'}
                 icon={hasFirebaseCopy ? TrashIcon : CloudArrowUpIcon}
                 variant={hasFirebaseCopy ? 'danger' : 'outline'}
-                onPress={() =>
-                  hasFirebaseCopy
-                    ? void handleDeleteFromFirebase()
-                    : void onSaveToFirebase(selectedDoc)
-                }
+                onPress={() => {
+                  if (hasFirebaseCopy) {
+                    handleDeleteFromFirebase();
+                  } else {
+                    onSaveToFirebase(selectedDoc);
+                  }
+                }}
               />
             ) : hasFirebaseCopy ? (
               <PrimaryButton

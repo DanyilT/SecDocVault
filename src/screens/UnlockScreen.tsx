@@ -141,10 +141,9 @@ export function UnlockScreen({
     }
     didAutoUnlockRef.current = true;
     const timer = setTimeout(() => {
-      void onUnlock();
+      onUnlock();
     }, 220);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canUnlock, pin, pinBiometricEnabled, preferredProtection]);
 
   return (

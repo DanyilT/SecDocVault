@@ -62,6 +62,6 @@ describe('getBackTargetScreen', () => {
   });
 
   it('routes any other screen to main', () => {
-    expect(getBackTargetScreen({screen: 'backup', shareOriginScreen: 'main'})).toBe('main');
+    expect(getBackTargetScreen({screen: 'upload', shareOriginScreen: 'main'})).toBe('main');
   });
 });

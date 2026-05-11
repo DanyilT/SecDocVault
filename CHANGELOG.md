@@ -10,5 +10,6 @@
 - feat: make passphrase optional and added random generated passphrase option, update passphrase normalization and policy (5 words - lowercase,numbers and '-' for words separation). Updated AuthScreen and SettingsScreen passphrase related UI (@DanyilT)
 - improve test coverage and other insignificant changes (@DanyilT)
 - fix: key recovery enabled and set passphrase in settings after registration (@DanyilT)
+- fix: all `npx tsc --noEmit` and `npm run lint` errors (@DanyilT)
 
 ## Unreleased

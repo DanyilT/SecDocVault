@@ -8,11 +8,10 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as Keychain from 'react-native-keychain';
 
 import { Header, PrimaryButton, SegmentButton } from '../components/ui';
-import { hasKdfPassphrase, restoreKdfPassphrase, setRecoveryPassphrase } from '../services/crypto/documentCrypto';
 import { styles } from '../theme/styles';
 import type { AuthProtection } from '../types/vault';
 
@@ -41,7 +40,7 @@ type Props = {
  * @param {(payload: { method: AuthProtection; pin?: string; useBiometricForPin: boolean }) => Promise<void>} props.onComplete - Callback invoked to persist chosen unlock method
  * @returns {JSX.Element} Rendered complete-auth screen
  */
-export function CompleteAuthScreen({ isSubmitting, authError, passphraseAlreadySet, onComplete }: Props) {
+export function CompleteAuthScreen({ isSubmitting, authError, onComplete }: Props) {
   const [method, setMethod] = useState<AuthProtection>('pin');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -147,7 +146,9 @@ export function CompleteAuthScreen({ isSubmitting, authError, passphraseAlreadyS
         <PrimaryButton
           label={isSubmitting ? 'Please wait...' : 'Complete Setup'}
           disabled={isSubmitting || !canContinue || Boolean(pinError)}
-          onPress={() => void handleComplete()}
+          onPress={() => {
+            handleComplete();
+          }}
         />
       </ScrollView>
     </View>

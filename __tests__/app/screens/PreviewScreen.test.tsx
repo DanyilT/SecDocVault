@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { PreviewScreen } from '../../../src/screens/PreviewScreen';
+import { PreviewScreen } from '../../../src/screens';
 
 jest.mock('@react-native-clipboard/clipboard', () => ({
   setString: jest.fn(),
@@ -51,7 +51,7 @@ describe('PreviewScreen', () => {
     uploadedAt: '2023-01-01',
     hash: 'hash123',
     owner: 'user1',
-    references: [{ source: 'local', order: 0, type: 'image/png' }],
+    references: [{ source: 'local' as const, order: 0, type: 'image/png', name: 'image.png', size: 5120 }],
     recoverable: true,
   };
 

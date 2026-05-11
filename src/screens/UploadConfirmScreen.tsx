@@ -538,7 +538,9 @@ export function UploadConfirmScreen({
             files.length === 0 ||
             (!uploadToCloud && !saveLocalCopy)
           }
-          onPress={() => void onConfirmUpload()}
+          onPress={() => {
+            onConfirmUpload();
+          }}
         />
       </ScrollView>
     </View>

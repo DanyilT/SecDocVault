@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
-import { PrimaryButton, SecondaryButton } from '../components/ui';
+import { SecondaryButton } from '../components/ui';
 import { styles } from '../theme/styles';
 import type { VaultDocument, VaultSharedKeyGrant } from '../types/vault';
 
@@ -30,13 +30,11 @@ type Props = {
  *
  * @param {object} props - Component props
  * @param {VaultDocument} props.selectedDoc - Document being viewed
- * @param {() => void} props.onOpenShareOptions - Open share options modal
  * @param {(recipientEmail: string) => void} props.onRevokeShareForRecipient - Revoke share access for a recipient
  * @returns {JSX.Element} Rendered share details screen
  */
 export function ShareDetailsScreen({
   selectedDoc,
-  onOpenShareOptions,
   onRevokeShareForRecipient,
 }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,11 +96,11 @@ export function ShareDetailsScreen({
               </Text>
               <SecondaryButton
                 label={isSubmitting ? 'Revoking...' : 'Revoke'}
-                onPress={() =>
-                  void handleRevokeForRecipient(
+                onPress={() => {
+                  handleRevokeForRecipient(
                     grant.recipientEmail ?? grant.recipientUid,
-                  )
-                }
+                  );
+                }}
                 disabled={isSubmitting}
               />
               {!grant.recipientEmail ? (

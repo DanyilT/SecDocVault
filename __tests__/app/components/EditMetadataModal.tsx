@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { TextInput } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 
 import { EditMetadataModal, EditMetadataModalProps } from '../../../src/app/components/EditMetadataModal';
@@ -48,7 +49,7 @@ const findPressableByText = (root: TestRenderer.ReactTestInstance, label: string
 };
 
 const findTextInputs = (root: TestRenderer.ReactTestInstance) =>
-  root.findAll(node => typeof node.type === 'string' && node.type === 'TextInput');
+  root.findAll(node => node.type === TextInput);
 
 async function render(props: EditMetadataModalProps) {
   let renderer!: TestRenderer.ReactTestRenderer;

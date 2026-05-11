@@ -467,7 +467,9 @@ export function MainScreen({
                           {renderCompactAction({
                             label: 'Export',
                             icon: ArrowDownTrayIcon,
-                            onPress: () => void onExport(doc),
+                            onPress: () => {
+                              onExport(doc);
+                            },
                           })}
                           {canShareDoc ? (
                             renderCompactAction({
@@ -527,8 +529,9 @@ export function MainScreen({
                                 ? 'Disable Key Backup'
                                 : 'Enable Key Backup',
                               icon: KeyIcon,
-                              onPress: () =>
-                                void onToggleRecovery(doc, !doc.recoverable),
+                              onPress: () => {
+                                onToggleRecovery(doc, !doc.recoverable);
+                              },
                             })}
                           </View>
                         ) : null}

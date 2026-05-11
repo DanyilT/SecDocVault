@@ -3,7 +3,7 @@ import {
   scanDocumentForUpload,
   uploadDocumentToFirebase,
   documentSaveLocal,
-} from '../../../../src/services/documentVault/upload';
+} from '../../../../src/services/documentVault';
 
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { getDocs, setDoc } from '@react-native-firebase/firestore';
@@ -166,8 +166,8 @@ describe('Document Vault Upload Services', () => {
       expect(result.document.id).toBe('mock-doc-id');
       expect(result.document.encryptedDocKey).toBe('wrapped-key-env');
       expect(result.document.saveMode).toBe('firebase');
-      expect(result.document.references.length).toBe(1);
-      expect(result.document.references[0].storagePath).toContain('vault/user-123/mock-doc-id/file1.txt.enc');
+      expect(result.document.references?.length).toBe(1);
+      expect(result.document.references?.[0]?.storagePath).toContain('vault/user-123/mock-doc-id/file1.txt.enc');
     });
 
     it('also saves local if option is passed', async () => {
@@ -218,7 +218,7 @@ describe('Document Vault Upload Services', () => {
       expect(Keychain.setGenericPassword).toHaveBeenCalled();
       expect(result.document.saveMode).toBe('local');
       expect(result.document.offlineAvailable).toBe(true);
-      expect(result.document.references[0].source).toBe('local');
+      expect(result.document.references?.[0]?.source).toBe('local');
     });
   });
 });

@@ -2,9 +2,9 @@ import {
   getDocumentMetadataFromVault,
   listVaultDocumentsFromFirebase,
   listVaultDocumentsSharedWithUser,
-} from '../../../../src/services/documentVault/query';
+} from '../../../../src/services/documentVault';
 
-import { getDoc, getDocs, collectionGroup, collection } from '@react-native-firebase/firestore';
+import { getDoc, getDocs } from '@react-native-firebase/firestore';
 
 jest.mock('@react-native-firebase/app', () => ({
   getApp: jest.fn(() => ({})),
@@ -49,7 +49,7 @@ describe('Document Vault Query Services', () => {
       expect(result?.id).toBe('doc-123');
       expect(result?.name).toBe('My Doc');
       expect(result?.description).toBe('A test doc');
-      expect(result?.references.length).toBe(1);
+      expect(result?.references?.length).toBe(1);
       expect(result?.size).toBe('1.0 KB'); // toSizeLabel(1024)
     });
   });

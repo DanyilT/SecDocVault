@@ -48,7 +48,7 @@ describe('hasInternetAccess', () => {
 
   test('times out and returns false when fetch never resolves within timeout', async () => {
     mockFetch.mockImplementationOnce(
-      () => new Promise(resolve => setTimeout(resolve, 10000)),
+      () => new Promise(r => setTimeout(() => r(null), 10000)),
     );
     const result = await hasInternetAccess(50);
     expect(result).toBe(false);

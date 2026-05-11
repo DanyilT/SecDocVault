@@ -47,7 +47,6 @@ function loadMlKit(): { recognize: (uri: string) => Promise<unknown> } | null {
     return _mlKit;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('@react-native-ml-kit/text-recognition');
     const candidate = mod?.default ?? mod;
     if (candidate && typeof candidate.recognize === 'function') {
