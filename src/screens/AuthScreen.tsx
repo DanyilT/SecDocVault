@@ -716,6 +716,10 @@ export function AuthScreen({
             />
           </View>
 
+          {enableKeyRecovery && authMode === 'register' && accessMode === 'login' && vaultPassphrase.trim().length === 0 ? (
+            <Text style={[styles.errorText, { marginTop: 8 }]}>Enter a recovery passphrase to enable key recovery.</Text>
+          ) : null}
+
           <Animated.View
             style={[
               styles.footerView,

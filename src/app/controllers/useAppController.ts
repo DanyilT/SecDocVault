@@ -266,7 +266,6 @@ export function useAppController(): UseAppControllerApi {
     setPassword('');
     setConfirmPassword('');
     setVaultPassphrase('');
-    setEnableKeyRecovery(false);
     setEmailVerifiedForRegistration(false);
     setVerificationLinkInput('');
     setVerificationCooldown(0);
@@ -285,6 +284,12 @@ export function useAppController(): UseAppControllerApi {
       setUploadStatus(`Sharing setup failed: ${message}`);
     });
   }, [isAuthenticated, isGuest, setUploadStatus, user?.email, user?.uid]);
+
+  const persistRecoveryPassphraseLocalOnly = async (passphrase: string) => {
+    await setRecoveryPassphrase(passphrase);
+    setRecoveryPassphraseForSettings(passphrase);
+    await refreshRecoveryPassphrase();
+  };
 
   const {
     displayPassphrase,
@@ -318,11 +323,7 @@ export function useAppController(): UseAppControllerApi {
     backupKeysToFirebase,
     updateDocumentRecoveryPreference,
     restoreKeysFromFirebase,
-    persistRecoveryPassphraseLocalOnly: async (passphrase: string) => {
-      await setRecoveryPassphrase(passphrase);
-      setRecoveryPassphraseForSettings(passphrase);
-      await refreshRecoveryPassphrase();
-    },
+    persistRecoveryPassphraseLocalOnly,
   });
 
   const { reloadDocuments } = useDocumentVault({
@@ -527,6 +528,14 @@ export function useAppController(): UseAppControllerApi {
     signOut,
     guestAccountExists,
     setGuestAccountExists,
+    enableKeyRecovery,
+    persistRecoveryPassphraseLocalOnly,
+    setKeyBackupEnabled,
+    setAutoSyncKeys,
+    setAutoKeySyncEnabled,
+    saveVaultPreferences,
+    saveOfflineByDefault,
+    recoverableByDefault,
     setAccountStatus,
   });
 

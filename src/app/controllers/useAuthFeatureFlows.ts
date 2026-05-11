@@ -73,6 +73,14 @@ type UseAuthFeatureFlowsParams = {
   guestAccountExists: boolean;
   setGuestAccountExists: (value: boolean) => void;
   setAccountStatus: (value: string) => void;
+  enableKeyRecovery?: boolean;
+  persistRecoveryPassphraseLocalOnly?: (passphrase: string) => Promise<void>;
+  setKeyBackupEnabled?: (value: boolean) => void;
+  setAutoSyncKeys?: (value: boolean) => void;
+  setAutoKeySyncEnabled?: (value: boolean) => Promise<void>;
+  saveVaultPreferences?: (input: { saveOfflineByDefault: boolean; recoverableByDefault: boolean; autoSyncKeys: boolean; keyBackupEnabled: boolean; }) => Promise<void>;
+  saveOfflineByDefault?: boolean;
+  recoverableByDefault?: boolean;
 };
 
 /**
@@ -139,6 +147,14 @@ export function useAuthFeatureFlows({
   guestAccountExists,
   setGuestAccountExists,
   setAccountStatus,
+  enableKeyRecovery,
+  persistRecoveryPassphraseLocalOnly,
+  setKeyBackupEnabled,
+  setAutoSyncKeys,
+  setAutoKeySyncEnabled,
+  saveVaultPreferences,
+  saveOfflineByDefault,
+  recoverableByDefault,
 }: UseAuthFeatureFlowsParams) {
   useAuthLinkingFlow({
     accessMode,
@@ -207,5 +223,13 @@ export function useAuthFeatureFlows({
     setGuestAccountExists,
     setAccountStatus,
     resolveVerificationLink,
+    enableKeyRecovery,
+    persistRecoveryPassphraseLocalOnly,
+    setKeyBackupEnabled,
+    setAutoSyncKeys,
+    setAutoKeySyncEnabled,
+    saveVaultPreferences,
+    saveOfflineByDefault,
+    recoverableByDefault,
   });
 }

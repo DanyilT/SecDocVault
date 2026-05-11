@@ -10,7 +10,7 @@ import { useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { AppScreen } from '../navigation/constants';
+import { AppScreen, ScreenParams } from '../navigation/constants';
 import { AuthMode, AuthProtection } from '../../types/vault.ts';
 import { initUserKdfPassphrase, validateRecoveryPassphrase } from '../../services/crypto/documentCrypto';
 import {
@@ -30,6 +30,7 @@ type UseAuthGateFlowParams = {
   confirmPassword: string;
   vaultPassphrase: string;
   setVaultPassphrase: (value: string) => void;
+  enableKeyRecovery?: boolean;
   emailVerifiedForRegistration: boolean;
   verificationLinkInput: string;
   verificationCooldown: number;
@@ -83,6 +84,18 @@ type UseAuthGateFlowParams = {
   guestAccountExists: boolean;
   setGuestAccountExists: (value: boolean) => void;
   setAccountStatus: (value: string) => void;
+  persistRecoveryPassphraseLocalOnly?: (passphrase: string) => Promise<void>;
+  setKeyBackupEnabled?: (value: boolean) => void;
+  setAutoSyncKeys?: (value: boolean) => void;
+  setAutoKeySyncEnabled?: (value: boolean) => Promise<void>;
+  saveVaultPreferences?: (input: {
+    saveOfflineByDefault: boolean;
+    recoverableByDefault: boolean;
+    autoSyncKeys: boolean;
+    keyBackupEnabled: boolean;
+  }) => Promise<void>;
+  saveOfflineByDefault?: boolean;
+  recoverableByDefault?: boolean;
   resolveVerificationLink: (value: string) => string;
 };
 
@@ -95,6 +108,14 @@ export function useAuthGateFlow({
   confirmPassword,
   vaultPassphrase,
   setVaultPassphrase,
+  enableKeyRecovery = false,
+  persistRecoveryPassphraseLocalOnly,
+  setKeyBackupEnabled,
+  setAutoSyncKeys,
+  setAutoKeySyncEnabled,
+  saveVaultPreferences,
+  saveOfflineByDefault = false,
+  recoverableByDefault = false,
   emailVerifiedForRegistration,
   verificationLinkInput,
   verificationCooldown,
@@ -143,10 +164,14 @@ export function useAuthGateFlow({
   resolveVerificationLink,
 }: UseAuthGateFlowParams) {
   const canSubmitAuth = useMemo(() => {
-    // Passphrase is now optional during registration
+    // When the user explicitly enabled key recovery in the auth form,
+    // require a non-empty, valid recovery passphrase. Otherwise the
+    // passphrase remains optional during registration.
     const hasValidPassphrase =
       authMode === 'register'
-        ? vaultPassphrase.trim().length === 0 || validateRecoveryPassphrase(vaultPassphrase)
+        ? enableKeyRecovery
+          ? vaultPassphrase.trim().length > 0 && validateRecoveryPassphrase(vaultPassphrase)
+          : vaultPassphrase.trim().length === 0 || validateRecoveryPassphrase(vaultPassphrase)
         : true;
 
     if (accessMode === 'guest') {
@@ -161,7 +186,7 @@ export function useAuthGateFlow({
     return authMode === 'register'
       ? hasEmail && hasPassword && password === confirmPassword && emailVerifiedForRegistration && hasValidPassphrase
       : hasEmail && hasPassword;
-  }, [accessMode, authMode, confirmPassword, email, emailVerifiedForRegistration, password, vaultPassphrase]);
+  }, [accessMode, authMode, confirmPassword, email, emailVerifiedForRegistration, password, vaultPassphrase, enableKeyRecovery]);
 
   const canUseUnlockButton =
     preferredProtection === 'passkey' ||
@@ -234,7 +259,42 @@ export function useAuthGateFlow({
 
     // Only initialize KDF passphrase if one was provided during registration
     if (authMode === 'register' && vaultPassphrase.trim().length > 0) {
+      // Initialize user KDF passphrase used for local encryption key derivation
       await initUserKdfPassphrase(vaultPassphrase.trim());
+
+      // If the user explicitly enabled key recovery during registration,
+      // persist the recovery passphrase locally (keychain) so settings can
+      // immediately read it, and publish a recovery backup placeholder in
+      // Firebase for cloud accounts.
+      if (enableKeyRecovery) {
+        try {
+          if (persistRecoveryPassphraseLocalOnly) {
+            await persistRecoveryPassphraseLocalOnly(vaultPassphrase.trim());
+          }
+        } catch (err) {
+          console.warn('[keyBackup] Failed to persist recovery passphrase locally:', err);
+        }
+        // Also enable key backup preferences so settings and backup flows
+        // reflect the user's intent immediately.
+        try {
+          setKeyBackupEnabled?.(true);
+          setAutoSyncKeys?.(true);
+          if (setAutoKeySyncEnabled) {
+            await setAutoKeySyncEnabled(true);
+          }
+          if (saveVaultPreferences) {
+            await saveVaultPreferences({
+              saveOfflineByDefault,
+              recoverableByDefault,
+              autoSyncKeys: true,
+              keyBackupEnabled: true,
+            });
+          }
+          setAccountStatus('Key backup enabled with your recovery passphrase.');
+        } catch (err) {
+          console.warn('[keyBackup] Failed to enable key backup preferences after registration:', err);
+        }
+      }
 
       // Cloud (non-guest) registration: publish a recovery backup placeholder
       // to Firestore so other devices know recovery is configured for this
