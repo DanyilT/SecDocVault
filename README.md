@@ -1,12 +1,19 @@
 # SecDocVault
 
+![GitHub release (latest)](https://img.shields.io/github/v/release/danyilt/secdocvault?style=for-the-badge&color=green)
+![GitHub tag (latest)](https://img.shields.io/github/v/tag/danyilt/secdocvault?style=for-the-badge)
+
 > SecDocVault is a React Native secure document vault prototype. It demonstrates
 end-to-end encrypted file storage with options for local-only guest mode,
 cloud-backed mode using Firebase (Auth / Firestore / Storage), document
 sharing, and key backup/recovery flows.
 
 > [!TIP]  
-> [Presentation (Demo) Link](https://docs.google.com/presentation/d/1sUgMd-E_bwqgsSL7vbiI7sTbMXfcYbDFPvNs6DiF38s/edit?usp=sharing)
+> [Project Thesis](https://docs.google.com/document/d/e/2PACX-1vSjvWeF0B4D-PlKXaR7L-09Uw69qxxYfDX5KZZsyWaQcrxzzdwgtgvCEFFWe7Nitk8dF517WG3DiQ4Q/pub) [[pdf]](Project%20Thesis%20%E2%80%94%20Secure%20Documents%20Vault%20Mobile%20Application.pdf)  
+> [Presentation (Demo) Link](https://docs.google.com/presentation/d/e/2PACX-1vRv1Sf6hlji7lMislYrcWzvqsWngoUy7O2NZvuFUvIqOPd_qAqp26TQQ4FXlvwmhtqxyTpQrLkp3nD9/pub)
+> ```html
+> <iframe src="https://docs.google.com/presentation/d/e/2PACX-1vRv1Sf6hlji7lMislYrcWzvqsWngoUy7O2NZvuFUvIqOPd_qAqp26TQQ4FXlvwmhtqxyTpQrLkp3nD9/pubembed" frameborder="0" width="960" height="569" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+> ```
 
 **This README contains:**
 - A short feature list
