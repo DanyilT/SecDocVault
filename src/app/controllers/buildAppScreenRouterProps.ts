@@ -34,6 +34,7 @@ type BuildAppScreenRouterPropsInput = Omit<
   pendingUploadDraft: UploadableDocumentDraft | null;
   commitUploadDocument: (draft: UploadableDocumentDraft) => Promise<void>;
   setPendingUploadRecoverable: (value: boolean) => void;
+  setKeyBackupStatus: (value: string) => void;
   setScreen: (screen: AppScreen) => void;
   handleRevokeShareForRecipient: (recipient: string) => Promise<void>;
   screenParams: ScreenParams;

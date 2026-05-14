@@ -20,9 +20,11 @@ export const NO_INTERNET_MESSAGE = 'no internet access';
 const INTERNET_CHECK_URL = 'https://clients3.google.com/generate_204';
 
 export async function hasInternetAccess(timeoutMs = 1500): Promise<boolean> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
   try {
 	const timeoutPromise = new Promise<Response>((_, reject) => {
-	  setTimeout(() => reject(new Error(NO_INTERNET_MESSAGE)), timeoutMs);
+	  timeoutId = setTimeout(() => reject(new Error(NO_INTERNET_MESSAGE)), timeoutMs);
 	});
 
 	const response = (await Promise.race([
@@ -33,6 +35,10 @@ export async function hasInternetAccess(timeoutMs = 1500): Promise<boolean> {
 	return response.ok || response.status === 204;
   } catch {
 	return false;
+  } finally {
+	if (timeoutId) {
+	  clearTimeout(timeoutId);
+	}
   }
 }
 

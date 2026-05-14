@@ -89,6 +89,18 @@ describe('AuthGateRouter', () => {
     expect(mockAuthScreen).not.toHaveBeenCalled();
   });
 
+  it('renders the loading screen while initializing', () => {
+    renderRouter(
+      baseProps({
+        isInitializing: true,
+      }),
+    );
+
+    expect(mockIntroHeroScreen).not.toHaveBeenCalled();
+    expect(mockUnlockScreen).not.toHaveBeenCalled();
+    expect(mockAuthScreen).not.toHaveBeenCalled();
+  });
+
   it('renders hero screen when unauthenticated and gate stage is hero', () => {
     renderRouter(
       baseProps({
@@ -99,6 +111,18 @@ describe('AuthGateRouter', () => {
 
     expect(mockIntroHeroScreen).toHaveBeenCalledTimes(1);
     expect(mockUnlockScreen).not.toHaveBeenCalled();
+  });
+
+  it('renders auth screen when unauthenticated and gate stage is not hero or unlock', () => {
+    renderRouter(
+      baseProps({
+        isAuthenticated: false,
+        authGateStage: 'auth',
+      }),
+    );
+
+    expect(mockAuthScreen).toHaveBeenCalledTimes(1);
+    expect(mockAuthScreen.mock.calls[0][0].handleAuth).toBeDefined();
   });
 
   it('renders unlock screen with locked-auth handler when authenticated and vault locked', () => {

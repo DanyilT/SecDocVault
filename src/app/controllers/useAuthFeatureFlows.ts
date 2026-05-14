@@ -10,6 +10,7 @@ import { useAuthGateFlow, useAuthLinkingFlow } from '../hooks';
 import { isVerificationCallbackUrl, resolveVerificationLink } from '../navigation/urlVerification';
 import { AuthMode, AuthProtection } from '../../types/vault';
 import { AppScreen } from '../navigation/constants';
+import React from 'react';
 
 type UseAuthFeatureFlowsParams = {
   completeAuthPendingKey: string;
@@ -32,7 +33,7 @@ type UseAuthFeatureFlowsParams = {
   setConfirmPassword: (value: string) => void;
   setEmailVerifiedForRegistration: (value: boolean) => void;
   setVerificationLinkInput: (value: string) => void;
-  setVerificationCooldown: (value: number) => void;
+  setVerificationCooldown: React.Dispatch<React.SetStateAction<number>>;
   setAuthNotice: (value: string | null) => void;
   setShowCompleteAuthSetup: (value: boolean) => void;
   setIsCompletingAuthFlow: (value: boolean) => void;
@@ -73,6 +74,14 @@ type UseAuthFeatureFlowsParams = {
   guestAccountExists: boolean;
   setGuestAccountExists: (value: boolean) => void;
   setAccountStatus: (value: string) => void;
+  enableKeyRecovery?: boolean;
+  persistRecoveryPassphraseLocalOnly?: (passphrase: string) => Promise<void>;
+  setKeyBackupEnabled?: (value: boolean) => void;
+  setAutoSyncKeys?: (value: boolean) => void;
+  setAutoKeySyncEnabled?: (value: boolean) => Promise<void>;
+  saveVaultPreferences?: (input: { saveOfflineByDefault: boolean; recoverableByDefault: boolean; autoSyncKeys: boolean; keyBackupEnabled: boolean; }) => Promise<void>;
+  saveOfflineByDefault?: boolean;
+  recoverableByDefault?: boolean;
 };
 
 /**
@@ -139,6 +148,14 @@ export function useAuthFeatureFlows({
   guestAccountExists,
   setGuestAccountExists,
   setAccountStatus,
+  enableKeyRecovery,
+  persistRecoveryPassphraseLocalOnly,
+  setKeyBackupEnabled,
+  setAutoSyncKeys,
+  setAutoKeySyncEnabled,
+  saveVaultPreferences,
+  saveOfflineByDefault,
+  recoverableByDefault,
 }: UseAuthFeatureFlowsParams) {
   useAuthLinkingFlow({
     accessMode,
@@ -207,5 +224,13 @@ export function useAuthFeatureFlows({
     setGuestAccountExists,
     setAccountStatus,
     resolveVerificationLink,
+    enableKeyRecovery,
+    persistRecoveryPassphraseLocalOnly,
+    setKeyBackupEnabled,
+    setAutoSyncKeys,
+    setAutoKeySyncEnabled,
+    saveVaultPreferences,
+    saveOfflineByDefault,
+    recoverableByDefault,
   });
 }

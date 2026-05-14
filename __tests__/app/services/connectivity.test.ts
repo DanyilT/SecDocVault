@@ -47,11 +47,16 @@ describe('hasInternetAccess', () => {
   });
 
   test('times out and returns false when fetch never resolves within timeout', async () => {
+    jest.useFakeTimers();
     mockFetch.mockImplementationOnce(
-      () => new Promise(resolve => setTimeout(resolve, 10000)),
+      () => new Promise(r => setTimeout(() => r(null), 10000)),
     );
-    const result = await hasInternetAccess(50);
-    expect(result).toBe(false);
+
+    const resultPromise = hasInternetAccess(50);
+    await jest.advanceTimersByTimeAsync(50);
+
+    await expect(resultPromise).resolves.toBe(false);
+    jest.useRealTimers();
   }, 3000);
 
   test('uses HEAD method for the connectivity check URL', async () => {
@@ -75,4 +80,3 @@ describe('assertInternetAccess', () => {
     await expect(assertInternetAccess()).rejects.toThrow(NO_INTERNET_MESSAGE);
   });
 });
-

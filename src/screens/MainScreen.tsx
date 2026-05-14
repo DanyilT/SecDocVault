@@ -281,6 +281,35 @@ export function MainScreen({
           setShowScrollTop(event.nativeEvent.contentOffset.y > 240);
         }}
       >
+        {documentView === 'owned' ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 10,
+                flex: 1,
+                flexWrap: 'wrap',
+              }}
+            >
+              <SecondaryButton
+                label={isUploading ? 'Uploading...' : 'Upload New Document'}
+                onPress={onPickAndUpload}
+              />
+              <SecondaryButton
+                label={isUploading ? 'Uploading...' : 'Scan & Upload'}
+                onPress={onScanAndUpload}
+              />
+            </View>
+          </View>
+        ) : null}
+
         {documentView === 'owned' && ownedDocuments.length === 0 ? (
           <View style={styles.heroCard}>
             <Text style={{ fontSize: 36 }}>📄</Text>
@@ -321,28 +350,6 @@ export function MainScreen({
         {documentView === 'sharedByMe'
           ? renderSharedByMeBanner(sharedByMeDocuments.length === 0)
           : null}
-
-        {documentView === 'owned' ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <View style={{ flexDirection: 'row', gap: 10, flex: 1, flexWrap: 'wrap' }}>
-              <SecondaryButton
-                label={isUploading ? 'Uploading...' : 'Upload New Document'}
-                onPress={onPickAndUpload}
-              />
-              <SecondaryButton
-                label={isUploading ? 'Uploading...' : 'Scan & Upload'}
-                onPress={onScanAndUpload}
-              />
-            </View>
-          </View>
-        ) : null}
 
         {uploadStatus ? <Text style={styles.backupStatus}>{uploadStatus}</Text> : null}
 
@@ -467,7 +474,9 @@ export function MainScreen({
                           {renderCompactAction({
                             label: 'Export',
                             icon: ArrowDownTrayIcon,
-                            onPress: () => void onExport(doc),
+                            onPress: () => {
+                              onExport(doc);
+                            },
                           })}
                           {canShareDoc ? (
                             renderCompactAction({
@@ -527,8 +536,9 @@ export function MainScreen({
                                 ? 'Disable Key Backup'
                                 : 'Enable Key Backup',
                               icon: KeyIcon,
-                              onPress: () =>
-                                void onToggleRecovery(doc, !doc.recoverable),
+                              onPress: () => {
+                                onToggleRecovery(doc, !doc.recoverable);
+                              },
                             })}
                           </View>
                         ) : null}

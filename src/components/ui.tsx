@@ -139,11 +139,12 @@ export function PrimaryButton({
  * @param props - Secondary button props.
  * @param props.label - Button text.
  * @param props.onPress - Callback invoked when the button is pressed.
+ * @param props.disabled - Whether the button is disabled.
  * @returns Secondary button UI element.
  */
-export function SecondaryButton({label, onPress}: {label: string; onPress: () => void}) {
+export function SecondaryButton({label, onPress, disabled}: {label: string; onPress: () => void; disabled?: boolean}) {
   return (
-    <Pressable style={styles.secondaryButton} onPress={onPress}>
+    <Pressable style={[styles.secondaryButton, disabled && styles.primaryButtonDisabled]} disabled={disabled} onPress={onPress}>
       <Text style={styles.secondaryButtonText}>{label}</Text>
     </Pressable>
   );

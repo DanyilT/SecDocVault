@@ -3,6 +3,15 @@ import TestRenderer, { act } from 'react-test-renderer';
 
 import { AppOverlays } from '../../../src/app/components/AppOverlays';
 
+const editMetadataPropsRef: {current: any} = {current: null};
+
+jest.mock('../../../src/app/components/EditMetadataModal', () => ({
+  EditMetadataModal: (props: any) => {
+    editMetadataPropsRef.current = props;
+    return null;
+  },
+}));
+
 function baseProps(overrides: Record<string, unknown> = {}) {
   return {
     showUploadDiscardWarning: false,
@@ -72,5 +81,49 @@ describe('AppOverlays', () => {
     expect(props.onToggleDontShowUploadDiscardWarningAgain).toHaveBeenCalledTimes(1);
     expect(props.onCloseUploadDiscardWarning).toHaveBeenCalledTimes(1);
     expect(props.onConfirmDiscardUploadDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows discard confirmation errors and still invokes the handler', async () => {
+    const props = baseProps({
+      showUploadDiscardWarning: true,
+      onConfirmDiscardUploadDraft: jest.fn(async () => {
+        throw new Error('discard failed');
+      }),
+    });
+
+    let renderer: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<AppOverlays {...props} />);
+    });
+
+    const discardPressable = findPressableByText(renderer!.root, 'Discard', true);
+
+    await act(async () => {
+      discardPressable.props.onPress();
+    });
+
+    expect(props.onConfirmDiscardUploadDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes noop fallback handlers to the edit metadata modal when callbacks are omitted', async () => {
+    const props = baseProps({
+      showEditMetadataModal: true,
+    });
+
+    await act(async () => {
+      TestRenderer.create(<AppOverlays {...props} />);
+    });
+
+    expect(editMetadataPropsRef.current.onChangeName).toEqual(expect.any(Function));
+    expect(editMetadataPropsRef.current.onChangeDescription).toEqual(expect.any(Function));
+    expect(editMetadataPropsRef.current.onCancel).toEqual(expect.any(Function));
+    expect(editMetadataPropsRef.current.onSave).toEqual(expect.any(Function));
+
+    expect(() => {
+      editMetadataPropsRef.current.onChangeName('new name');
+      editMetadataPropsRef.current.onChangeDescription('new description');
+      editMetadataPropsRef.current.onCancel();
+      editMetadataPropsRef.current.onSave();
+    }).not.toThrow();
   });
 });

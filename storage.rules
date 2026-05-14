@@ -19,7 +19,9 @@ service firebase.storage {
       let grantPath = /databases/(default)/documents/vault/$(docId)/sharedUsers/$(request.auth.uid);
       return isSignedIn()
         && firestore.exists(grantPath)
-        && !firestore.get(grantPath).data.keys().hasAny(['revokedAt']);
+        && !firestore.get(grantPath).data.keys().hasAny(['revokedAt'])
+        && firestore.get(grantPath).data.keys().hasAny(['expiresAt'])
+        && timestamp.value(firestore.get(grantPath).data.expiresAt) > request.time;
     }
 
     function belowSizeLimit() {

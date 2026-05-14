@@ -30,8 +30,14 @@ export const APP_SCREEN_TITLES: Record<AppScreen, string> = {
 };
 
 export type ScreenParams = {
+  main?: Record<string, never>;
+  upload?: Record<string, never>;
+  preview?: Record<string, never>;
+  share?: Record<string, never>;
+  settings?: Record<string, never>;
   recoverkeys?: {
     onSkipForNow: () => void;
   };
-  // Add other screen params here as needed
+  recoverydocs?: Record<string, never>;
+  sharedetails?: Record<string, never>;
 };

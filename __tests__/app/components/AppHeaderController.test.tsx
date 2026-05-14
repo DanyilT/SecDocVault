@@ -90,6 +90,22 @@ describe('AppHeaderController', () => {
     expect(onLogout).toHaveBeenCalledTimes(1);
   });
 
+  it('routes share right action to sharedetails', () => {
+    const onSetScreen = jest.fn();
+
+    renderHeader({
+      screen: 'share',
+      shareOriginScreen: 'main',
+      onLeaveUploadScreen: jest.fn(),
+      onSetScreen,
+      onLogout: jest.fn(),
+      title: 'Share',
+    });
+
+    headerPropsRef.current.onRightPress();
+    expect(onSetScreen).toHaveBeenCalledWith('sharedetails');
+  });
+
   it('invokes onEditMetadata when the right action is pressed on the preview screen', () => {
     const onEditMetadata = jest.fn();
     const onSetScreen = jest.fn();
@@ -122,5 +138,23 @@ describe('AppHeaderController', () => {
     });
 
     expect(() => headerPropsRef.current.onRightPress()).not.toThrow();
+  });
+
+  it('ignores the right action on non-special screens', () => {
+    const onSetScreen = jest.fn();
+    const onLogout = jest.fn();
+
+    renderHeader({
+      screen: 'recoverkeys',
+      shareOriginScreen: 'main',
+      onLeaveUploadScreen: jest.fn(),
+      onSetScreen,
+      onLogout,
+      title: 'Recovery',
+    });
+
+    headerPropsRef.current.onRightPress();
+    expect(onSetScreen).not.toHaveBeenCalled();
+    expect(onLogout).not.toHaveBeenCalled();
   });
 });

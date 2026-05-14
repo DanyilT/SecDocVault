@@ -172,6 +172,68 @@ describe('buildAppScreenRouterProps', () => {
     expect(input.handlePasskeyUnlock).not.toHaveBeenCalled();
   });
 
+  it('chooses passkey unlock when pin biometric is disabled', async () => {
+    const input = baseInput({
+      preferredProtection: 'pin',
+      pinBiometricEnabled: false,
+    });
+
+    const props = buildAppScreenRouterProps(input);
+    await props.onUnlock();
+
+    expect(input.handlePasskeyUnlock).toHaveBeenCalledTimes(1);
+    expect(input.handleBiometricUnlock).not.toHaveBeenCalled();
+  });
+
+  it('routes auth navigation wrappers and recover-key helpers', async () => {
+    const input = baseInput({
+      screenParams: {recoverkeys: {onSkipForNow: jest.fn()}},
+    });
+
+    const props = buildAppScreenRouterProps(input);
+    props.onLogin();
+    props.onGuest();
+    props.onOpenRecoverKeys();
+    props.onOpenDocumentRecovery();
+
+    expect(input.handleGoToAuth).toHaveBeenCalledWith('login');
+    expect(input.handleGoToAuth).toHaveBeenCalledWith('guest');
+    expect(input.setKeyBackupStatus).toHaveBeenCalledWith('');
+    expect(input.setScreen).toHaveBeenCalledWith('recoverkeys');
+    expect(input.setScreen).toHaveBeenCalledWith('recoverydocs');
+    expect(props.onSkipForNow).toBe(input.screenParams.recoverkeys?.onSkipForNow);
+  });
+
+  it('exports after preparing the selected document and commits pending uploads', async () => {
+    const input = baseInput({
+      pendingUploadDraft: {name: 'Draft', files: [{name: 'a'}]},
+    });
+
+    const props = buildAppScreenRouterProps(input);
+    const doc = {id: 'doc-1'};
+
+    await props.onExportFromMain(doc as never);
+    await props.onConfirmUpload();
+
+    expect(input.preparePreviewForDocument).toHaveBeenCalledWith(doc);
+    expect(input.handleExportDocument).toHaveBeenCalledTimes(1);
+    expect(input.commitUploadDocument).toHaveBeenCalledWith(input.pendingUploadDraft);
+  });
+
+  it('does not commit upload when a draft is absent and preserves skip-for-now', async () => {
+    const skipForNow = jest.fn();
+    const input = baseInput({
+      pendingUploadDraft: null,
+      screenParams: {recoverkeys: {onSkipForNow: skipForNow}},
+    });
+
+    const props = buildAppScreenRouterProps(input);
+    await props.onConfirmUpload();
+
+    expect(input.commitUploadDocument).not.toHaveBeenCalled();
+    expect(props.onSkipForNow).toBe(skipForNow);
+  });
+
   it('does not commit upload when no pending upload draft exists', async () => {
     const input = baseInput({pendingUploadDraft: null});
 

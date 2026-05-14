@@ -148,35 +148,273 @@ describe('usePreviewFlow', () => {
     expect(ref.current?.getState().isCurrentFileDecrypted).toBe(true);
   });
 
-  it('blocks export when document owner disallows export', async () => {
-    const ref = React.createRef<HarnessRef>();
+   it('blocks export when document owner disallows export', async () => {
+     const ref = React.createRef<HarnessRef>();
 
-    act(() => {
-      TestRenderer.create(
-        <Harness
-          ref={ref}
-          params={{
-            selectedDoc: makeDoc(),
-            setSelectedDoc: jest.fn(),
-            setScreen: jest.fn(),
-            hasInternetAccess: async () => true,
-            decryptDocumentPayload: jest.fn(async () => ({
-              fileOrder: 0,
-              fileName: 'a.jpg',
-              mimeType: 'image/jpeg',
-              base64: 'ZmFrZQ==',
-            })),
-            exportDocumentToDevice: jest.fn(async () => '/tmp/a.jpg'),
-            canCurrentUserExportDocument: jest.fn(() => false),
-          }}
-        />,
-      );
-    });
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc(),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'a.jpg',
+               mimeType: 'image/jpeg',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/a.jpg'),
+             canCurrentUserExportDocument: jest.fn(() => false),
+           }}
+         />,
+       );
+     });
 
-    await act(async () => {
-      await ref.current?.handleExportDocument();
-    });
+     await act(async () => {
+       await ref.current?.handleExportDocument();
+     });
 
-    expect(ref.current?.getState().previewStatus).toBe('Export is disabled by the document owner for this shared access.');
-  });
+     expect(ref.current?.getState().previewStatus).toBe('Export is disabled by the document owner for this shared access.');
+   });
+
+   it('handles decrypt of non-image files', async () => {
+     const ref = React.createRef<HarnessRef>();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc({references: [{source: 'local', name: 'doc.pdf', size: 1, type: 'application/pdf'}]}),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'doc.pdf',
+               mimeType: 'application/pdf',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/doc.pdf'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(ref.current?.getState().previewStatus).toContain('Use export to save it out of app');
+     expect(ref.current?.getState().previewImageUri).toBeNull();
+   });
+
+   it('caches decrypted preview and returns cached value on select', async () => {
+     const ref = React.createRef<HarnessRef>();
+     const decryptFn = jest.fn(async () => ({
+       fileOrder: 0,
+       fileName: 'a.jpg',
+       mimeType: 'image/jpeg',
+       base64: 'ZmFrZQ==',
+     }));
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc({references: [{source: 'local', name: 'a.jpg', size: 1, type: 'image/jpeg'}]}),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: decryptFn,
+             exportDocumentToDevice: jest.fn(async () => '/tmp/a.jpg'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     // First decrypt
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(decryptFn).toHaveBeenCalledTimes(1);
+
+     // Re-decrypt same file should use cache
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(decryptFn).toHaveBeenCalledTimes(1);
+   });
+
+   it('handles successful export', async () => {
+     const ref = React.createRef<HarnessRef>();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc(),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'a.jpg',
+               mimeType: 'image/jpeg',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/storage/emulated/0/Download/a.jpg'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleExportDocument();
+     });
+
+     expect(ref.current?.getState().previewStatus).toContain('Document exported to');
+   });
+
+   it('handles export error', async () => {
+     const ref = React.createRef<HarnessRef>();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc(),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'a.jpg',
+               mimeType: 'image/jpeg',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => {
+               throw new Error('Export failed');
+             }),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleExportDocument();
+     });
+
+     expect(ref.current?.getState().previewStatus).toBe('Export failed');
+   });
+
+   it('handles decrypt error', async () => {
+     const ref = React.createRef<HarnessRef>();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc(),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => {
+               throw new Error('Decryption failed');
+             }),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/a.jpg'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(ref.current?.getState().previewStatus).toBe('Decryption failed');
+   });
+
+   it('calls onMissingPassphrase when decryption fails with MissingKdfPassphraseError', async () => {
+     const { MissingKdfPassphraseError } = require('../../../src/services/crypto/documentCrypto');
+     const ref = React.createRef<HarnessRef>();
+     const onMissingPassphrase = jest.fn();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc(),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => {
+               throw new MissingKdfPassphraseError('No passphrase');
+             }),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/a.jpg'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+             onMissingPassphrase,
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(onMissingPassphrase).toHaveBeenCalled();
+   });
+
+   it('calls onMissingPassphrase when export fails with MissingKdfPassphraseError', async () => {
+     const { MissingKdfPassphraseError } = require('../../../src/services/crypto/documentCrypto');
+     const ref = React.createRef<HarnessRef>();
+     const onMissingPassphrase = jest.fn();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc(),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'a.jpg',
+               mimeType: 'image/jpeg',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => {
+               throw new MissingKdfPassphraseError('No passphrase');
+             }),
+             canCurrentUserExportDocument: jest.fn(() => true),
+             onMissingPassphrase,
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleExportDocument();
+     });
+
+     expect(onMissingPassphrase).toHaveBeenCalled();
+   });
 });

@@ -5,6 +5,9 @@ end-to-end encrypted file storage with options for local-only guest mode,
 cloud-backed mode using Firebase (Auth / Firestore / Storage), document
 sharing, and key backup/recovery flows.
 
+> [!TIP]  
+> [Presentation (Demo) Link](https://docs.google.com/presentation/d/1sUgMd-E_bwqgsSL7vbiI7sTbMXfcYbDFPvNs6DiF38s/edit?usp=sharing)
+
 **This README contains:**
 - A short feature list
 - Simple (non-technical) explanations of how each feature works

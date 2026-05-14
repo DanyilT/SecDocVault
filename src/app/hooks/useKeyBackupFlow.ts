@@ -40,7 +40,7 @@ type UseKeyBackupFlowParams = {
   setAutoKeySyncEnabled: (value: boolean) => Promise<void>;
   persistRecoveryPassphraseLocalOnly: (passphrase: string) => Promise<void>;
   ensureRecoveryPassphrase: () => Promise<string>;
-  _deleteKeyBackupFromFirebase?: (uid: string) => Promise<void>;
+  deleteKeyBackupFromFirebase?: (uid: string) => Promise<void>;
   backupKeysToFirebase: (
     uid: string,
     docs: VaultDocument[],
@@ -74,7 +74,6 @@ export function useKeyBackupFlow({
   saveOfflineByDefault,
   recoverableByDefault,
   keyBackupEnabled,
-  recoveryPassphraseForSettings,
   setKeyBackupEnabled,
   setAutoSyncKeys,
   setRecoveryPassphraseForSettings,
@@ -85,7 +84,6 @@ export function useKeyBackupFlow({
   saveVaultPreferences,
   setAutoKeySyncEnabled,
   ensureRecoveryPassphrase,
-  _deleteKeyBackupFromFirebase,
   backupKeysToFirebase,
   updateDocumentRecoveryPreference,
   restoreKeysFromFirebase,

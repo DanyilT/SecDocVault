@@ -206,7 +206,7 @@ export function AuthScreen({
     password !== confirmPassword;
 
   const passwordWarning = useMemo(() => {
-    if (!hasTypedPassword || authMode !== 'register') return '';
+    if (!hasTypedPassword) return '';
     const pwd = password.trim();
     const missing: string[] = [];
     if (pwd.length < 8) missing.push('at least 8 characters');
@@ -715,6 +715,10 @@ export function AuthScreen({
               }}
             />
           </View>
+
+          {enableKeyRecovery && authMode === 'register' && accessMode === 'login' && vaultPassphrase.trim().length === 0 ? (
+            <Text style={[styles.errorText, { marginTop: 8 }]}>Enter a recovery passphrase to enable key recovery.</Text>
+          ) : null}
 
           <Animated.View
             style={[

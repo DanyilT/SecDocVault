@@ -185,5 +185,8 @@ describe('isShareGrantActive', () => {
   test('returns false when revokedAt is empty string', () => {
     expect(isShareGrantActive({ ...activeGrant, revokedAt: '   ' })).toBe(true);
   });
-});
 
+  test('returns false when expiresAt cannot be parsed', () => {
+    expect(isShareGrantActive({ ...activeGrant, expiresAt: 'not-a-date' })).toBe(false);
+  });
+});

@@ -48,7 +48,19 @@ export function DocumentVaultProvider({ children }: { children: React.ReactNode 
   const prevUserUidRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    void getIncomingShareDecisionStore().then(setShareDecisionStore);
+    // Call storage API and accept either a Promise or a synchronous value. Some
+    // test mocks may return non-Promise values; normalize to a Promise-like
+    // behavior to avoid throwing when `.then` is not available.
+    try {
+      const maybe = getIncomingShareDecisionStore();
+      if (maybe && typeof (maybe as any).then === 'function') {
+        void maybe.then(setShareDecisionStore);
+      } else {
+        setShareDecisionStore((maybe as any) ?? {});
+      }
+    } catch {
+      setShareDecisionStore({});
+    }
   }, []);
 
   // Reset vault state when the signed-in user changes. This runs before the
