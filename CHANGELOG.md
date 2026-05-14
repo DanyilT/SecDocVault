@@ -13,5 +13,6 @@
 - fix: all `npx tsc --noEmit` and `npm run lint` errors (@DanyilT)
 - small fixes (@DanyilT)
 - improve test coverage (@DanyilT)
+- added: demo screenshots
 
 ## Unreleased
