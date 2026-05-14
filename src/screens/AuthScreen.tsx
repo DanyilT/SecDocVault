@@ -206,7 +206,7 @@ export function AuthScreen({
     password !== confirmPassword;
 
   const passwordWarning = useMemo(() => {
-    if (!hasTypedPassword || authMode !== 'register') return '';
+    if (!hasTypedPassword) return '';
     const pwd = password.trim();
     const missing: string[] = [];
     if (pwd.length < 8) missing.push('at least 8 characters');
