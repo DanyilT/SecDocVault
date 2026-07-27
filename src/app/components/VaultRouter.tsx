@@ -34,8 +34,10 @@ type VaultRouterProps = {
   openShare: (doc: VaultDocument) => void;
   onScanAndUpload: () => void;
   onPickAndUpload: () => void;
+  onPickFileAndUpload: () => void;
   onAddScanToUpload: () => void;
   onAddPickToUpload: () => void;
+  onAddFileToUpload: () => void;
   onReloadDocuments: () => Promise<void>;
   onSaveOffline: (doc: VaultDocument) => Promise<void>;
   onSaveToFirebase: (doc: VaultDocument) => Promise<void>;
@@ -76,6 +78,8 @@ type VaultRouterProps = {
   selectedDoc: VaultDocument | null;
   previewFileOrder: number;
   previewImageUri: string | null;
+  previewPdfPath: string | null;
+  previewText: string | null;
   previewStatus: string;
   isPreviewDecrypting: boolean;
   isCurrentFileDecrypted: boolean;
@@ -157,6 +161,7 @@ export function VaultRouter(props: VaultRouterProps) {
           openShare={props.openShare}
           onScanAndUpload={props.onScanAndUpload}
           onPickAndUpload={props.onPickAndUpload}
+          onPickFileAndUpload={props.onPickFileAndUpload}
           onReloadDocuments={props.onReloadDocuments}
           onSaveOffline={doc => {
             void props.onSaveOffline(doc);
@@ -217,6 +222,8 @@ export function VaultRouter(props: VaultRouterProps) {
           selectedDoc={selectedDoc}
           previewFileOrder={props.previewFileOrder}
           previewImageUri={props.previewImageUri}
+          previewPdfPath={props.previewPdfPath}
+          previewText={props.previewText}
           previewStatus={props.previewStatus}
           isDecrypting={props.isPreviewDecrypting}
           isCurrentFileDecrypted={props.isCurrentFileDecrypted}
@@ -263,6 +270,7 @@ export function VaultRouter(props: VaultRouterProps) {
           onReorderFiles={props.onReorderUploadFiles}
           onPickNewFile={props.onAddPickToUpload}
           onScanNewFile={props.onAddScanToUpload}
+          onBrowseFileNewFile={props.onAddFileToUpload}
           onConfirmUpload={props.onConfirmUpload}
           keyBackupEnabled={props.keyBackupEnabled}
           onRequestEnableKeyBackup={props.onRequestEnableKeyBackup}

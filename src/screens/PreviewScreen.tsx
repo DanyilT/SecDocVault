@@ -22,11 +22,13 @@ import {
 } from 'react-native-heroicons/solid';
 import { captureRef } from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
+import Pdf from 'react-native-pdf';
 
 import { PrimaryButton } from '../components/ui';
 import { CensoredImageView } from '../components/CensoredImageView';
 import { CensorToggle } from '../components/CensorToggle';
 import { censorImage, CensorResult } from '../services/censor';
+import { getFileIcon } from '../utils/fileType';
 import { styles } from '../theme/styles';
 import type { VaultDocument } from '../types/vault';
 
@@ -34,6 +36,8 @@ type Props = {
   selectedDoc: VaultDocument;
   previewFileOrder: number;
   previewImageUri: string | null;
+  previewPdfPath: string | null;
+  previewText: string | null;
   previewStatus: string;
   isDecrypting: boolean;
   isCurrentFileDecrypted: boolean;
@@ -68,6 +72,8 @@ type Props = {
  * @param {VaultDocument} props.selectedDoc - Currently selected document to preview
  * @param {number} props.previewFileOrder - Order/index of the file within the document references
  * @param {string|null} props.previewImageUri - Local URI for the decrypted image preview
+ * @param {string|null} props.previewPdfPath - Local file:// URI for the decrypted PDF preview
+ * @param {string|null} props.previewText - Decoded text content for the decrypted text preview
  * @param {string} props.previewStatus - Optional status message for preview actions
  * @param {boolean} props.isDecrypting - Whether a decrypt operation is underway
  * @param {boolean} props.isCurrentFileDecrypted - Whether the current file is decrypted
@@ -94,6 +100,8 @@ export function PreviewScreen({
   selectedDoc,
   previewFileOrder,
   previewImageUri,
+  previewPdfPath,
+  previewText,
   previewStatus,
   isDecrypting,
   isCurrentFileDecrypted,
@@ -196,6 +204,10 @@ export function PreviewScreen({
   const selectedIndex = Math.max(0, files.findIndex(item => item.order === previewFileOrder));
   const selectedFileIntegrity =
     files[selectedIndex]?.integrityTag ?? files[selectedIndex]?.fileHash ?? selectedDoc.hash;
+  const selectedFileMimeType = files[selectedIndex]?.type;
+  const CurrentFileIcon = getFileIcon(selectedFileMimeType);
+  const isPreviewUnsupported =
+    isCurrentFileDecrypted && !previewImageUri && !previewPdfPath && previewText == null;
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
@@ -316,6 +328,23 @@ export function PreviewScreen({
                 { borderWidth: 0, borderRadius: 0, height: '100%' },
               ]}
             />
+          ) : previewPdfPath ? (
+            <Pdf
+              source={{ uri: previewPdfPath }}
+              style={{ width: '100%', height: '100%' }}
+              onError={() => undefined}
+            />
+          ) : previewText != null ? (
+            <ScrollView style={{ width: '100%', height: '100%' }} contentContainerStyle={{ padding: 14 }}>
+              <Text style={styles.previewText}>{previewText}</Text>
+            </ScrollView>
+          ) : isPreviewUnsupported ? (
+            <View style={{ alignItems: 'center', gap: 8, padding: 16 }}>
+              <CurrentFileIcon color="#64748b" size={52} />
+              <Text style={{ color: '#94a3b8', textAlign: 'center' }}>
+                Cannot preview {selectedDoc.name}. Use export to open it.
+              </Text>
+            </View>
           ) : (
             <View
               style={{
@@ -352,7 +381,7 @@ export function PreviewScreen({
                 />
               </View>
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ color: '#64748b', fontSize: 52 }}># # #</Text>
+                <CurrentFileIcon color="#64748b" size={52} />
                 <Text
                   style={{
                     color: '#93c5fd',
@@ -418,12 +447,10 @@ export function PreviewScreen({
                   <Text style={{ color: '#bfdbfe', fontWeight: '800' }}>
                     #{file.order}
                   </Text>
-                  <Text
-                    style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}
-                    numberOfLines={1}
-                  >
-                    {file.type}
-                  </Text>
+                  {(() => {
+                    const TileIcon = getFileIcon(file.type);
+                    return <TileIcon color="#94a3b8" size={16} style={{ marginTop: 4 }} />;
+                  })()}
                 </Pressable>
               );
             })}

@@ -53,6 +53,12 @@ describe('useUploadFlow', () => {
         size: 100,
         type: 'image/jpeg',
       })),
+      pickFileForUpload: jest.fn(async () => ({
+        uri: 'file:///tmp/c.pdf',
+        name: 'c.pdf',
+        size: 100,
+        type: 'application/pdf',
+      })),
       documentSaveLocal: jest.fn(async () => ({
         document: {
           id: 'doc-1',
@@ -162,6 +168,45 @@ describe('useUploadFlow', () => {
     expect(params.setScreen).toHaveBeenCalledWith('upload');
   });
 
+  it('selectUploadDocument opens the document browser for the "file" source', async () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('file');
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).toHaveBeenCalled();
+    expect(params.setScreen).toHaveBeenCalledWith('upload');
+  });
+
+  it('handlePickFileAndUpload triggers a new file-browser draft', async () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    api.handlePickFileAndUpload();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+  });
+
+  it('handleAddFileToUpload appends a browsed file to the existing draft', async () => {
+    const params = buildParams({
+      pendingUploadDraft: {
+        name: 'Draft',
+        files: [{uri: 'file:///tmp/a.jpg', name: 'a.jpg', size: 100, type: 'image/jpeg'}],
+      },
+    });
+    const api = useUploadFlow(params as never);
+
+    api.handleAddFileToUpload();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).toHaveBeenCalled();
+  });
+
   it('selectUploadDocument appends to draft and respects max file limit', async () => {
     const params = buildParams({
       pendingUploadDraft: {
@@ -268,10 +313,10 @@ describe('useUploadFlow', () => {
 
     await api.commitUploadDocument({
       name: 'Big File',
-      files: [{ uri: 'file://a.jpg', name: 'a.jpg', size: 11 * 1024 * 1024, type: 'image/jpeg' }],
+      files: [{ uri: 'file://a.jpg', name: 'a.jpg', size: 101 * 1024 * 1024, type: 'image/jpeg' }],
     });
 
-    expect(params.setUploadStatus).toHaveBeenCalledWith('File a.jpg is larger than 10 MB. Reduce size and retry.');
+    expect(params.setUploadStatus).toHaveBeenCalledWith('File a.jpg is larger than 100 MB. Reduce size and retry.');
     expect(params.setIsUploading).toHaveBeenCalledWith(false);
   });
 

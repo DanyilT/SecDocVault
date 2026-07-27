@@ -9,11 +9,12 @@
 export type { UploadableDocument, UploadableDocumentDraft, UploadProgressEvent } from './types';
 export { toPseudoHash, toSizeLabel } from './formatters';
 
-export { MAX_FILES_PER_DOCUMENT } from './upload';
+export { MAX_FILES_PER_DOCUMENT, MAX_UPLOAD_FILE_BYTES } from './upload';
 
 export {
   documentSaveLocal,
   pickDocumentForUpload,
+  pickFileForUpload,
   scanDocumentForUpload,
   uploadDocumentToFirebase,
 } from './upload';

@@ -24,6 +24,7 @@ import {
 
 import { PrimaryButton, SecondaryButton } from '../components/ui';
 import { toSizeLabel, UploadableDocument } from '../services/documentVault';
+import { getFileCategory, getFileIcon } from '../utils/fileType';
 import { styles } from '../theme/styles';
 
 type Props = {
@@ -48,6 +49,7 @@ type Props = {
   onReorderFiles: (fromIndex: number, toIndex: number) => void;
   onPickNewFile: () => void;
   onScanNewFile: () => void;
+  onBrowseFileNewFile: () => void;
   onConfirmUpload: () => Promise<void>;
   keyBackupEnabled: boolean;
   onRequestEnableKeyBackup: () => void;
@@ -55,6 +57,51 @@ type Props = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * FileThumbnail
+ *
+ * Renders an image preview for image files, or a type icon for any other
+ * file category (PDF, Office, text) since those cannot be decoded as an
+ * `<Image>` source.
+ *
+ * @param {object} props - Component props
+ * @param {UploadableDocument} props.file - File to render a thumbnail for
+ * @param {'cover'|'contain'} [props.resizeMode] - Image resize mode
+ * @returns {JSX.Element} Rendered thumbnail
+ */
+function FileThumbnail({
+  file,
+  resizeMode = 'cover',
+}: {
+  file: UploadableDocument;
+  resizeMode?: 'cover' | 'contain';
+}) {
+  if (getFileCategory(file.type) === 'image') {
+    return (
+      <Image
+        source={{ uri: file.uri }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode={resizeMode}
+      />
+    );
+  }
+
+  const Icon = getFileIcon(file.type);
+  return (
+    <View
+      style={{
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+      }}
+    >
+      <Icon size={resizeMode === 'contain' ? 64 : 28} color="#93c5fd" />
+    </View>
+  );
 }
 
 /**
@@ -198,7 +245,7 @@ function UploadTile({
         onPress={onSelect}
         style={{ flex: 1 }}
       >
-        <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        <FileThumbnail file={file} resizeMode="cover" />
       </Pressable>
       <Pressable
         onPress={onRemove}
@@ -264,6 +311,7 @@ function UploadTile({
  * @param {(fromIndex: number, toIndex: number) => void} props.onReorderFiles - Reorder files
  * @param {() => void} props.onPickNewFile - Pick a new file from gallery
  * @param {() => void} props.onScanNewFile - Scan a new file
+ * @param {() => void} props.onBrowseFileNewFile - Browse for a new file (PDF, Office, text) via the document picker
  * @param {() => Promise<void>} props.onConfirmUpload - Confirm and start upload
  * @param {() => void} props.onRequestEnableKeyBackup - Request enabling key backup (when needed)
  * @returns {JSX.Element} Rendered upload confirmation screen
@@ -290,6 +338,7 @@ export function UploadConfirmScreen({
   onReorderFiles,
   onPickNewFile,
   onScanNewFile,
+  onBrowseFileNewFile,
   onConfirmUpload,
   keyBackupEnabled,
   onRequestEnableKeyBackup,
@@ -350,11 +399,7 @@ export function UploadConfirmScreen({
                 backgroundColor: '#0f172a',
               }}
             >
-              <Image
-                source={{ uri: selectedFile.uri }}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="cover"
-              />
+              <FileThumbnail file={selectedFile} resizeMode="cover" />
             </Pressable>
           ) : null}
 
@@ -375,11 +420,7 @@ export function UploadConfirmScreen({
               }}
             >
               {selectedFile ? (
-                <Image
-                  source={{ uri: selectedFile.uri }}
-                  resizeMode="contain"
-                  style={{ width: '100%', height: '100%' }}
-                />
+                <FileThumbnail file={selectedFile} resizeMode="contain" />
               ) : null}
             </Pressable>
           </Modal>
@@ -526,6 +567,7 @@ export function UploadConfirmScreen({
         <View style={styles.cardActions}>
           <SecondaryButton label="Add from Gallery" onPress={onPickNewFile} />
           <SecondaryButton label="Scan to Add" onPress={onScanNewFile} />
+          <SecondaryButton label="Browse Files" onPress={onBrowseFileNewFile} />
         </View>
 
         {uploadStatus ? <Text style={styles.backupStatus}>{uploadStatus}</Text> : null}

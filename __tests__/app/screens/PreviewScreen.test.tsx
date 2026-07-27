@@ -26,7 +26,14 @@ jest.mock('react-native-heroicons/solid', () => ({
   ShareIcon: () => null,
   TrashIcon: () => null,
   DocumentArrowDownIcon: () => null,
+  DocumentIcon: () => null,
+  DocumentTextIcon: () => null,
+  PhotoIcon: () => null,
+  PresentationChartBarIcon: () => null,
+  TableCellsIcon: () => null,
 }));
+
+jest.mock('react-native-pdf', () => 'Pdf');
 
 jest.mock('../../../src/components/ui', () => {
   const React = require('react');
@@ -59,6 +66,8 @@ describe('PreviewScreen', () => {
     selectedDoc: mockDoc,
     previewFileOrder: 0,
     previewImageUri: null,
+    previewPdfPath: null,
+    previewText: null,
     previewStatus: '',
     isDecrypting: false,
     isCurrentFileDecrypted: false,

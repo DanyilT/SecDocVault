@@ -180,8 +180,42 @@ describe('usePreviewFlow', () => {
      expect(ref.current?.getState().previewStatus).toBe('Export is disabled by the document owner for this shared access.');
    });
 
-   it('handles decrypt of non-image files', async () => {
+   it('handles decrypt of unsupported (office) files', async () => {
      const ref = React.createRef<HarnessRef>();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc({references: [{source: 'local', name: 'doc.docx', size: 1, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}]}),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'doc.docx',
+               mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/doc.docx'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(ref.current?.getState().previewStatus).toContain('Use export to save it out of app');
+     expect(ref.current?.getState().previewImageUri).toBeNull();
+   });
+
+   it('decrypts PDF files to a local temp file path for preview', async () => {
+     const ref = React.createRef<HarnessRef>();
+     const RNFS = require('react-native-fs');
 
      act(() => {
        TestRenderer.create(
@@ -209,8 +243,8 @@ describe('usePreviewFlow', () => {
        await ref.current?.handleDecryptPreview();
      });
 
-     expect(ref.current?.getState().previewStatus).toContain('Use export to save it out of app');
-     expect(ref.current?.getState().previewImageUri).toBeNull();
+     expect(RNFS.writeFile).toHaveBeenCalledWith(expect.stringContaining('preview-'), 'ZmFrZQ==', 'base64');
+     expect(ref.current?.getState().previewStatus).toContain('decrypted for preview');
    });
 
    it('caches decrypted preview and returns cached value on select', async () => {

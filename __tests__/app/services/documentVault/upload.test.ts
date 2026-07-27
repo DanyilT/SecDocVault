@@ -1,11 +1,13 @@
 import {
   pickDocumentForUpload,
+  pickFileForUpload,
   scanDocumentForUpload,
   uploadDocumentToFirebase,
   documentSaveLocal,
 } from '../../../../src/services/documentVault';
 
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { pick, keepLocalCopy } from '@react-native-documents/picker';
 import { getDocs, setDoc } from '@react-native-firebase/firestore';
 import { uploadString } from '@react-native-firebase/storage';
 import RNFS from 'react-native-fs';
@@ -92,6 +94,47 @@ describe('Document Vault Upload Services', () => {
     });
   });
 
+  describe('pickFileForUpload', () => {
+    it('throws error if selection is cancelled', async () => {
+      (pick as jest.Mock).mockRejectedValueOnce(new Error('user cancelled the picker'));
+      await expect(pickFileForUpload()).rejects.toThrow('Selection was cancelled.');
+    });
+
+    it('rethrows non-cancellation errors from the picker', async () => {
+      (pick as jest.Mock).mockRejectedValueOnce(new Error('permission denied'));
+      await expect(pickFileForUpload()).rejects.toThrow('permission denied');
+    });
+
+    it('returns normalized document when a PDF is selected', async () => {
+      (pick as jest.Mock).mockResolvedValueOnce([
+        {uri: 'content://mock/doc.pdf', name: 'doc.pdf', size: 2048, type: 'application/pdf'},
+      ]);
+      (keepLocalCopy as jest.Mock).mockResolvedValueOnce([
+        {status: 'success', sourceUri: 'content://mock/doc.pdf', localUri: 'file:///tmp/doc.pdf'},
+      ]);
+
+      const result = await pickFileForUpload();
+
+      expect(result).toEqual({
+        uri: 'file:///tmp/doc.pdf',
+        name: 'doc.pdf',
+        size: 2048,
+        type: 'application/pdf',
+      });
+    });
+
+    it('throws when the local copy could not be created', async () => {
+      (pick as jest.Mock).mockResolvedValueOnce([
+        {uri: 'content://mock/doc.pdf', name: 'doc.pdf', size: 2048, type: 'application/pdf'},
+      ]);
+      (keepLocalCopy as jest.Mock).mockResolvedValueOnce([
+        {status: 'error', sourceUri: 'content://mock/doc.pdf', copyError: 'disk full'},
+      ]);
+
+      await expect(pickFileForUpload()).rejects.toThrow('disk full');
+    });
+  });
+
   describe('scanDocumentForUpload', () => {
     it('throws error if scan is cancelled', async () => {
       (launchCamera as jest.Mock).mockResolvedValueOnce({ didCancel: true });
@@ -141,9 +184,9 @@ describe('Document Vault Upload Services', () => {
     });
 
     it('throws if file is too large', async () => {
-      const hugeFile = { ...mockDraft.files[0], size: 15 * 1024 * 1024 };
+      const hugeFile = { ...mockDraft.files[0], size: 101 * 1024 * 1024 };
       await expect(uploadDocumentToFirebase(mockUser, { ...mockDraft, files: [hugeFile] }))
-        .rejects.toThrow(/exceeds the 10 MB upload limit/);
+        .rejects.toThrow(/exceeds the 100 MB upload limit/);
     });
 
     it('throws if cloud limit reached', async () => {

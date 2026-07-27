@@ -24,6 +24,7 @@ import {
   exportDocumentToDevice,
   MAX_FILES_PER_DOCUMENT,
   pickDocumentForUpload,
+  pickFileForUpload,
   removeFirebaseReferences,
   removeLocalDocumentCopy,
   revokeDocumentShareGrant,
@@ -134,6 +135,8 @@ export function useVaultFeatureFlows({
 }: UseVaultFeatureFlowsParams) {
   const {
     previewImageUri,
+    previewPdfPath,
+    previewText,
     previewStatus,
     previewFileOrder,
     isPreviewDecrypting,
@@ -209,8 +212,10 @@ export function useVaultFeatureFlows({
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handlePickFileAndUpload,
     handleAddScanToUpload,
     handleAddPickToUpload,
+    handleAddFileToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
   } = useUploadFlow({
@@ -249,6 +254,7 @@ export function useVaultFeatureFlows({
     saveLocalDocuments,
     scanDocumentForUpload,
     pickDocumentForUpload,
+    pickFileForUpload,
     documentSaveLocal,
     uploadDocumentToFirebase,
   });
@@ -275,6 +281,8 @@ export function useVaultFeatureFlows({
 
   return {
     previewImageUri,
+    previewPdfPath,
+    previewText,
     previewStatus,
     previewFileOrder,
     isPreviewDecrypting,
@@ -302,8 +310,10 @@ export function useVaultFeatureFlows({
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handlePickFileAndUpload,
     handleAddScanToUpload,
     handleAddPickToUpload,
+    handleAddFileToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
     handleSaveOffline,

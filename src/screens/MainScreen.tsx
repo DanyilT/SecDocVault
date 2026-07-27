@@ -37,6 +37,7 @@ type Props = {
   openShare: (doc: VaultDocument) => void;
   onScanAndUpload: () => void;
   onPickAndUpload: () => void;
+  onPickFileAndUpload: () => void;
   onReloadDocuments: () => Promise<void>;
   onSaveOffline: (doc: VaultDocument) => void;
   onSaveToFirebase: (doc: VaultDocument) => void;
@@ -83,6 +84,7 @@ function normalizeRecipientIdentifier(value: string | null | undefined): string 
  * @param {(doc: VaultDocument) => void} props.openShare - Open share dialog for a document
  * @param {() => void} props.onScanAndUpload - Trigger scanner upload flow
  * @param {() => void} props.onPickAndUpload - Trigger file picker upload flow
+ * @param {() => void} props.onPickFileAndUpload - Trigger document browser upload flow (PDF, Office, text)
  * @param {() => Promise<void>} props.onReloadDocuments - Reload documents from storage
  * @param {(doc: VaultDocument) => void} props.onSaveOffline - Save a document locally
  * @param {(doc: VaultDocument) => void} props.onSaveToFirebase - Save a document to cloud
@@ -106,6 +108,7 @@ export function MainScreen({
   openShare,
   onScanAndUpload,
   onPickAndUpload,
+  onPickFileAndUpload,
   onReloadDocuments,
   onSaveOffline,
   onSaveToFirebase,
@@ -305,6 +308,10 @@ export function MainScreen({
               <SecondaryButton
                 label={isUploading ? 'Uploading...' : 'Scan & Upload'}
                 onPress={onScanAndUpload}
+              />
+              <SecondaryButton
+                label={isUploading ? 'Uploading...' : 'Browse Files'}
+                onPress={onPickFileAndUpload}
               />
             </View>
           </View>

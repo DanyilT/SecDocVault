@@ -8,9 +8,19 @@
  */
 
 import { useRef, useState } from 'react';
+import { Buffer } from 'buffer';
+import RNFS from 'react-native-fs';
 
 import { MissingKdfPassphraseError } from '../../services/crypto/documentCrypto';
+import { canPreviewInApp, getFileCategory } from '../../utils/fileType';
 import { VaultDocument } from '../../types/vault';
+
+type PreviewCacheEntry = {
+  previewImageUri: string | null;
+  previewPdfPath: string | null;
+  previewText: string | null;
+  previewStatus: string;
+};
 
 type UsePreviewFlowParams = {
   selectedDoc: VaultDocument | null;
@@ -39,18 +49,24 @@ export function usePreviewFlow({
   onMissingPassphrase,
 }: UsePreviewFlowParams) {
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [previewPdfPath, setPreviewPdfPath] = useState<string | null>(null);
+  const [previewText, setPreviewText] = useState<string | null>(null);
   const [previewStatus, setPreviewStatus] = useState('');
   const [previewFileOrder, setPreviewFileOrder] = useState(0);
   const [isPreviewDecrypting, setIsPreviewDecrypting] = useState(false);
-  const previewDecryptCacheRef = useRef(
-    new Map<string, {previewImageUri: string | null; previewStatus: string}>(),
-  );
+  const previewDecryptCacheRef = useRef(new Map<string, PreviewCacheEntry>());
+
+  const clearPreviewOutputs = () => {
+    setPreviewImageUri(null);
+    setPreviewPdfPath(null);
+    setPreviewText(null);
+  };
 
   const preparePreviewForDocument = (doc: VaultDocument) => {
     previewDecryptCacheRef.current.clear();
     setSelectedDoc(doc);
     setPreviewFileOrder(0);
-    setPreviewImageUri(null);
+    clearPreviewOutputs();
     setPreviewStatus('');
     setIsPreviewDecrypting(false);
   };
@@ -60,17 +76,23 @@ export function usePreviewFlow({
     setScreen('preview');
   };
 
+  const applyCacheEntry = (entry: PreviewCacheEntry) => {
+    setPreviewImageUri(entry.previewImageUri);
+    setPreviewPdfPath(entry.previewPdfPath);
+    setPreviewText(entry.previewText);
+    setPreviewStatus(entry.previewStatus);
+  };
+
   const handleSelectPreviewFile = (order: number) => {
     setPreviewFileOrder(order);
     setIsPreviewDecrypting(false);
     const cachedPreview = previewDecryptCacheRef.current.get(`${selectedDoc?.id ?? ''}:${order}`);
     if (cachedPreview) {
-      setPreviewImageUri(cachedPreview.previewImageUri);
-      setPreviewStatus(cachedPreview.previewStatus);
+      applyCacheEntry(cachedPreview);
       return;
     }
 
-    setPreviewImageUri(null);
+    clearPreviewOutputs();
     setPreviewStatus('');
   };
 
@@ -89,8 +111,7 @@ export function usePreviewFlow({
     const cacheKey = `${selectedDoc.id}:${previewFileOrder}`;
     const cachedPreview = previewDecryptCacheRef.current.get(cacheKey);
     if (cachedPreview) {
-      setPreviewImageUri(cachedPreview.previewImageUri);
-      setPreviewStatus(cachedPreview.previewStatus);
+      applyCacheEntry(cachedPreview);
       return;
     }
 
@@ -98,26 +119,44 @@ export function usePreviewFlow({
       setIsPreviewDecrypting(true);
       setPreviewStatus('');
       const decrypted = await decryptDocumentPayload(selectedDoc, previewFileOrder);
-      const nextStatus = decrypted.mimeType.startsWith('image/')
-        ? `File #${decrypted.fileOrder} decrypted for preview.`
-        : `Decrypted ${decrypted.fileName}. Use export to save it out of app.`;
+      const category = getFileCategory(decrypted.mimeType);
 
-      if (decrypted.mimeType.startsWith('image/')) {
-        const imageUri = `data:${decrypted.mimeType};base64,${decrypted.base64}`;
-        setPreviewImageUri(imageUri);
-        setPreviewStatus(nextStatus);
-        previewDecryptCacheRef.current.set(cacheKey, {
-          previewImageUri: imageUri,
-          previewStatus: nextStatus,
-        });
-      } else {
-        setPreviewImageUri(null);
-        setPreviewStatus(nextStatus);
-        previewDecryptCacheRef.current.set(cacheKey, {
+      let cacheEntry: PreviewCacheEntry;
+
+      if (!canPreviewInApp(decrypted.mimeType)) {
+        cacheEntry = {
           previewImageUri: null,
-          previewStatus: nextStatus,
-        });
+          previewPdfPath: null,
+          previewText: null,
+          previewStatus: `Decrypted ${decrypted.fileName}. Use export to save it out of app.`,
+        };
+      } else if (category === 'image') {
+        cacheEntry = {
+          previewImageUri: `data:${decrypted.mimeType};base64,${decrypted.base64}`,
+          previewPdfPath: null,
+          previewText: null,
+          previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
+        };
+      } else if (category === 'pdf') {
+        const tmpPath = `${RNFS.CachesDirectoryPath}/preview-${Date.now()}.pdf`;
+        await RNFS.writeFile(tmpPath, decrypted.base64, 'base64');
+        cacheEntry = {
+          previewImageUri: null,
+          previewPdfPath: `file://${tmpPath}`,
+          previewText: null,
+          previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
+        };
+      } else {
+        cacheEntry = {
+          previewImageUri: null,
+          previewPdfPath: null,
+          previewText: Buffer.from(decrypted.base64, 'base64').toString('utf8'),
+          previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
+        };
       }
+
+      applyCacheEntry(cacheEntry);
+      previewDecryptCacheRef.current.set(cacheKey, cacheEntry);
     } catch (error) {
       if (error instanceof MissingKdfPassphraseError) {
         onMissingPassphrase?.();
@@ -161,6 +200,8 @@ export function usePreviewFlow({
 
   return {
     previewImageUri,
+    previewPdfPath,
+    previewText,
     previewStatus,
     previewFileOrder,
     isPreviewDecrypting,
