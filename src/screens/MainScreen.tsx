@@ -302,7 +302,7 @@ export function MainScreen({
               }}
             >
               <SecondaryButton
-                label={isUploading ? 'Uploading...' : 'Upload New Document'}
+                label={isUploading ? 'Uploading...' : 'Upload New Image'}
                 onPress={onPickAndUpload}
               />
               <SecondaryButton
@@ -322,7 +322,7 @@ export function MainScreen({
             <Text style={{ fontSize: 36 }}>📄</Text>
             <Text style={styles.heroTitle}>No documents yet</Text>
             <Text style={styles.subtitle}>
-              Your documents will appear here. Upload one by clicking Upload New Document.
+              Your documents will appear here. Upload one by clicking Upload New Image.
             </Text>
           </View>
         ) : null}

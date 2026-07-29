@@ -11,6 +11,8 @@ import { Alert, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   ArrowDownTrayIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CloudArrowDownIcon,
   CloudArrowUpIcon,
   InformationCircleIcon,
@@ -134,6 +136,14 @@ export function PreviewScreen({
   const [censorResult, setCensorResult] = React.useState<CensorResult | null>(null);
   const [isSavingCensored, setIsSavingCensored] = React.useState(false);
   const [censorSaveStatus, setCensorSaveStatus] = React.useState<string | null>(null);
+
+  const [pdfPage, setPdfPage] = React.useState(1);
+  const [pdfPageCount, setPdfPageCount] = React.useState(0);
+
+  React.useEffect(() => {
+    setPdfPage(1);
+    setPdfPageCount(0);
+  }, [previewPdfPath]);
 
   const censoredImageRef = React.useRef<View>(null);
 
@@ -331,7 +341,10 @@ export function PreviewScreen({
           ) : previewPdfPath ? (
             <Pdf
               source={{ uri: previewPdfPath }}
+              page={pdfPage}
               style={{ width: '100%', height: '100%' }}
+              onLoadComplete={numberOfPages => setPdfPageCount(numberOfPages)}
+              onPageChanged={page => setPdfPage(page)}
               onError={() => undefined}
             />
           ) : previewText != null ? (
@@ -419,6 +432,40 @@ export function PreviewScreen({
             </View>
           )}
         </Pressable>
+
+        {previewPdfPath && pdfPageCount > 1 ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              marginTop: 10,
+            }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Previous page"
+              disabled={pdfPage <= 1}
+              onPress={() => setPdfPage(prev => Math.max(1, prev - 1))}
+              style={{ padding: 8, opacity: pdfPage <= 1 ? 0.4 : 1 }}
+            >
+              <ChevronLeftIcon color="#93c5fd" size={22} />
+            </Pressable>
+            <Text style={styles.previewText}>
+              Page {pdfPage} of {pdfPageCount}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next page"
+              disabled={pdfPage >= pdfPageCount}
+              onPress={() => setPdfPage(prev => Math.min(pdfPageCount, prev + 1))}
+              style={{ padding: 8, opacity: pdfPage >= pdfPageCount ? 0.4 : 1 }}
+            >
+              <ChevronRightIcon color="#93c5fd" size={22} />
+            </Pressable>
+          </View>
+        ) : null}
 
         {files.length > 1 ? (
           <ScrollView

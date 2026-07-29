@@ -22,6 +22,9 @@ import {
   View,
 } from 'react-native';
 
+import { XMarkIcon } from 'react-native-heroicons/solid';
+import Pdf from 'react-native-pdf';
+
 import { PrimaryButton, SecondaryButton } from '../components/ui';
 import { toSizeLabel, UploadableDocument } from '../services/documentVault';
 import { getFileCategory, getFileIcon } from '../utils/fileType';
@@ -62,28 +65,45 @@ function clamp(value: number, min: number, max: number) {
 /**
  * FileThumbnail
  *
- * Renders an image preview for image files, or a type icon for any other
- * file category (PDF, Office, text) since those cannot be decoded as an
- * `<Image>` source.
+ * Renders an image preview for image files, a paged PDF preview for PDF
+ * files (only at `preview` size, to avoid mounting many native PDF views in
+ * the small drag-and-drop tile strip), or a type icon for any other file
+ * category (Office, text) since those cannot be decoded as an `<Image>`
+ * source.
  *
  * @param {object} props - Component props
  * @param {UploadableDocument} props.file - File to render a thumbnail for
  * @param {'cover'|'contain'} [props.resizeMode] - Image resize mode
+ * @param {'preview'|'tile'} [props.variant] - Rendering size context
  * @returns {JSX.Element} Rendered thumbnail
  */
 function FileThumbnail({
   file,
   resizeMode = 'cover',
+  variant = 'preview',
 }: {
   file: UploadableDocument;
   resizeMode?: 'cover' | 'contain';
+  variant?: 'preview' | 'tile';
 }) {
-  if (getFileCategory(file.type) === 'image') {
+  const category = getFileCategory(file.type);
+
+  if (category === 'image') {
     return (
       <Image
         source={{ uri: file.uri }}
         style={{ width: '100%', height: '100%' }}
         resizeMode={resizeMode}
+      />
+    );
+  }
+
+  if (category === 'pdf' && variant === 'preview') {
+    return (
+      <Pdf
+        source={{ uri: file.uri }}
+        style={{ width: '100%', height: '100%' }}
+        onError={() => undefined}
       />
     );
   }
@@ -245,7 +265,7 @@ function UploadTile({
         onPress={onSelect}
         style={{ flex: 1 }}
       >
-        <FileThumbnail file={file} resizeMode="cover" />
+        <FileThumbnail file={file} resizeMode="cover" variant="tile" />
       </Pressable>
       <Pressable
         onPress={onRemove}
@@ -358,6 +378,7 @@ export function UploadConfirmScreen({
   }, []);
 
   const selectedFile = files[selectedFileIndex] ?? files[0];
+  const canAddMoreFiles = files.every(file => getFileCategory(file.type) === 'image');
 
   return (
     <View style={{ flex: 1 }}>
@@ -409,20 +430,39 @@ export function UploadConfirmScreen({
             animationType="fade"
             onRequestClose={() => setShowFullPreview(false)}
           >
-            <Pressable
-              onPress={() => setShowFullPreview(false)}
-              style={{
-                flex: 1,
-                backgroundColor: 'rgba(2,6,23,0.95)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16,
-              }}
-            >
-              {selectedFile ? (
-                <FileThumbnail file={selectedFile} resizeMode="contain" />
-              ) : null}
-            </Pressable>
+            <View style={{ flex: 1, backgroundColor: 'rgba(2,6,23,0.95)' }}>
+              <Pressable
+                onPress={() => setShowFullPreview(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close preview"
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 10,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(15,23,42,0.88)',
+                }}
+              >
+                <XMarkIcon color="#f8fafc" size={22} />
+              </Pressable>
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                }}
+              >
+                {selectedFile ? (
+                  <FileThumbnail file={selectedFile} resizeMode="contain" />
+                ) : null}
+              </View>
+            </View>
           </Modal>
 
           <ScrollView
@@ -456,24 +496,26 @@ export function UploadConfirmScreen({
               />
             ))}
 
-            <Pressable
-              onPress={onPickNewFile}
-              style={{
-                width: 78,
-                height: 78,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderStyle: 'dashed',
-                borderColor: '#475569',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#0f172a',
-                gap: 2,
-              }}
-            >
-              <Text style={{ color: '#93c5fd', fontSize: 24, fontWeight: '700' }}>+</Text>
-              <Text style={{ color: '#94a3b8', fontSize: 11 }}>Add</Text>
-            </Pressable>
+            {canAddMoreFiles ? (
+              <Pressable
+                onPress={onPickNewFile}
+                style={{
+                  width: 78,
+                  height: 78,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  borderColor: '#475569',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#0f172a',
+                  gap: 2,
+                }}
+              >
+                <Text style={{ color: '#93c5fd', fontSize: 24, fontWeight: '700' }}>+</Text>
+                <Text style={{ color: '#94a3b8', fontSize: 11 }}>Add</Text>
+              </Pressable>
+            ) : null}
           </ScrollView>
 
           {selectedFile ? (
@@ -564,11 +606,17 @@ export function UploadConfirmScreen({
           ) : null}
         </View>
 
-        <View style={styles.cardActions}>
-          <SecondaryButton label="Add from Gallery" onPress={onPickNewFile} />
-          <SecondaryButton label="Scan to Add" onPress={onScanNewFile} />
-          <SecondaryButton label="Browse Files" onPress={onBrowseFileNewFile} />
-        </View>
+        {canAddMoreFiles ? (
+          <View style={styles.cardActions}>
+            <SecondaryButton label="Add from Gallery" onPress={onPickNewFile} />
+            <SecondaryButton label="Scan to Add" onPress={onScanNewFile} />
+            <SecondaryButton label="Browse Files" onPress={onBrowseFileNewFile} />
+          </View>
+        ) : (
+          <Text style={[styles.subtitle, { marginBottom: 0 }]}>
+            This document contains a non-image file and cannot include additional files.
+          </Text>
+        )}
 
         {uploadStatus ? <Text style={styles.backupStatus}>{uploadStatus}</Text> : null}
 
