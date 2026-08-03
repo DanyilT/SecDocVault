@@ -467,7 +467,7 @@ export function useUploadFlow({
           console.warn('[Upload] Cloud upload failed:', errorMessage);
 
           if (!isFirebaseModuleUnavailableError(error)) {
-            console.error(
+            console.warn(
               '[Upload] Not a Firebase module error, rethrowing:',
               errorMessage,
             );
@@ -522,7 +522,7 @@ export function useUploadFlow({
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error('[Upload]commitUploadDocument outer catch:', errorMessage);
+      console.warn('[Upload]commitUploadDocument outer catch:', errorMessage);
       setUploadStatus(errorMessage);
     } finally {
       setIsUploading(false);

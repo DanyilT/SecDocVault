@@ -472,7 +472,7 @@ export async function uploadDocumentToFirebase(
 
   const ownedDocsSnapshot = await getDocs(query(collection(db, STORAGE_PATH_PREFIX), where('owner', '==', userId)));
   if (ownedDocsSnapshot.size >= MAX_CLOUD_DOCUMENTS_PER_USER) {
-    throw new Error('Cloud upload limit reached: maximum 10 documents per user.');
+    throw new Error('Cloud upload limit reached: maximum ' + MAX_CLOUD_DOCUMENTS_PER_USER + ' documents per user.');
   }
 
   const docRef = doc(collection(db, STORAGE_PATH_PREFIX));
