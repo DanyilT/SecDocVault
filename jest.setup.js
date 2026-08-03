@@ -50,6 +50,8 @@ jest.mock('@react-native-documents/picker', () => ({
 
 jest.mock('react-native-pdf', () => 'Pdf');
 
+jest.mock('react-native-video', () => 'Video');
+
 jest.mock('react-native-blob-util', () => ({}));
 
 jest.mock('react-native-get-random-values', () => ({}));

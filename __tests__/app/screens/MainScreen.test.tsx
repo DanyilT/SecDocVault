@@ -122,7 +122,7 @@ describe('MainScreen', () => {
     act(() => {
       renderer = ReactTestRenderer.create(<MainScreen {...defaultProps} />);
     });
-    const uploadBtn = renderer!.root.findByProps({ label: 'Upload New Document' });
+    const uploadBtn = renderer!.root.findByProps({ label: 'Upload New Image' });
     act(() => {
       uploadBtn.props.onPress();
     });

@@ -136,6 +136,8 @@ export function useVaultFeatureFlows({
   const {
     previewImageUri,
     previewPdfPath,
+    previewVideoPath,
+    previewAudioPath,
     previewText,
     previewStatus,
     previewFileOrder,
@@ -282,6 +284,8 @@ export function useVaultFeatureFlows({
   return {
     previewImageUri,
     previewPdfPath,
+    previewVideoPath,
+    previewAudioPath,
     previewText,
     previewStatus,
     previewFileOrder,

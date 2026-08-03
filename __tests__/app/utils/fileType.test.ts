@@ -44,16 +44,16 @@ describe('fileType utils', () => {
   });
 
   describe('canPreviewInApp', () => {
-    it('is true for image, pdf and text', () => {
+    it('is true for image, pdf, text, audio and video', () => {
       expect(canPreviewInApp('image/png')).toBe(true);
       expect(canPreviewInApp('application/pdf')).toBe(true);
       expect(canPreviewInApp('text/plain')).toBe(true);
+      expect(canPreviewInApp('audio/mpeg')).toBe(true);
+      expect(canPreviewInApp('video/mp4')).toBe(true);
     });
 
-    it('is false for office, audio, video and unknown types', () => {
+    it('is false for office and unknown types', () => {
       expect(canPreviewInApp('application/msword')).toBe(false);
-      expect(canPreviewInApp('audio/mpeg')).toBe(false);
-      expect(canPreviewInApp('video/mp4')).toBe(false);
       expect(canPreviewInApp('application/zip')).toBe(false);
       expect(canPreviewInApp(null)).toBe(false);
     });

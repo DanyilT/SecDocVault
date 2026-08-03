@@ -18,9 +18,18 @@ import { VaultDocument } from '../../types/vault';
 type PreviewCacheEntry = {
   previewImageUri: string | null;
   previewPdfPath: string | null;
+  previewVideoPath: string | null;
+  previewAudioPath: string | null;
   previewText: string | null;
   previewStatus: string;
 };
+
+function guessFileExtension(fileName: string, mimeType: string): string {
+  const nameMatch = /\.([a-z0-9]+)$/i.exec(fileName);
+  if (nameMatch) return nameMatch[1].toLowerCase();
+  const mimeMatch = /\/([a-z0-9.+-]+)$/i.exec(mimeType);
+  return mimeMatch ? mimeMatch[1].toLowerCase() : 'bin';
+}
 
 type UsePreviewFlowParams = {
   selectedDoc: VaultDocument | null;
@@ -50,6 +59,8 @@ export function usePreviewFlow({
 }: UsePreviewFlowParams) {
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [previewPdfPath, setPreviewPdfPath] = useState<string | null>(null);
+  const [previewVideoPath, setPreviewVideoPath] = useState<string | null>(null);
+  const [previewAudioPath, setPreviewAudioPath] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState<string | null>(null);
   const [previewStatus, setPreviewStatus] = useState('');
   const [previewFileOrder, setPreviewFileOrder] = useState(0);
@@ -59,6 +70,8 @@ export function usePreviewFlow({
   const clearPreviewOutputs = () => {
     setPreviewImageUri(null);
     setPreviewPdfPath(null);
+    setPreviewVideoPath(null);
+    setPreviewAudioPath(null);
     setPreviewText(null);
   };
 
@@ -79,6 +92,8 @@ export function usePreviewFlow({
   const applyCacheEntry = (entry: PreviewCacheEntry) => {
     setPreviewImageUri(entry.previewImageUri);
     setPreviewPdfPath(entry.previewPdfPath);
+    setPreviewVideoPath(entry.previewVideoPath);
+    setPreviewAudioPath(entry.previewAudioPath);
     setPreviewText(entry.previewText);
     setPreviewStatus(entry.previewStatus);
   };
@@ -123,33 +138,54 @@ export function usePreviewFlow({
 
       let cacheEntry: PreviewCacheEntry;
 
+      const emptyPreview = {
+        previewImageUri: null,
+        previewPdfPath: null,
+        previewVideoPath: null,
+        previewAudioPath: null,
+        previewText: null,
+      };
+
       if (!canPreviewInApp(decrypted.mimeType)) {
         cacheEntry = {
-          previewImageUri: null,
-          previewPdfPath: null,
-          previewText: null,
+          ...emptyPreview,
           previewStatus: `Decrypted ${decrypted.fileName}. Use export to save it out of app.`,
         };
       } else if (category === 'image') {
         cacheEntry = {
+          ...emptyPreview,
           previewImageUri: `data:${decrypted.mimeType};base64,${decrypted.base64}`,
-          previewPdfPath: null,
-          previewText: null,
           previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
         };
       } else if (category === 'pdf') {
         const tmpPath = `${RNFS.CachesDirectoryPath}/preview-${Date.now()}.pdf`;
         await RNFS.writeFile(tmpPath, decrypted.base64, 'base64');
         cacheEntry = {
-          previewImageUri: null,
+          ...emptyPreview,
           previewPdfPath: `file://${tmpPath}`,
-          previewText: null,
+          previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
+        };
+      } else if (category === 'video') {
+        const extension = guessFileExtension(decrypted.fileName, decrypted.mimeType);
+        const tmpPath = `${RNFS.CachesDirectoryPath}/preview-${Date.now()}.${extension}`;
+        await RNFS.writeFile(tmpPath, decrypted.base64, 'base64');
+        cacheEntry = {
+          ...emptyPreview,
+          previewVideoPath: `file://${tmpPath}`,
+          previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
+        };
+      } else if (category === 'audio') {
+        const extension = guessFileExtension(decrypted.fileName, decrypted.mimeType);
+        const tmpPath = `${RNFS.CachesDirectoryPath}/preview-${Date.now()}.${extension}`;
+        await RNFS.writeFile(tmpPath, decrypted.base64, 'base64');
+        cacheEntry = {
+          ...emptyPreview,
+          previewAudioPath: `file://${tmpPath}`,
           previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
         };
       } else {
         cacheEntry = {
-          previewImageUri: null,
-          previewPdfPath: null,
+          ...emptyPreview,
           previewText: Buffer.from(decrypted.base64, 'base64').toString('utf8'),
           previewStatus: `File #${decrypted.fileOrder} decrypted for preview.`,
         };
@@ -201,6 +237,8 @@ export function usePreviewFlow({
   return {
     previewImageUri,
     previewPdfPath,
+    previewVideoPath,
+    previewAudioPath,
     previewText,
     previewStatus,
     previewFileOrder,

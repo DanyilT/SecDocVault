@@ -548,6 +548,8 @@ export function useAppController(): UseAppControllerApi {
   const {
     previewImageUri,
     previewPdfPath,
+    previewVideoPath,
+    previewAudioPath,
     previewText,
     previewStatus,
     previewFileOrder,
@@ -775,6 +777,8 @@ export function useAppController(): UseAppControllerApi {
     previewFileOrder,
     previewImageUri,
     previewPdfPath,
+    previewVideoPath,
+    previewAudioPath,
     previewText,
     previewStatus,
     isPreviewDecrypting,

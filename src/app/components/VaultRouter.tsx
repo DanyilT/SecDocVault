@@ -79,6 +79,8 @@ type VaultRouterProps = {
   previewFileOrder: number;
   previewImageUri: string | null;
   previewPdfPath: string | null;
+  previewVideoPath: string | null;
+  previewAudioPath: string | null;
   previewText: string | null;
   previewStatus: string;
   isPreviewDecrypting: boolean;
@@ -223,6 +225,8 @@ export function VaultRouter(props: VaultRouterProps) {
           previewFileOrder={props.previewFileOrder}
           previewImageUri={props.previewImageUri}
           previewPdfPath={props.previewPdfPath}
+          previewVideoPath={props.previewVideoPath}
+          previewAudioPath={props.previewAudioPath}
           previewText={props.previewText}
           previewStatus={props.previewStatus}
           isDecrypting={props.isPreviewDecrypting}

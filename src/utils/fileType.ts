@@ -78,5 +78,11 @@ export function getFileIcon(mimeType: string | null | undefined): FileIconCompon
  */
 export function canPreviewInApp(mimeType: string | null | undefined): boolean {
   const category = getFileCategory(mimeType);
-  return category === 'image' || category === 'pdf' || category === 'text';
+  return (
+    category === 'image' ||
+    category === 'pdf' ||
+    category === 'text' ||
+    category === 'audio' ||
+    category === 'video'
+  );
 }

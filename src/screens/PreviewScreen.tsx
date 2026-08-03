@@ -18,6 +18,9 @@ import {
   InformationCircleIcon,
   KeyIcon,
   MinusCircleIcon,
+  MusicalNoteIcon,
+  PauseIcon,
+  PlayIcon,
   ShareIcon,
   TrashIcon,
   DocumentArrowDownIcon,
@@ -25,6 +28,7 @@ import {
 import { captureRef } from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
 import Pdf from 'react-native-pdf';
+import Video from 'react-native-video';
 
 import { PrimaryButton } from '../components/ui';
 import { CensoredImageView } from '../components/CensoredImageView';
@@ -39,6 +43,8 @@ type Props = {
   previewFileOrder: number;
   previewImageUri: string | null;
   previewPdfPath: string | null;
+  previewVideoPath: string | null;
+  previewAudioPath: string | null;
   previewText: string | null;
   previewStatus: string;
   isDecrypting: boolean;
@@ -75,6 +81,8 @@ type Props = {
  * @param {number} props.previewFileOrder - Order/index of the file within the document references
  * @param {string|null} props.previewImageUri - Local URI for the decrypted image preview
  * @param {string|null} props.previewPdfPath - Local file:// URI for the decrypted PDF preview
+ * @param {string|null} props.previewVideoPath - Local file:// URI for the decrypted video preview
+ * @param {string|null} props.previewAudioPath - Local file:// URI for the decrypted audio preview
  * @param {string|null} props.previewText - Decoded text content for the decrypted text preview
  * @param {string} props.previewStatus - Optional status message for preview actions
  * @param {boolean} props.isDecrypting - Whether a decrypt operation is underway
@@ -103,6 +111,8 @@ export function PreviewScreen({
   previewFileOrder,
   previewImageUri,
   previewPdfPath,
+  previewVideoPath,
+  previewAudioPath,
   previewText,
   previewStatus,
   isDecrypting,
@@ -144,6 +154,12 @@ export function PreviewScreen({
     setPdfPage(1);
     setPdfPageCount(0);
   }, [previewPdfPath]);
+
+  const [isAudioPlaying, setIsAudioPlaying] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsAudioPlaying(false);
+  }, [previewAudioPath]);
 
   const censoredImageRef = React.useRef<View>(null);
 
@@ -217,7 +233,12 @@ export function PreviewScreen({
   const selectedFileMimeType = files[selectedIndex]?.type;
   const CurrentFileIcon = getFileIcon(selectedFileMimeType);
   const isPreviewUnsupported =
-    isCurrentFileDecrypted && !previewImageUri && !previewPdfPath && previewText == null;
+    isCurrentFileDecrypted &&
+    !previewImageUri &&
+    !previewPdfPath &&
+    !previewVideoPath &&
+    !previewAudioPath &&
+    previewText == null;
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
@@ -347,6 +368,48 @@ export function PreviewScreen({
               onPageChanged={page => setPdfPage(page)}
               onError={() => undefined}
             />
+          ) : previewVideoPath ? (
+            <Video
+              source={{ uri: previewVideoPath }}
+              style={{ width: '100%', height: '100%' }}
+              controls
+              resizeMode="contain"
+              onError={() => undefined}
+            />
+          ) : previewAudioPath ? (
+            <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+              <Video
+                source={{ uri: previewAudioPath }}
+                paused={!isAudioPlaying}
+                style={{ width: 0, height: 0 }}
+                onEnd={() => setIsAudioPlaying(false)}
+                onError={() => undefined}
+              />
+              <MusicalNoteIcon color="#64748b" size={64} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isAudioPlaying ? 'Pause audio' : 'Play audio'}
+                onPress={() => setIsAudioPlaying(prev => !prev)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  backgroundColor: '#1e293b',
+                }}
+              >
+                {isAudioPlaying ? (
+                  <PauseIcon color="#93c5fd" size={22} />
+                ) : (
+                  <PlayIcon color="#93c5fd" size={22} />
+                )}
+                <Text style={{ color: '#93c5fd', fontWeight: '700' }}>
+                  {isAudioPlaying ? 'Pause' : 'Play'}
+                </Text>
+              </Pressable>
+            </View>
           ) : previewText != null ? (
             <ScrollView style={{ width: '100%', height: '100%' }} contentContainerStyle={{ padding: 14 }}>
               <Text style={styles.previewText}>{previewText}</Text>

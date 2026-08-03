@@ -22,8 +22,9 @@ import {
   View,
 } from 'react-native';
 
-import { XMarkIcon } from 'react-native-heroicons/solid';
+import { MusicalNoteIcon, PauseIcon, PlayIcon, XMarkIcon } from 'react-native-heroicons/solid';
 import Pdf from 'react-native-pdf';
+import Video from 'react-native-video';
 
 import { PrimaryButton, SecondaryButton } from '../components/ui';
 import { toSizeLabel, UploadableDocument } from '../services/documentVault';
@@ -63,13 +64,58 @@ function clamp(value: number, min: number, max: number) {
 }
 
 /**
+ * AudioThumbnailPlayer
+ *
+ * Minimal play/pause control for an audio file, used in place of a visual
+ * thumbnail since audio has no video track to render.
+ *
+ * @param {object} props - Component props
+ * @param {string} props.uri - Local URI of the audio file
+ * @returns {JSX.Element} Rendered audio player
+ */
+function AudioThumbnailPlayer({ uri }: { uri: string }) {
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  return (
+    <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <Video
+        source={{ uri }}
+        paused={!isPlaying}
+        style={{ width: 0, height: 0 }}
+        onEnd={() => setIsPlaying(false)}
+        onError={() => undefined}
+      />
+      <MusicalNoteIcon color="#93c5fd" size={48} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
+        onPress={() => setIsPlaying(prev => !prev)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderRadius: 999,
+          backgroundColor: '#1e293b',
+        }}
+      >
+        {isPlaying ? <PauseIcon color="#93c5fd" size={20} /> : <PlayIcon color="#93c5fd" size={20} />}
+        <Text style={{ color: '#93c5fd', fontWeight: '700' }}>{isPlaying ? 'Pause' : 'Play'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
  * FileThumbnail
  *
  * Renders an image preview for image files, a paged PDF preview for PDF
- * files (only at `preview` size, to avoid mounting many native PDF views in
- * the small drag-and-drop tile strip), or a type icon for any other file
- * category (Office, text) since those cannot be decoded as an `<Image>`
- * source.
+ * files, a native video player for video files, a play/pause control for
+ * audio files (only at `preview` size, to avoid mounting many native
+ * player views in the small drag-and-drop tile strip), or a type icon for
+ * any other file category (Office, text) since those cannot be decoded as
+ * an `<Image>` source.
  *
  * @param {object} props - Component props
  * @param {UploadableDocument} props.file - File to render a thumbnail for
@@ -106,6 +152,22 @@ function FileThumbnail({
         onError={() => undefined}
       />
     );
+  }
+
+  if (category === 'video' && variant === 'preview') {
+    return (
+      <Video
+        source={{ uri: file.uri }}
+        style={{ width: '100%', height: '100%' }}
+        controls
+        resizeMode={resizeMode}
+        onError={() => undefined}
+      />
+    );
+  }
+
+  if (category === 'audio' && variant === 'preview') {
+    return <AudioThumbnailPlayer uri={file.uri} />;
   }
 
   const Icon = getFileIcon(file.type);
@@ -379,6 +441,17 @@ export function UploadConfirmScreen({
 
   const selectedFile = files[selectedFileIndex] ?? files[0];
   const canAddMoreFiles = files.every(file => getFileCategory(file.type) === 'image');
+  const selectedFileCategory = selectedFile ? getFileCategory(selectedFile.type) : null;
+  const isSelectedFilePlayableMedia = selectedFileCategory === 'video' || selectedFileCategory === 'audio';
+  const previewTileStyle = {
+    width: '100%' as const,
+    aspectRatio: 1,
+    borderRadius: 14,
+    overflow: 'hidden' as const,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0f172a',
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -407,19 +480,15 @@ export function UploadConfirmScreen({
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Document Files ({files.length})</Text>
 
-          {selectedFile ? (
-            <Pressable
-              onPress={() => setShowFullPreview(true)}
-              style={{
-                width: '100%',
-                aspectRatio: 1,
-                borderRadius: 14,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: '#334155',
-                backgroundColor: '#0f172a',
-              }}
-            >
+          {selectedFile && isSelectedFilePlayableMedia ? (
+            // Video/audio already expose their own playback controls inline, so this
+            // isn't wrapped in the expand-to-modal Pressable below - that would mount a
+            // second player on top of this one and double up playback.
+            <View style={previewTileStyle}>
+              <FileThumbnail file={selectedFile} resizeMode="cover" />
+            </View>
+          ) : selectedFile ? (
+            <Pressable onPress={() => setShowFullPreview(true)} style={previewTileStyle}>
               <FileThumbnail file={selectedFile} resizeMode="cover" />
             </Pressable>
           ) : null}

@@ -196,6 +196,12 @@ describe('useUploadFlow', () => {
         name: 'Draft',
         files: [{uri: 'file:///tmp/a.jpg', name: 'a.jpg', size: 100, type: 'image/jpeg'}],
       },
+      pickFileForUpload: jest.fn(async () => ({
+        uri: 'file:///tmp/d.jpg',
+        name: 'd.jpg',
+        size: 100,
+        type: 'image/jpeg',
+      })),
     });
     const api = useUploadFlow(params as never);
 
@@ -205,6 +211,42 @@ describe('useUploadFlow', () => {
 
     expect(params.pickFileForUpload).toHaveBeenCalled();
     expect(params.setPendingUploadDraft).toHaveBeenCalled();
+  });
+
+  it('blocks appending a non-image file to a draft that already has an image', async () => {
+    const params = buildParams({
+      pendingUploadDraft: {
+        name: 'Draft',
+        files: [{uri: 'file:///tmp/a.jpg', name: 'a.jpg', size: 100, type: 'image/jpeg'}],
+      },
+    });
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('file', true);
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).not.toHaveBeenCalled();
+    expect(params.setUploadStatus).toHaveBeenCalledWith(
+      'Only one non-image file (PDF, Office, text, audio, or video) is allowed per document, and it cannot be combined with other files. Start a new document to add this file separately.',
+    );
+  });
+
+  it('blocks any additions once a draft already contains a non-image file', async () => {
+    const params = buildParams({
+      pendingUploadDraft: {
+        name: 'Draft',
+        files: [{uri: 'file:///tmp/c.pdf', name: 'c.pdf', size: 100, type: 'application/pdf'}],
+      },
+    });
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('pick', true);
+
+    expect(params.pickDocumentForUpload).not.toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).not.toHaveBeenCalled();
+    expect(params.setUploadStatus).toHaveBeenCalledWith(
+      'This document already contains a non-image file and cannot include additional files. Start a new document to add more.',
+    );
   });
 
   it('selectUploadDocument appends to draft and respects max file limit', async () => {

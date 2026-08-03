@@ -11,6 +11,7 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { MAX_UPLOAD_FILE_BYTES, UploadableDocumentDraft, UploadProgressEvent } from '../../services/documentVault';
+import { getFileCategory } from '../../utils/fileType';
 import { VaultDocument } from '../../types/vault.ts';
 
 type UseUploadFlowParams = {
@@ -245,6 +246,17 @@ export function useUploadFlow({
       return;
     }
 
+    if (
+      appendToDraft &&
+      pendingUploadDraft &&
+      pendingUploadDraft.files.some(existing => getFileCategory(existing.type) !== 'image')
+    ) {
+      setUploadStatus(
+        'This document already contains a non-image file and cannot include additional files. Start a new document to add more.',
+      );
+      return;
+    }
+
     setUploadStatus(
       source === 'scan'
         ? 'Opening camera...'
@@ -262,6 +274,19 @@ export function useUploadFlow({
             ? await pickFileForUpload()
             : await pickDocumentForUpload();
       isPickingFileRef.current = false;
+
+      if (
+        appendToDraft &&
+        pendingUploadDraft &&
+        pendingUploadDraft.files.length > 0 &&
+        getFileCategory(document.type) !== 'image'
+      ) {
+        setUploadStatus(
+          'Only one non-image file (PDF, Office, text, audio, or video) is allowed per document, and it cannot be combined with other files. Start a new document to add this file separately.',
+        );
+        return;
+      }
+
       setPendingUploadDraft(prev => {
         if (appendToDraft && prev) {
           return {
