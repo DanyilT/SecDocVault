@@ -12,6 +12,7 @@
 
 import 'react-native-get-random-values';
 import { ImagePickerResponse, launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { keepLocalCopy, pick, types as documentPickerTypes } from '@react-native-documents/picker';
 import { Buffer } from 'buffer';
 import { getApp } from '@react-native-firebase/app';
 import {
@@ -45,7 +46,7 @@ import { UploadableDocument, UploadableDocumentDraft, UploadProgressEvent, Vault
 const STORAGE_PATH_PREFIX = 'vault';
 const DOC_KEY_SERVICE_PREFIX = 'secdocvault.docKey';
 const LARGE_FILE_THRESHOLD_BYTES = 5 * 1024 * 1024;
-const MAX_UPLOAD_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_UPLOAD_FILE_BYTES = 100 * 1024 * 1024;
 const MAX_CLOUD_DOCUMENTS_PER_USER = 10;
 const READ_CHUNK_BYTES = 256 * 1024;
 const DEFAULT_CONCURRENCY_LIMIT = 2;
@@ -372,6 +373,60 @@ export async function scanDocumentForUpload(): Promise<UploadableDocument> {
 }
 
 /**
+ * Launches the system document picker and returns a normalized upload
+ * document for any supported file type (PDF, Office, text, image).
+ *
+ * @returns Selected file metadata.
+ * @throws {Error} If selection is canceled or no local copy could be made.
+ */
+export async function pickFileForUpload(): Promise<UploadableDocument> {
+  let results;
+  try {
+    results = await pick({
+      type: [
+        documentPickerTypes.pdf,
+        documentPickerTypes.doc,
+        documentPickerTypes.docx,
+        documentPickerTypes.xls,
+        documentPickerTypes.xlsx,
+        documentPickerTypes.ppt,
+        documentPickerTypes.pptx,
+        documentPickerTypes.plainText,
+        documentPickerTypes.csv,
+        documentPickerTypes.images,
+        documentPickerTypes.audio,
+        documentPickerTypes.video,
+      ],
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.toLowerCase().includes('cancel')) {
+      throw new Error('Selection was cancelled.');
+    }
+    throw error;
+  }
+
+  const picked = results[0];
+  const fileName = picked.name ?? `file-${Date.now()}`;
+
+  const [localCopy] = await keepLocalCopy({
+    files: [{uri: picked.uri, fileName}],
+    destination: 'cachesDirectory',
+  });
+
+  if (localCopy.status !== 'success') {
+    throw new Error(localCopy.copyError || 'Failed to access the selected file.');
+  }
+
+  return {
+    uri: localCopy.localUri,
+    name: fileName,
+    size: picked.size ?? 0,
+    type: picked.type ?? 'application/octet-stream',
+  };
+}
+
+/**
  * Encrypts a document and uploads it to Firebase Storage + Firestore.
  *
  * Flow:
@@ -407,7 +462,7 @@ export async function uploadDocumentToFirebase(
 
   const oversizedFile = document.files.find(file => file.size > MAX_UPLOAD_FILE_BYTES);
   if (oversizedFile) {
-    throw new Error(`File ${oversizedFile.name} exceeds the 10 MB upload limit.`);
+    throw new Error(`File ${oversizedFile.name} exceeds the 100 MB upload limit.`);
   }
 
   const uploadStart = Date.now();
@@ -417,7 +472,7 @@ export async function uploadDocumentToFirebase(
 
   const ownedDocsSnapshot = await getDocs(query(collection(db, STORAGE_PATH_PREFIX), where('owner', '==', userId)));
   if (ownedDocsSnapshot.size >= MAX_CLOUD_DOCUMENTS_PER_USER) {
-    throw new Error('Cloud upload limit reached: maximum 10 documents per user.');
+    throw new Error('Cloud upload limit reached: maximum ' + MAX_CLOUD_DOCUMENTS_PER_USER + ' documents per user.');
   }
 
   const docRef = doc(collection(db, STORAGE_PATH_PREFIX));

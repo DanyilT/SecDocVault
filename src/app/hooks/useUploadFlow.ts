@@ -10,7 +10,8 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { UploadableDocumentDraft, UploadProgressEvent } from '../../services/documentVault';
+import { MAX_UPLOAD_FILE_BYTES, UploadableDocumentDraft, UploadProgressEvent } from '../../services/documentVault';
+import { getFileCategory } from '../../utils/fileType';
 import { VaultDocument } from '../../types/vault.ts';
 
 type UseUploadFlowParams = {
@@ -49,6 +50,7 @@ type UseUploadFlowParams = {
   saveLocalDocuments: (documents: VaultDocument[]) => Promise<void>;
   scanDocumentForUpload: () => Promise<UploadableDocumentDraft['files'][number]>;
   pickDocumentForUpload: () => Promise<UploadableDocumentDraft['files'][number]>;
+  pickFileForUpload: () => Promise<UploadableDocumentDraft['files'][number]>;
   documentSaveLocal: (
     ownerId: string,
     draft: UploadableDocumentDraft,
@@ -101,6 +103,7 @@ export function useUploadFlow({
   saveLocalDocuments,
   scanDocumentForUpload,
   pickDocumentForUpload,
+  pickFileForUpload,
   documentSaveLocal,
   uploadDocumentToFirebase,
 }: UseUploadFlowParams) {
@@ -220,12 +223,12 @@ export function useUploadFlow({
    * Open the camera or file picker and set the selected file(s) into the
    * pending upload draft. Optionally append to an existing draft.
    *
-   * @param {'scan'|'pick'} source - Source of the document (camera scan or file picker)
+   * @param {'scan'|'pick'|'file'} source - Source of the document (camera scan, image picker, or document picker)
    * @param {boolean} [appendToDraft=false] - Whether to append the selected file to the existing draft
    * @returns {Promise<void>}
    */
   const selectUploadDocument = async (
-    source: 'scan' | 'pick',
+    source: 'scan' | 'pick' | 'file',
     appendToDraft: boolean = false,
   ): Promise<void> => {
     if (isUploading) {
@@ -243,8 +246,23 @@ export function useUploadFlow({
       return;
     }
 
+    if (
+      appendToDraft &&
+      pendingUploadDraft &&
+      pendingUploadDraft.files.some(existing => getFileCategory(existing.type) !== 'image')
+    ) {
+      setUploadStatus(
+        'This document already contains a non-image file and cannot include additional files. Start a new document to add more.',
+      );
+      return;
+    }
+
     setUploadStatus(
-      source === 'scan' ? 'Opening camera...' : 'Opening file picker...',
+      source === 'scan'
+        ? 'Opening camera...'
+        : source === 'file'
+          ? 'Opening file browser...'
+          : 'Opening file picker...',
     );
 
     try {
@@ -252,8 +270,23 @@ export function useUploadFlow({
       const document =
         source === 'scan'
           ? await scanDocumentForUpload()
-          : await pickDocumentForUpload();
+          : source === 'file'
+            ? await pickFileForUpload()
+            : await pickDocumentForUpload();
       isPickingFileRef.current = false;
+
+      if (
+        appendToDraft &&
+        pendingUploadDraft &&
+        pendingUploadDraft.files.length > 0 &&
+        getFileCategory(document.type) !== 'image'
+      ) {
+        setUploadStatus(
+          'Only one non-image file (PDF, Office, text, audio, or video) is allowed per document, and it cannot be combined with other files. Start a new document to add this file separately.',
+        );
+        return;
+      }
+
       setPendingUploadDraft(prev => {
         if (appendToDraft && prev) {
           return {
@@ -345,11 +378,11 @@ export function useUploadFlow({
 
       if (shouldUploadToCloud) {
         const tooLargeFile = document.files.find(
-          file => file.size > 10 * 1024 * 1024,
+          file => file.size > MAX_UPLOAD_FILE_BYTES,
         );
         if (tooLargeFile) {
           setUploadStatus(
-            `File ${tooLargeFile.name} is larger than 10 MB. Reduce size and retry.`,
+            `File ${tooLargeFile.name} is larger than 100 MB. Reduce size and retry.`,
           );
           setIsUploading(false);
           return;
@@ -434,7 +467,7 @@ export function useUploadFlow({
           console.warn('[Upload] Cloud upload failed:', errorMessage);
 
           if (!isFirebaseModuleUnavailableError(error)) {
-            console.error(
+            console.warn(
               '[Upload] Not a Firebase module error, rethrowing:',
               errorMessage,
             );
@@ -489,7 +522,7 @@ export function useUploadFlow({
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error('[Upload]commitUploadDocument outer catch:', errorMessage);
+      console.warn('[Upload]commitUploadDocument outer catch:', errorMessage);
       setUploadStatus(errorMessage);
     } finally {
       setIsUploading(false);
@@ -521,6 +554,19 @@ export function useUploadFlow({
   };
 
   /**
+   * handlePickFileAndUpload
+   *
+   * Helper to start a new document-browser-and-upload flow (PDF, Office,
+   * text, or image files picked from the system file browser).
+   *
+   * @returns {void}
+   */
+
+  const handlePickFileAndUpload = () => {
+    void selectUploadDocument('file', false);
+  };
+
+  /**
    * handleAddScanToUpload
    *
    * Append a scanned file to the current pending upload draft.
@@ -542,6 +588,19 @@ export function useUploadFlow({
 
   const handleAddPickToUpload = () => {
     void selectUploadDocument('pick', true);
+  };
+
+  /**
+   * handleAddFileToUpload
+   *
+   * Append a file browsed via the document picker to the current pending
+   * upload draft.
+   *
+   * @returns {void}
+   */
+
+  const handleAddFileToUpload = () => {
+    void selectUploadDocument('file', true);
   };
 
   /**
@@ -618,8 +677,10 @@ export function useUploadFlow({
     commitUploadDocument,
     handleScanAndUpload,
     handlePickAndUpload,
+    handlePickFileAndUpload,
     handleAddScanToUpload,
     handleAddPickToUpload,
+    handleAddFileToUpload,
     handleRemoveUploadFile,
     handleReorderUploadFiles,
   };

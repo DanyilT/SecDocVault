@@ -27,6 +27,33 @@ jest.mock('react-native-image-picker', () => ({
   launchImageLibrary: jest.fn(async () => ({didCancel: true})),
 }));
 
+jest.mock('@react-native-documents/picker', () => ({
+  pick: jest.fn(async () => {
+    throw new Error('user cancelled the picker');
+  }),
+  keepLocalCopy: jest.fn(async () => [{status: 'success', sourceUri: 'content://mock', localUri: 'file:///tmp/mock'}]),
+  types: {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    plainText: 'text/plain',
+    csv: ['text/csv', 'text/comma-separated-values'],
+    images: 'image/*',
+    audio: 'audio/*',
+    video: 'video/*',
+  },
+}));
+
+jest.mock('react-native-pdf', () => 'Pdf');
+
+jest.mock('react-native-video', () => 'Video');
+
+jest.mock('react-native-blob-util', () => ({}));
+
 jest.mock('react-native-get-random-values', () => ({}));
 
 jest.mock('@react-native-firebase/app', () => ({

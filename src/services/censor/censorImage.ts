@@ -175,6 +175,15 @@ function processGroup(
  * Always resolves. On failure returns `{ boxes: [], debug: { error } }`.
  */
 export async function censorImage(imageUri: string): Promise<CensorResult> {
+  if (imageUri.startsWith('data:') && !imageUri.startsWith('data:image/')) {
+    return {
+      imageWidth: 0,
+      imageHeight: 0,
+      boxes: [],
+      debug: { error: 'Censoring is only available for image files.' },
+    };
+  }
+
   try {
     const ocrResult = await recognizeText(imageUri);
 

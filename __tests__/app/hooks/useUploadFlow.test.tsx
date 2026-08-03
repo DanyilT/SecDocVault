@@ -53,6 +53,12 @@ describe('useUploadFlow', () => {
         size: 100,
         type: 'image/jpeg',
       })),
+      pickFileForUpload: jest.fn(async () => ({
+        uri: 'file:///tmp/c.pdf',
+        name: 'c.pdf',
+        size: 100,
+        type: 'application/pdf',
+      })),
       documentSaveLocal: jest.fn(async () => ({
         document: {
           id: 'doc-1',
@@ -162,6 +168,87 @@ describe('useUploadFlow', () => {
     expect(params.setScreen).toHaveBeenCalledWith('upload');
   });
 
+  it('selectUploadDocument opens the document browser for the "file" source', async () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('file');
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).toHaveBeenCalled();
+    expect(params.setScreen).toHaveBeenCalledWith('upload');
+  });
+
+  it('handlePickFileAndUpload triggers a new file-browser draft', async () => {
+    const params = buildParams();
+    const api = useUploadFlow(params as never);
+
+    api.handlePickFileAndUpload();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+  });
+
+  it('handleAddFileToUpload appends a browsed file to the existing draft', async () => {
+    const params = buildParams({
+      pendingUploadDraft: {
+        name: 'Draft',
+        files: [{uri: 'file:///tmp/a.jpg', name: 'a.jpg', size: 100, type: 'image/jpeg'}],
+      },
+      pickFileForUpload: jest.fn(async () => ({
+        uri: 'file:///tmp/d.jpg',
+        name: 'd.jpg',
+        size: 100,
+        type: 'image/jpeg',
+      })),
+    });
+    const api = useUploadFlow(params as never);
+
+    api.handleAddFileToUpload();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).toHaveBeenCalled();
+  });
+
+  it('blocks appending a non-image file to a draft that already has an image', async () => {
+    const params = buildParams({
+      pendingUploadDraft: {
+        name: 'Draft',
+        files: [{uri: 'file:///tmp/a.jpg', name: 'a.jpg', size: 100, type: 'image/jpeg'}],
+      },
+    });
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('file', true);
+
+    expect(params.pickFileForUpload).toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).not.toHaveBeenCalled();
+    expect(params.setUploadStatus).toHaveBeenCalledWith(
+      'Only one non-image file (PDF, Office, text, audio, or video) is allowed per document, and it cannot be combined with other files. Start a new document to add this file separately.',
+    );
+  });
+
+  it('blocks any additions once a draft already contains a non-image file', async () => {
+    const params = buildParams({
+      pendingUploadDraft: {
+        name: 'Draft',
+        files: [{uri: 'file:///tmp/c.pdf', name: 'c.pdf', size: 100, type: 'application/pdf'}],
+      },
+    });
+    const api = useUploadFlow(params as never);
+
+    await api.selectUploadDocument('pick', true);
+
+    expect(params.pickDocumentForUpload).not.toHaveBeenCalled();
+    expect(params.setPendingUploadDraft).not.toHaveBeenCalled();
+    expect(params.setUploadStatus).toHaveBeenCalledWith(
+      'This document already contains a non-image file and cannot include additional files. Start a new document to add more.',
+    );
+  });
+
   it('selectUploadDocument appends to draft and respects max file limit', async () => {
     const params = buildParams({
       pendingUploadDraft: {
@@ -268,10 +355,10 @@ describe('useUploadFlow', () => {
 
     await api.commitUploadDocument({
       name: 'Big File',
-      files: [{ uri: 'file://a.jpg', name: 'a.jpg', size: 11 * 1024 * 1024, type: 'image/jpeg' }],
+      files: [{ uri: 'file://a.jpg', name: 'a.jpg', size: 101 * 1024 * 1024, type: 'image/jpeg' }],
     });
 
-    expect(params.setUploadStatus).toHaveBeenCalledWith('File a.jpg is larger than 10 MB. Reduce size and retry.');
+    expect(params.setUploadStatus).toHaveBeenCalledWith('File a.jpg is larger than 100 MB. Reduce size and retry.');
     expect(params.setIsUploading).toHaveBeenCalledWith(false);
   });
 

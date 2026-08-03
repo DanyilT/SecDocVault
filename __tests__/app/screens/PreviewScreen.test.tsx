@@ -23,10 +23,23 @@ jest.mock('react-native-heroicons/solid', () => ({
   InformationCircleIcon: () => null,
   KeyIcon: () => null,
   MinusCircleIcon: () => null,
+  MusicalNoteIcon: () => null,
+  PauseIcon: () => null,
+  PlayIcon: () => null,
   ShareIcon: () => null,
   TrashIcon: () => null,
   DocumentArrowDownIcon: () => null,
+  DocumentIcon: () => null,
+  DocumentTextIcon: () => null,
+  PhotoIcon: () => null,
+  PresentationChartBarIcon: () => null,
+  TableCellsIcon: () => null,
+  FilmIcon: () => null,
 }));
+
+jest.mock('react-native-pdf', () => 'Pdf');
+
+jest.mock('react-native-video', () => 'Video');
 
 jest.mock('../../../src/components/ui', () => {
   const React = require('react');
@@ -59,6 +72,10 @@ describe('PreviewScreen', () => {
     selectedDoc: mockDoc,
     previewFileOrder: 0,
     previewImageUri: null,
+    previewPdfPath: null,
+    previewVideoPath: null,
+    previewAudioPath: null,
+    previewText: null,
     previewStatus: '',
     isDecrypting: false,
     isCurrentFileDecrypted: false,
@@ -127,6 +144,44 @@ describe('PreviewScreen', () => {
       renderer = ReactTestRenderer.create(<PreviewScreen {...defaultProps} />);
     });
     expect(renderer!.root.findByProps({ label: 'Delete Offline' })).toBeTruthy();
+  });
+
+  it('renders a video player when previewVideoPath is set', () => {
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <PreviewScreen
+          {...defaultProps}
+          isCurrentFileDecrypted
+          previewVideoPath="file:///tmp/preview-1.mp4"
+        />,
+      );
+    });
+    const video = renderer!.root.findAll(el => el.props.source?.uri === 'file:///tmp/preview-1.mp4');
+    expect(video.length).toBeGreaterThan(0);
+  });
+
+  it('renders an audio player and toggles play/pause when previewAudioPath is set', () => {
+    let renderer: ReactTestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = ReactTestRenderer.create(
+        <PreviewScreen
+          {...defaultProps}
+          isCurrentFileDecrypted
+          previewAudioPath="file:///tmp/preview-1.mp3"
+        />,
+      );
+    });
+    const findAudioElement = () =>
+      renderer!.root.findAll(el => el.props.source?.uri === 'file:///tmp/preview-1.mp3')[0];
+    expect(findAudioElement().props.paused).toBe(true);
+
+    const playButton = renderer!.root.findByProps({ accessibilityLabel: 'Play audio' });
+    act(() => {
+      playButton.props.onPress();
+    });
+
+    expect(findAudioElement().props.paused).toBe(false);
   });
 
   it('calls onToggleRecovery when key backup button is pressed', () => {

@@ -23,6 +23,8 @@ type HarnessRef = {
   getState: () => {
     previewStatus: string;
     previewImageUri: string | null;
+    previewVideoPath: string | null;
+    previewAudioPath: string | null;
     previewFileOrder: number;
     isCurrentFileDecrypted: boolean;
   };
@@ -38,6 +40,8 @@ const Harness = forwardRef<HarnessRef, {params: Parameters<typeof usePreviewFlow
     getState: () => ({
       previewStatus: api.previewStatus,
       previewImageUri: api.previewImageUri,
+      previewVideoPath: api.previewVideoPath,
+      previewAudioPath: api.previewAudioPath,
       previewFileOrder: api.previewFileOrder,
       isCurrentFileDecrypted: api.isCurrentFileDecrypted,
     }),
@@ -180,8 +184,42 @@ describe('usePreviewFlow', () => {
      expect(ref.current?.getState().previewStatus).toBe('Export is disabled by the document owner for this shared access.');
    });
 
-   it('handles decrypt of non-image files', async () => {
+   it('handles decrypt of unsupported (office) files', async () => {
      const ref = React.createRef<HarnessRef>();
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc({references: [{source: 'local', name: 'doc.docx', size: 1, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}]}),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'doc.docx',
+               mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/doc.docx'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(ref.current?.getState().previewStatus).toContain('Use export to save it out of app');
+     expect(ref.current?.getState().previewImageUri).toBeNull();
+   });
+
+   it('decrypts PDF files to a local temp file path for preview', async () => {
+     const ref = React.createRef<HarnessRef>();
+     const RNFS = require('react-native-fs');
 
      act(() => {
        TestRenderer.create(
@@ -209,8 +247,80 @@ describe('usePreviewFlow', () => {
        await ref.current?.handleDecryptPreview();
      });
 
-     expect(ref.current?.getState().previewStatus).toContain('Use export to save it out of app');
-     expect(ref.current?.getState().previewImageUri).toBeNull();
+     expect(RNFS.writeFile).toHaveBeenCalledWith(expect.stringContaining('preview-'), 'ZmFrZQ==', 'base64');
+     expect(ref.current?.getState().previewStatus).toContain('decrypted for preview');
+   });
+
+   it('decrypts video files to a local temp file path for preview', async () => {
+     const ref = React.createRef<HarnessRef>();
+     const RNFS = require('react-native-fs');
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc({references: [{source: 'local', name: 'clip.mp4', size: 1, type: 'video/mp4'}]}),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'clip.mp4',
+               mimeType: 'video/mp4',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/clip.mp4'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(RNFS.writeFile).toHaveBeenCalledWith(expect.stringContaining('preview-'), 'ZmFrZQ==', 'base64');
+     expect(RNFS.writeFile).toHaveBeenCalledWith(expect.stringContaining('.mp4'), 'ZmFrZQ==', 'base64');
+     expect(ref.current?.getState().previewStatus).toContain('decrypted for preview');
+     expect(ref.current?.getState().previewVideoPath).toContain('.mp4');
+   });
+
+   it('decrypts audio files to a local temp file path for preview', async () => {
+     const ref = React.createRef<HarnessRef>();
+     const RNFS = require('react-native-fs');
+
+     act(() => {
+       TestRenderer.create(
+         <Harness
+           ref={ref}
+           params={{
+             selectedDoc: makeDoc({references: [{source: 'local', name: 'song.mp3', size: 1, type: 'audio/mpeg'}]}),
+             setSelectedDoc: jest.fn(),
+             setScreen: jest.fn(),
+             hasInternetAccess: async () => true,
+             decryptDocumentPayload: jest.fn(async () => ({
+               fileOrder: 0,
+               fileName: 'song.mp3',
+               mimeType: 'audio/mpeg',
+               base64: 'ZmFrZQ==',
+             })),
+             exportDocumentToDevice: jest.fn(async () => '/tmp/song.mp3'),
+             canCurrentUserExportDocument: jest.fn(() => true),
+           }}
+         />,
+       );
+     });
+
+     await act(async () => {
+       await ref.current?.handleDecryptPreview();
+     });
+
+     expect(RNFS.writeFile).toHaveBeenCalledWith(expect.stringContaining('preview-'), 'ZmFrZQ==', 'base64');
+     expect(RNFS.writeFile).toHaveBeenCalledWith(expect.stringContaining('.mp3'), 'ZmFrZQ==', 'base64');
+     expect(ref.current?.getState().previewStatus).toContain('decrypted for preview');
+     expect(ref.current?.getState().previewAudioPath).toContain('.mp3');
    });
 
    it('caches decrypted preview and returns cached value on select', async () => {

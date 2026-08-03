@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-clipboard/clipboard": "^1.16.3",
+    "@react-native-documents/picker": "^12.0.1",
     "@react-native-firebase/app": "^23.8.8",
     "@react-native-firebase/auth": "^23.8.8",
     "@react-native-firebase/firestore": "^23.8.8",
@@ -23,17 +24,20 @@
     "crypto-js": "^4.2.0",
     "react": "19.2.8",
     "react-native": "^0.86.0",
+    "react-native-blob-util": "^0.24.10",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.31.1",
     "react-native-get-random-values": "^1.11.0",
     "react-native-heroicons": "^4.0.0",
     "react-native-image-picker": "^7.2.1",
     "react-native-keychain": "^10.0.0",
+    "react-native-pdf": "^7.0.4",
     "react-native-quick-base64": "^3.0.0",
     "react-native-quick-crypto": "^0.7.17",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.24.0",
     "react-native-svg": "^15.15.4",
+    "react-native-video": "^6.19.2",
     "react-native-view-shot": "^4.0.3"
   },
   "devDependencies": {

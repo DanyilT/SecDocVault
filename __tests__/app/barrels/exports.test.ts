@@ -103,8 +103,10 @@ describe('barrel exports', () => {
     const formatters = { toPseudoHash: jest.fn(), toSizeLabel: jest.fn() };
     const upload = {
       MAX_FILES_PER_DOCUMENT: 99,
+      MAX_UPLOAD_FILE_BYTES: 100 * 1024 * 1024,
       documentSaveLocal: jest.fn(),
       pickDocumentForUpload: jest.fn(),
+      pickFileForUpload: jest.fn(),
       scanDocumentForUpload: jest.fn(),
       uploadDocumentToFirebase: jest.fn(),
     };
@@ -146,8 +148,10 @@ describe('barrel exports', () => {
     const index = require('../../../src/services/documentVault');
 
     expect(index.MAX_FILES_PER_DOCUMENT).toBe(99);
+    expect(index.MAX_UPLOAD_FILE_BYTES).toBe(upload.MAX_UPLOAD_FILE_BYTES);
     expect(index.toPseudoHash).toBe(formatters.toPseudoHash);
     expect(index.documentSaveLocal).toBe(upload.documentSaveLocal);
+    expect(index.pickFileForUpload).toBe(upload.pickFileForUpload);
     expect(index.ensureCurrentUserSharePublicKey).toBe(sharing.ensureCurrentUserSharePublicKey);
     expect(index.saveDocumentToFirebase).toBe(storage.saveDocumentToFirebase);
     expect(index.listVaultDocumentsFromFirebase).toBe(query.listVaultDocumentsFromFirebase);

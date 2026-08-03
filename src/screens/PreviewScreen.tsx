@@ -11,22 +11,30 @@ import { Alert, Modal, PanResponder, Platform, Pressable, ScrollView, Text, View
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   ArrowDownTrayIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CloudArrowDownIcon,
   CloudArrowUpIcon,
   InformationCircleIcon,
   KeyIcon,
   MinusCircleIcon,
+  MusicalNoteIcon,
+  PauseIcon,
+  PlayIcon,
   ShareIcon,
   TrashIcon,
   DocumentArrowDownIcon,
 } from 'react-native-heroicons/solid';
 import { captureRef } from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
+import Pdf from 'react-native-pdf';
+import Video from 'react-native-video';
 
 import { PrimaryButton } from '../components/ui';
 import { CensoredImageView } from '../components/CensoredImageView';
 import { CensorToggle } from '../components/CensorToggle';
 import { censorImage, CensorResult } from '../services/censor';
+import { getFileIcon } from '../utils/fileType';
 import { styles } from '../theme/styles';
 import type { VaultDocument } from '../types/vault';
 
@@ -34,6 +42,10 @@ type Props = {
   selectedDoc: VaultDocument;
   previewFileOrder: number;
   previewImageUri: string | null;
+  previewPdfPath: string | null;
+  previewVideoPath: string | null;
+  previewAudioPath: string | null;
+  previewText: string | null;
   previewStatus: string;
   isDecrypting: boolean;
   isCurrentFileDecrypted: boolean;
@@ -68,6 +80,10 @@ type Props = {
  * @param {VaultDocument} props.selectedDoc - Currently selected document to preview
  * @param {number} props.previewFileOrder - Order/index of the file within the document references
  * @param {string|null} props.previewImageUri - Local URI for the decrypted image preview
+ * @param {string|null} props.previewPdfPath - Local file:// URI for the decrypted PDF preview
+ * @param {string|null} props.previewVideoPath - Local file:// URI for the decrypted video preview
+ * @param {string|null} props.previewAudioPath - Local file:// URI for the decrypted audio preview
+ * @param {string|null} props.previewText - Decoded text content for the decrypted text preview
  * @param {string} props.previewStatus - Optional status message for preview actions
  * @param {boolean} props.isDecrypting - Whether a decrypt operation is underway
  * @param {boolean} props.isCurrentFileDecrypted - Whether the current file is decrypted
@@ -94,6 +110,10 @@ export function PreviewScreen({
   selectedDoc,
   previewFileOrder,
   previewImageUri,
+  previewPdfPath,
+  previewVideoPath,
+  previewAudioPath,
+  previewText,
   previewStatus,
   isDecrypting,
   isCurrentFileDecrypted,
@@ -126,6 +146,20 @@ export function PreviewScreen({
   const [censorResult, setCensorResult] = React.useState<CensorResult | null>(null);
   const [isSavingCensored, setIsSavingCensored] = React.useState(false);
   const [censorSaveStatus, setCensorSaveStatus] = React.useState<string | null>(null);
+
+  const [pdfPage, setPdfPage] = React.useState(1);
+  const [pdfPageCount, setPdfPageCount] = React.useState(0);
+
+  React.useEffect(() => {
+    setPdfPage(1);
+    setPdfPageCount(0);
+  }, [previewPdfPath]);
+
+  const [isAudioPlaying, setIsAudioPlaying] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsAudioPlaying(false);
+  }, [previewAudioPath]);
 
   const censoredImageRef = React.useRef<View>(null);
 
@@ -196,6 +230,15 @@ export function PreviewScreen({
   const selectedIndex = Math.max(0, files.findIndex(item => item.order === previewFileOrder));
   const selectedFileIntegrity =
     files[selectedIndex]?.integrityTag ?? files[selectedIndex]?.fileHash ?? selectedDoc.hash;
+  const selectedFileMimeType = files[selectedIndex]?.type;
+  const CurrentFileIcon = getFileIcon(selectedFileMimeType);
+  const isPreviewUnsupported =
+    isCurrentFileDecrypted &&
+    !previewImageUri &&
+    !previewPdfPath &&
+    !previewVideoPath &&
+    !previewAudioPath &&
+    previewText == null;
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
@@ -316,6 +359,68 @@ export function PreviewScreen({
                 { borderWidth: 0, borderRadius: 0, height: '100%' },
               ]}
             />
+          ) : previewPdfPath ? (
+            <Pdf
+              source={{ uri: previewPdfPath }}
+              page={pdfPage}
+              style={{ width: '100%', height: '100%' }}
+              onLoadComplete={numberOfPages => setPdfPageCount(numberOfPages)}
+              onPageChanged={page => setPdfPage(page)}
+              onError={() => undefined}
+            />
+          ) : previewVideoPath ? (
+            <Video
+              source={{ uri: previewVideoPath }}
+              style={{ width: '100%', height: '100%' }}
+              controls
+              resizeMode="contain"
+              onError={() => undefined}
+            />
+          ) : previewAudioPath ? (
+            <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+              <Video
+                source={{ uri: previewAudioPath }}
+                paused={!isAudioPlaying}
+                style={{ width: 0, height: 0 }}
+                onEnd={() => setIsAudioPlaying(false)}
+                onError={() => undefined}
+              />
+              <MusicalNoteIcon color="#64748b" size={64} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isAudioPlaying ? 'Pause audio' : 'Play audio'}
+                onPress={() => setIsAudioPlaying(prev => !prev)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  backgroundColor: '#1e293b',
+                }}
+              >
+                {isAudioPlaying ? (
+                  <PauseIcon color="#93c5fd" size={22} />
+                ) : (
+                  <PlayIcon color="#93c5fd" size={22} />
+                )}
+                <Text style={{ color: '#93c5fd', fontWeight: '700' }}>
+                  {isAudioPlaying ? 'Pause' : 'Play'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : previewText != null ? (
+            <ScrollView style={{ width: '100%', height: '100%' }} contentContainerStyle={{ padding: 14 }}>
+              <Text style={styles.previewText}>{previewText}</Text>
+            </ScrollView>
+          ) : isPreviewUnsupported ? (
+            <View style={{ alignItems: 'center', gap: 8, padding: 16 }}>
+              <CurrentFileIcon color="#64748b" size={52} />
+              <Text style={{ color: '#94a3b8', textAlign: 'center' }}>
+                Cannot preview {selectedDoc.name}. Use export to open it.
+              </Text>
+            </View>
           ) : (
             <View
               style={{
@@ -352,7 +457,7 @@ export function PreviewScreen({
                 />
               </View>
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ color: '#64748b', fontSize: 52 }}># # #</Text>
+                <CurrentFileIcon color="#64748b" size={52} />
                 <Text
                   style={{
                     color: '#93c5fd',
@@ -391,6 +496,40 @@ export function PreviewScreen({
           )}
         </Pressable>
 
+        {previewPdfPath && pdfPageCount > 1 ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              marginTop: 10,
+            }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Previous page"
+              disabled={pdfPage <= 1}
+              onPress={() => setPdfPage(prev => Math.max(1, prev - 1))}
+              style={{ padding: 8, opacity: pdfPage <= 1 ? 0.4 : 1 }}
+            >
+              <ChevronLeftIcon color="#93c5fd" size={22} />
+            </Pressable>
+            <Text style={styles.previewText}>
+              Page {pdfPage} of {pdfPageCount}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next page"
+              disabled={pdfPage >= pdfPageCount}
+              onPress={() => setPdfPage(prev => Math.min(pdfPageCount, prev + 1))}
+              style={{ padding: 8, opacity: pdfPage >= pdfPageCount ? 0.4 : 1 }}
+            >
+              <ChevronRightIcon color="#93c5fd" size={22} />
+            </Pressable>
+          </View>
+        ) : null}
+
         {files.length > 1 ? (
           <ScrollView
             horizontal
@@ -418,12 +557,10 @@ export function PreviewScreen({
                   <Text style={{ color: '#bfdbfe', fontWeight: '800' }}>
                     #{file.order}
                   </Text>
-                  <Text
-                    style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}
-                    numberOfLines={1}
-                  >
-                    {file.type}
-                  </Text>
+                  {(() => {
+                    const TileIcon = getFileIcon(file.type);
+                    return <TileIcon color="#94a3b8" size={16} style={{ marginTop: 4 }} />;
+                  })()}
                 </Pressable>
               );
             })}

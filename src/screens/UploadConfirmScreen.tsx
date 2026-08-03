@@ -22,8 +22,13 @@ import {
   View,
 } from 'react-native';
 
+import { MusicalNoteIcon, PauseIcon, PlayIcon, XMarkIcon } from 'react-native-heroicons/solid';
+import Pdf from 'react-native-pdf';
+import Video from 'react-native-video';
+
 import { PrimaryButton, SecondaryButton } from '../components/ui';
 import { toSizeLabel, UploadableDocument } from '../services/documentVault';
+import { getFileCategory, getFileIcon } from '../utils/fileType';
 import { styles } from '../theme/styles';
 
 type Props = {
@@ -48,6 +53,7 @@ type Props = {
   onReorderFiles: (fromIndex: number, toIndex: number) => void;
   onPickNewFile: () => void;
   onScanNewFile: () => void;
+  onBrowseFileNewFile: () => void;
   onConfirmUpload: () => Promise<void>;
   keyBackupEnabled: boolean;
   onRequestEnableKeyBackup: () => void;
@@ -55,6 +61,129 @@ type Props = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * AudioThumbnailPlayer
+ *
+ * Minimal play/pause control for an audio file, used in place of a visual
+ * thumbnail since audio has no video track to render.
+ *
+ * @param {object} props - Component props
+ * @param {string} props.uri - Local URI of the audio file
+ * @returns {JSX.Element} Rendered audio player
+ */
+function AudioThumbnailPlayer({ uri }: { uri: string }) {
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  return (
+    <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <Video
+        source={{ uri }}
+        paused={!isPlaying}
+        style={{ width: 0, height: 0 }}
+        onEnd={() => setIsPlaying(false)}
+        onError={() => undefined}
+      />
+      <MusicalNoteIcon color="#93c5fd" size={48} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? 'Pause audio' : 'Play audio'}
+        onPress={() => setIsPlaying(prev => !prev)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderRadius: 999,
+          backgroundColor: '#1e293b',
+        }}
+      >
+        {isPlaying ? <PauseIcon color="#93c5fd" size={20} /> : <PlayIcon color="#93c5fd" size={20} />}
+        <Text style={{ color: '#93c5fd', fontWeight: '700' }}>{isPlaying ? 'Pause' : 'Play'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
+ * FileThumbnail
+ *
+ * Renders an image preview for image files, a paged PDF preview for PDF
+ * files, a native video player for video files, a play/pause control for
+ * audio files (only at `preview` size, to avoid mounting many native
+ * player views in the small drag-and-drop tile strip), or a type icon for
+ * any other file category (Office, text) since those cannot be decoded as
+ * an `<Image>` source.
+ *
+ * @param {object} props - Component props
+ * @param {UploadableDocument} props.file - File to render a thumbnail for
+ * @param {'cover'|'contain'} [props.resizeMode] - Image resize mode
+ * @param {'preview'|'tile'} [props.variant] - Rendering size context
+ * @returns {JSX.Element} Rendered thumbnail
+ */
+function FileThumbnail({
+  file,
+  resizeMode = 'cover',
+  variant = 'preview',
+}: {
+  file: UploadableDocument;
+  resizeMode?: 'cover' | 'contain';
+  variant?: 'preview' | 'tile';
+}) {
+  const category = getFileCategory(file.type);
+
+  if (category === 'image') {
+    return (
+      <Image
+        source={{ uri: file.uri }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode={resizeMode}
+      />
+    );
+  }
+
+  if (category === 'pdf' && variant === 'preview') {
+    return (
+      <Pdf
+        source={{ uri: file.uri }}
+        style={{ width: '100%', height: '100%' }}
+        onError={() => undefined}
+      />
+    );
+  }
+
+  if (category === 'video' && variant === 'preview') {
+    return (
+      <Video
+        source={{ uri: file.uri }}
+        style={{ width: '100%', height: '100%' }}
+        controls
+        resizeMode={resizeMode}
+        onError={() => undefined}
+      />
+    );
+  }
+
+  if (category === 'audio' && variant === 'preview') {
+    return <AudioThumbnailPlayer uri={file.uri} />;
+  }
+
+  const Icon = getFileIcon(file.type);
+  return (
+    <View
+      style={{
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+      }}
+    >
+      <Icon size={resizeMode === 'contain' ? 64 : 28} color="#93c5fd" />
+    </View>
+  );
 }
 
 /**
@@ -198,7 +327,7 @@ function UploadTile({
         onPress={onSelect}
         style={{ flex: 1 }}
       >
-        <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        <FileThumbnail file={file} resizeMode="cover" variant="tile" />
       </Pressable>
       <Pressable
         onPress={onRemove}
@@ -264,6 +393,7 @@ function UploadTile({
  * @param {(fromIndex: number, toIndex: number) => void} props.onReorderFiles - Reorder files
  * @param {() => void} props.onPickNewFile - Pick a new file from gallery
  * @param {() => void} props.onScanNewFile - Scan a new file
+ * @param {() => void} props.onBrowseFileNewFile - Browse for a new file (PDF, Office, text) via the document picker
  * @param {() => Promise<void>} props.onConfirmUpload - Confirm and start upload
  * @param {() => void} props.onRequestEnableKeyBackup - Request enabling key backup (when needed)
  * @returns {JSX.Element} Rendered upload confirmation screen
@@ -290,6 +420,7 @@ export function UploadConfirmScreen({
   onReorderFiles,
   onPickNewFile,
   onScanNewFile,
+  onBrowseFileNewFile,
   onConfirmUpload,
   keyBackupEnabled,
   onRequestEnableKeyBackup,
@@ -309,6 +440,18 @@ export function UploadConfirmScreen({
   }, []);
 
   const selectedFile = files[selectedFileIndex] ?? files[0];
+  const canAddMoreFiles = files.every(file => getFileCategory(file.type) === 'image');
+  const selectedFileCategory = selectedFile ? getFileCategory(selectedFile.type) : null;
+  const isSelectedFilePlayableMedia = selectedFileCategory === 'video' || selectedFileCategory === 'audio';
+  const previewTileStyle = {
+    width: '100%' as const,
+    aspectRatio: 1,
+    borderRadius: 14,
+    overflow: 'hidden' as const,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0f172a',
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -337,24 +480,16 @@ export function UploadConfirmScreen({
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Document Files ({files.length})</Text>
 
-          {selectedFile ? (
-            <Pressable
-              onPress={() => setShowFullPreview(true)}
-              style={{
-                width: '100%',
-                aspectRatio: 1,
-                borderRadius: 14,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: '#334155',
-                backgroundColor: '#0f172a',
-              }}
-            >
-              <Image
-                source={{ uri: selectedFile.uri }}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="cover"
-              />
+          {selectedFile && isSelectedFilePlayableMedia ? (
+            // Video/audio already expose their own playback controls inline, so this
+            // isn't wrapped in the expand-to-modal Pressable below - that would mount a
+            // second player on top of this one and double up playback.
+            <View style={previewTileStyle}>
+              <FileThumbnail file={selectedFile} resizeMode="cover" />
+            </View>
+          ) : selectedFile ? (
+            <Pressable onPress={() => setShowFullPreview(true)} style={previewTileStyle}>
+              <FileThumbnail file={selectedFile} resizeMode="cover" />
             </Pressable>
           ) : null}
 
@@ -364,24 +499,39 @@ export function UploadConfirmScreen({
             animationType="fade"
             onRequestClose={() => setShowFullPreview(false)}
           >
-            <Pressable
-              onPress={() => setShowFullPreview(false)}
-              style={{
-                flex: 1,
-                backgroundColor: 'rgba(2,6,23,0.95)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16,
-              }}
-            >
-              {selectedFile ? (
-                <Image
-                  source={{ uri: selectedFile.uri }}
-                  resizeMode="contain"
-                  style={{ width: '100%', height: '100%' }}
-                />
-              ) : null}
-            </Pressable>
+            <View style={{ flex: 1, backgroundColor: 'rgba(2,6,23,0.95)' }}>
+              <Pressable
+                onPress={() => setShowFullPreview(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close preview"
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 10,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(15,23,42,0.88)',
+                }}
+              >
+                <XMarkIcon color="#f8fafc" size={22} />
+              </Pressable>
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                }}
+              >
+                {selectedFile ? (
+                  <FileThumbnail file={selectedFile} resizeMode="contain" />
+                ) : null}
+              </View>
+            </View>
           </Modal>
 
           <ScrollView
@@ -415,24 +565,26 @@ export function UploadConfirmScreen({
               />
             ))}
 
-            <Pressable
-              onPress={onPickNewFile}
-              style={{
-                width: 78,
-                height: 78,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderStyle: 'dashed',
-                borderColor: '#475569',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#0f172a',
-                gap: 2,
-              }}
-            >
-              <Text style={{ color: '#93c5fd', fontSize: 24, fontWeight: '700' }}>+</Text>
-              <Text style={{ color: '#94a3b8', fontSize: 11 }}>Add</Text>
-            </Pressable>
+            {canAddMoreFiles ? (
+              <Pressable
+                onPress={onPickNewFile}
+                style={{
+                  width: 78,
+                  height: 78,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  borderColor: '#475569',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#0f172a',
+                  gap: 2,
+                }}
+              >
+                <Text style={{ color: '#93c5fd', fontSize: 24, fontWeight: '700' }}>+</Text>
+                <Text style={{ color: '#94a3b8', fontSize: 11 }}>Add</Text>
+              </Pressable>
+            ) : null}
           </ScrollView>
 
           {selectedFile ? (
@@ -523,10 +675,17 @@ export function UploadConfirmScreen({
           ) : null}
         </View>
 
-        <View style={styles.cardActions}>
-          <SecondaryButton label="Add from Gallery" onPress={onPickNewFile} />
-          <SecondaryButton label="Scan to Add" onPress={onScanNewFile} />
-        </View>
+        {canAddMoreFiles ? (
+          <View style={styles.cardActions}>
+            <SecondaryButton label="Add from Gallery" onPress={onPickNewFile} />
+            <SecondaryButton label="Scan to Add" onPress={onScanNewFile} />
+            <SecondaryButton label="Browse Files" onPress={onBrowseFileNewFile} />
+          </View>
+        ) : (
+          <Text style={[styles.subtitle, { marginBottom: 0 }]}>
+            This document contains a non-image file and cannot include additional files.
+          </Text>
+        )}
 
         {uploadStatus ? <Text style={styles.backupStatus}>{uploadStatus}</Text> : null}
 
