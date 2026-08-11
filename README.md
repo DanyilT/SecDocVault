@@ -34,15 +34,17 @@ sharing, and key backup/recovery flows.
 ## Features
 
 **Core features:**
-- Local guest vault (encrypted local-only storage)
-- Cloud vault (Firebase Authentication + Storage + Firestore)
-- Scan or pick images / documents and upload
-- Per-document encryption (each document has its own AES key)
+- Local guest vault (encrypted local-only storage, upgradeable to a cloud account)
+- Cloud vault (Firebase Authentication + Storage + Firestore) with email-link verification
+- Scan or pick images / documents and upload (multiple files per document)
+- Per-document encryption (each document has its own AES-256 key; each file its own IV)
 - Offline caching / save-for-offline
-- Document preview & export
-- Document sharing with wrapped key grants
-- Key backup & recovery (recoverable passphrase + cloud backup)
-- Multiple protection modes: passkey, PIN, biometric
+- Document preview & export, editable metadata, AES-GCM integrity tag
+- Document sharing with per-recipient RSA-wrapped key grants, expiry (TTL) and revocation
+- Automatic document-key rotation and re-encryption when a share is revoked or expires
+- Key backup & recovery (5-part recovery passphrase + encrypted cloud backup)
+- Censor mode — on-device OCR (ML Kit) plus regex detectors to redact sensitive fields before export/share
+- Multiple unlock methods: passkey, PIN, biometric, or none
 
 ## How it works
 
@@ -55,14 +57,17 @@ sharing, and key backup/recovery flows.
   only authorized user can decrypt it, and the document key can be restored with passphrase.
 
 **Encrypting / Decrypting**
-- When a document is added, a random document key is generated for that document.
-  Each file within a document is encrypted with that key and a
-  per-file IV. The raw (cleartext) document key may be stored in the device keychain for
-  decryption (device-local), and an encrypted version of the key is
-  stored in Firestore for other devices or recipients to decrypt it if they
-  have appropriate credentials.
-- Decryption happens on-device: key is decrypted using the
-  recovery passphrase stored on device and the files are decrypted for preview or export.
+- When a document is added, a random 32-byte document key is generated for that
+  document. Each file within a document is encrypted with that same key and its
+  own per-file IV. The raw (cleartext) document key is stored in the device
+  Keychain for fast local decryption, and a wrapped (encrypted) copy of the key
+  is stored in Firestore so other devices or recipients can decrypt it if they
+  have the appropriate credentials.
+- Decryption happens on-device. The document key is resolved in this order:
+  1. the raw key held in the Keychain;
+  2. for a recipient, the share grant unwrapped with their RSA private key;
+  3. the Firestore key envelope unwrapped with the device KDF passphrase;
+  4. failing that, the envelope unwrapped with the recovery passphrase.
 
 **Saving (local & cloud)**
 - Local (guest/local mode): encrypted payloads and metadata are written to the
@@ -78,16 +83,26 @@ sharing, and key backup/recovery flows.
   user unwrap the document key and decrypt the file locally.
 
 **Key backup & recovery**
-- The app supports creation of a recoverable backup of key material by user's passphrase.
-  A random passphrase is generated (or created by user) and/or you can back up KDF material to
-  Firestore (encrypted). This allows re-wrapping and recovering document keys
-  on a new device when the owner provides the passphrase.
+- The app supports creation of a recoverable backup of key material protected by
+  the user's recovery passphrase. The passphrase is either generated (20 random
+  bytes rendered as five hyphen-separated 8-character hexadecimal groups, ~160
+  bits of entropy) or supplied by the user, and is normalised to lowercase with
+  spaces converted to hyphens. Only documents the user has marked as recoverable
+  are included. Each document key is re-wrapped under the passphrase and the
+  resulting envelopes are stored in Firestore, allowing document keys to be
+  recovered on a new device when the owner provides the passphrase.
 
 **Authentication**
-- Guest mode: no Firebase auth, all data stays local on device.
-- Cloud mode: Firebase Authentication (email/password)
-  provides the user's identity. The app also supports local protections
-  (passkey, PIN, biometric) to unlock the vault even when logged in.
+- Guest mode: no Firebase auth, all data stays local on device. A guest account
+  is created from a password alone (minimum 6 characters) and can later be
+  upgraded to a cloud account from Settings. Registering a new guest account
+  while one already exists erases the existing local vault first.
+- Cloud mode: Firebase Authentication (email/password) provides the user's
+  identity. Registration requires email verification via a single-use Firebase
+  email link, served from Firebase Hosting, which either deep-links back into
+  the app or can be pasted into the registration form.
+- The app also supports local unlock methods (passkey, PIN, biometric, or none)
+  to gate the vault without re-authenticating on every launch.
 
 ## How it works (technical details)
 
@@ -103,7 +118,8 @@ into how the app is implemented.
 - Storage: encrypted file blobs stored in Firebase Storage; metadata in
   Firestore. Local encrypted copies are stored using `react-native-fs`.
 - Crypto: Per-document keys, wrapping/unwrapping, PBKDF2-based KDF and
-  AES-based file encryption are implemented in `src/services/documentVault/crypto`.
+  AES-based file encryption are implemented in `src/services/crypto/documentCrypto.ts`.
+- Censor: on-device OCR and sensitive-span detection live in `src/services/censor/`.
 
 **Upload flow (detailed)**
 1. User picks or scans files (adapters: `pickDocumentForUpload`,
@@ -122,28 +138,62 @@ into how the app is implemented.
    `encryptedDocKey` envelope and flags such as `offlineAvailable`/`saveMode`.
 
 **Encryption details**
-- Files are encrypted on device before upload. The implementation uses a
-  crypto runtime (attempts to use `react-native-quick-crypto` where available)
-  or a fallback. Encryption produces per-file IVs and, when using AES-256-GCM,
-  authentication tags. AES-GCM is an authenticated encryption mode that produces
-  a 16-byte tag used to verify ciphertext integrity on decryption to simplify 
-  error handling; if the ciphertext was tampered with, decryption fails. Older 
-  documents encrypted with the legacy AES-256-CBC fallback have no authentication 
-  tag. The envelope stored in Firestore contains the wrapped key and KDF 
-  parameters necessary for unwrapping on another device.
+- Files are encrypted on device before upload. The implementation requires the
+  native `react-native-quick-crypto` runtime; if that module is unavailable the
+  crypto helpers throw rather than silently degrading to a weaker path.
+  `crypto-js` is retained only for Base64/word-array conversion and for decrypting
+  legacy AES-256-CBC payloads.
+- New payloads use **AES-256-GCM** with a random 12-byte IV per file and a
+  16-byte authentication tag (`version: 2`). AES-GCM is an authenticated
+  encryption mode, so a tampered ciphertext fails to decrypt rather than
+  returning garbage. Older documents encrypted with the legacy AES-256-CBC
+  path have no authentication tag and are decrypt-only.
+- The per-file authentication tag is also persisted on the reference as
+  `integrityTag` (and the legacy `fileHash` field) and surfaced in the UI.
+- Key wrapping uses **PBKDF2-SHA256, 100,000 iterations**, a 16-byte random salt
+  and a 32-byte derived key, with the wrapped key sealed under AES-256-GCM. The
+  envelope stored in Firestore records `cipher`, `iv`, `authTag`, `salt`,
+  `iterations`, `algorithm`, `kdf` and `wrapMode` (`device` or `recovery`).
+- Files at or above `LARGE_FILE_THRESHOLD_BYTES` are read and encrypted in
+  256 KB chunks through a streaming GCM cipher to bound memory use.
 
 **Sharing details**
-- When creating a share, the app ensures the recipient has a public key (or
-  generates/requests one). The document key is re-wrapped for the recipient
-  and a `VaultSharedKeyGrant` entry is appended to Firestore. Share grants
-  include allowExport and expiry metadata and can be revoked.
+- Sharing is by recipient email. The app looks the recipient up in the
+  `vaultUsers` collection by `emailLower`; if no profile or no published
+  `sharePublicKey` exists the share is refused, so the recipient must have
+  signed in at least once. The document key is then wrapped for that recipient
+  with **RSA-2048 / OAEP-SHA256** and written to the
+  `vault/{docId}/sharedUsers/{recipientUid}` subcollection. Each grant records
+  `allowExport`, `createdAt`, `expiresAt` (default 30 days, clamped to 1–365)
+  and `revokedAt`.
+- The parent document keeps a `sharedWith` array of active recipient uids and
+  emails purely as a query index; the authoritative grant lives in the
+  subcollection. Collection-group indexes on `sharedUsers.recipientUid` and
+  `sharedUsers.recipientEmail` back the "Shared with me" queries.
+- **Revocation rotates the key.** `revokeDocumentShareGrant` (and
+  `enforceExpiredShareRevocations` for lapsed grants) marks the grant revoked
+  and then calls `rotateDocumentKeyAfterShareChange`, which generates a new
+  document key, re-encrypts and re-uploads every file, re-wraps the new key for
+  the remaining active recipients, and rewrites the owner's key envelope. This
+  means a revoked recipient who cached the old key cannot use it against
+  refreshed ciphertext.
 
 **Key backup details**
-- The key backup flow requires a user to create a passphrase at account 
-  creation or later in settings. KDF material is derived from that passphrase.
-  Backup metadata is stored in Firestore (per-owner doc in a `vaultKeyBackups` collection).
-  Functions such as `downloadKeyBackupFile` and `deleteKeyBackupFromFirebase` exist 
-  in `src/services/keyBackup.ts`.
+- The key backup flow requires the user to create a recovery passphrase at
+  account creation or later in Settings. Enabling recovery writes an initial,
+  empty backup document (`initRecoveryBackupOnFirebase`) so other devices can
+  detect that recovery is configured.
+- `backupKeysToFirebase` walks the user's documents, skips any marked
+  `recoverable === false`, resolves each document key (Keychain → device-KDF
+  unwrap → recovery unwrap), re-wraps each key under the recovery passphrase
+  with a shared random salt, and writes `vaultKeyBackups/{ownerId}`.
+  `restoreKeysFromFirebase` reverses this and repopulates the Keychain.
+- An optional auto-sync setting re-runs the backup after document changes.
+- Key entry points in `src/services/keyBackup.ts`: `backupKeysToFirebase`,
+  `restoreKeysFromFirebase`, `initRecoveryBackupOnFirebase`,
+  `checkIfKeyBackupExistsInFirebase`, `deleteKeyBackupFromFirebase`,
+  `restoreDocumentKeysFromPassphrase`, `ensureRecoveryPassphrase`,
+  `autoSyncKeysIfEnabled`.
 
 **Auth & session protection**
 - Auth context is centralized in `src/context/AuthContext.tsx`. It bridges
@@ -153,10 +203,34 @@ into how the app is implemented.
   Firebase identity for cloud features.
 
 **Project caveats & limits**
-- Maximum file size limits and per-document file limits are enforced in the
-  upload service (`MAX_FILES_PER_DOCUMENT`, `MAX_UPLOAD_FILE_BYTES`).
-- Large files are read and encrypted in chunks to avoid excessive memory
-  pressure. The code contains constants such as `LARGE_FILE_THRESHOLD_BYTES`.
+
+Enforced in `src/services/documentVault/upload.ts`:
+
+| Constant                       | Value  | Meaning                                                    |
+|--------------------------------|--------|------------------------------------------------------------|
+| `MAX_FILES_PER_DOCUMENT`       | 10     | Files allowed in one document                              |
+| `MAX_UPLOAD_FILE_BYTES`        | 10 MB  | Per-file upload ceiling (also enforced in `storage.rules`) |
+| `MAX_CLOUD_DOCUMENTS_PER_USER` | 10     | Cloud documents per account                                |
+| `LARGE_FILE_THRESHOLD_BYTES`   | 5 MB   | Above this, chunked streaming encryption is used           |
+| `READ_CHUNK_BYTES`             | 256 KB | Chunk size for streaming reads                             |
+| `DEFAULT_CONCURRENCY_LIMIT`    | 2      | Files encrypted/uploaded in parallel                       |
+
+- The per-file size limit is enforced on the cloud upload path;
+  `documentSaveLocal` does not apply it.
+- A failed cloud upload rolls back: uploaded Storage objects are deleted, local
+  copies unlinked and the Keychain entry for the document key reset.
+
+**Firestore / Storage data model**
+- `vault/{docId}` — document metadata: `name`, `description`, `hash`, `size`,
+  `owner`, `references[]`, `fileCount`, `encryptedDocKey`, `saveMode`,
+  `offlineAvailable`, `recoverable`, `sharedWith[]`, `createdAt`.
+- `vault/{docId}/sharedUsers/{recipientUid}` — per-recipient share grants.
+- `vaultUsers/{uid}` — `uid`, `emailLower`, `sharePublicKey` (used for recipient
+  lookup during sharing).
+- `vaultKeyBackups/{ownerId}` — recovery-passphrase-wrapped document keys.
+- Storage: `vault/{ownerUid}/{docId}/{fileName}.enc`, uploaded as
+  `application/json` containing `{version, algorithm, iv, cipher, authTag}`.
+- Local: `{DocumentDirectoryPath}/vault/{docId}/{fileName}.enc.json`.
 
 ### Project structure / key files
 - `App.tsx` - app shell and top-level wiring (auth provider, router)
@@ -218,11 +292,17 @@ important constants you should know when working on each feature.
   - Files: `src/services/documentVault/sharing.ts`, `src/services/documentVault/shareGrants.ts`.
   - Key functions: `createDocumentShareGrant`, `revokeDocumentShareGrant`,
     `ensureCurrentUserSharePublicKey`.
-  - Crypto: Uses RSA-OAEP-SHA256 to wrap document keys for recipients
-    (`documentCrypto.wrapDocumentKeyForRecipient`). Public keys are stored in
-    AsyncStorage; private keys in Keychain.
-  - Firestore: Share grants are stored as entries on document metadata so
-    queries such as `listVaultDocumentsSharedWithUser` can surface incoming shares.
+  - Crypto: Uses RSA-2048 with OAEP-SHA256 padding to wrap document keys for
+    recipients (`documentCrypto.wrapDocumentKeyForRecipient`). The key pair is
+    created on demand by `getOrCreateSharingKeyPair`; the private key is stored
+    in the Keychain, the public key in AsyncStorage and published to
+    `vaultUsers/{uid}.sharePublicKey`.
+  - Firestore: share grants live in the `vault/{docId}/sharedUsers` subcollection;
+    the `sharedWith` array on the parent document is a denormalised index so
+    `listVaultDocumentsSharedWithUser` can surface incoming shares via
+    collection-group queries.
+  - Revocation and expiry rotate the document key and re-encrypt all files
+    (`rotateDocumentKeyAfterShareChange`).
 
 5) **Key backup & recovery**
 - Non-technical: Users can back up a recoverable envelope of their document
@@ -231,11 +311,32 @@ important constants you should know when working on each feature.
 - Developer notes:
   - Files: `src/services/keyBackup.ts` and `src/services/crypto/documentCrypto.ts`.
   - Key functions: `backupKeysToFirebase`, `restoreKeysFromFirebase`,
-    `downloadPassphraseFile` (not using), `downloadKeyBackupFile` (not using), `ensureRecoveryPassphrase`.
+    `initRecoveryBackupOnFirebase`, `checkIfKeyBackupExistsInFirebase`,
+    `deleteKeyBackupFromFirebase`, `restoreDocumentKeysFromPassphrase`,
+    `ensureRecoveryPassphrase`, `autoSyncKeysIfEnabled`.
   - Flow: collect per-document keys (Keychain or unwrap from device wrap) →
     re-wrap with recovery passphrase → persist `vaultKeyBackups/<ownerId>`.
+  - Documents flagged `recoverable === false` are excluded from the backup.
   - Important helpers: `resolveDocumentKeyForBackup` tries Keychain -> device
     KDF unwrap -> recovery-passphrase unwrap.
+  - Passphrase helpers: `generateRecoveryPassphrase` (5 hyphen-separated
+    8-character hex groups), `sanitizeRecoveryPassphrase` (lowercase, spaces to
+    hyphens), `validateRecoveryPassphrase` (exactly 5 non-empty lowercase
+    alphanumeric groups).
+
+10) **Censor mode (redaction)**
+- Non-technical: Before exporting or sharing, the user can redact sensitive
+  fields on a document image so it can be shared safely.
+- Developer notes:
+  - Files: `src/services/censor/` (`ocr.ts`, `detectors.ts`, `censorImage.ts`),
+    UI in `src/components/CensoredImageView.tsx` and `CensorToggle.tsx`.
+  - OCR: `@react-native-ml-kit/text-recognition`, lazy-loaded so unit tests do
+    not require the native module.
+  - Detection: pure-JS regex detectors covering `email`, `phone`, `creditCard`
+    (Luhn-validated), `iban`, `ssn`, `taxId`, `passport`, `date`, `apiKey`,
+    `address` and `keyword`, with OCR-tolerant patterns.
+  - Detected spans are mapped back to OCR word boxes and drawn as opaque
+    redaction boxes over the decrypted image.
 
 6) **Authentication & session protection**
 - Non-technical: App supports guest local-only mode and Firebase-based cloud
