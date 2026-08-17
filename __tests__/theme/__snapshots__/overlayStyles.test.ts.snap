@@ -1,0 +1,73 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`overlayStyles should match snapshot 1`] = `
+{
+  "actionButton": {
+    "alignItems": "center",
+    "flex": 1,
+    "justifyContent": "center",
+    "minHeight": 44,
+  },
+  "actionButtonLabel": {
+    "textAlign": "center",
+    "width": "100%",
+  },
+  "actionButtonNoTopMargin": {
+    "alignItems": "center",
+    "flex": 1,
+    "justifyContent": "center",
+    "marginTop": 0,
+    "minHeight": 44,
+  },
+  "backdrop": {
+    "alignItems": "center",
+    "backgroundColor": "rgba(3,7,18,0.65)",
+    "bottom": 0,
+    "justifyContent": "center",
+    "left": 0,
+    "padding": 20,
+    "position": "absolute",
+    "right": 0,
+    "top": 0,
+  },
+  "discardCard": {
+    "gap": 12,
+    "maxWidth": 340,
+    "width": "100%",
+  },
+  "discardWarningCheckbox": {
+    "alignItems": "center",
+    "borderColor": "#60a5fa",
+    "borderRadius": 4,
+    "borderWidth": 1,
+    "height": 20,
+    "justifyContent": "center",
+    "width": 20,
+  },
+  "discardWarningCheckboxChecked": {
+    "backgroundColor": "#2563eb",
+  },
+  "discardWarningCheckboxText": {
+    "color": "#fff",
+    "fontSize": 12,
+    "fontWeight": "800",
+  },
+  "discardWarningLabel": {
+    "color": "#d1d5db",
+    "flexShrink": 1,
+    "fontSize": 14,
+    "lineHeight": 18,
+  },
+  "discardWarningRow": {
+    "alignItems": "center",
+    "flexDirection": "row",
+    "gap": 10,
+    "marginTop": 2,
+  },
+  "keyBackupCard": {
+    "gap": 12,
+    "maxWidth": 360,
+    "width": "100%",
+  },
+}
+`;

@@ -1,0 +1,137 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`contentStyles should match snapshot 1`] = `
+{
+  "backupStatus": {
+    "color": "#93c5fd",
+    "fontSize": 14,
+    "marginTop": 6,
+  },
+  "card": {
+    "backgroundColor": "#111827",
+    "borderColor": "#374151",
+    "borderRadius": 12,
+    "borderWidth": 1,
+    "gap": 6,
+    "padding": 14,
+  },
+  "cardActions": {
+    "flexDirection": "row",
+    "gap": 10,
+    "marginTop": 6,
+  },
+  "cardMeta": {
+    "color": "#9ca3af",
+    "fontSize": 13,
+  },
+  "cardTitle": {
+    "color": "#f9fafb",
+    "fontSize": 16,
+    "fontWeight": "700",
+  },
+  "footerActions": {
+    "marginTop": 4,
+  },
+  "hashBlock": {
+    "backgroundColor": "#111827",
+    "borderColor": "#374151",
+    "borderRadius": 10,
+    "borderWidth": 1,
+    "color": "#93c5fd",
+    "fontFamily": "Courier",
+    "padding": 12,
+  },
+  "pageTitle": {
+    "color": "#f9fafb",
+    "fontSize": 22,
+    "fontWeight": "700",
+  },
+  "previewActionButton": {
+    "flexGrow": 1,
+    "marginTop": 0,
+    "minWidth": 150,
+  },
+  "previewActionsWrap": {
+    "flexDirection": "row",
+    "flexWrap": "wrap",
+    "gap": 8,
+    "marginTop": 6,
+  },
+  "previewImage": {
+    "backgroundColor": "#111827",
+    "borderColor": "#334155",
+    "borderRadius": 12,
+    "borderWidth": 1,
+    "height": 260,
+    "width": "100%",
+  },
+  "previewLabel": {
+    "color": "#93c5fd",
+    "fontSize": 13,
+    "fontWeight": "700",
+  },
+  "previewText": {
+    "color": "#d1d5db",
+    "fontSize": 14,
+  },
+  "primaryButton": {
+    "alignItems": "center",
+    "backgroundColor": "#2563eb",
+    "borderRadius": 12,
+    "marginTop": 4,
+    "paddingVertical": 12,
+  },
+  "primaryButtonContent": {
+    "alignItems": "center",
+    "flexDirection": "row",
+    "gap": 6,
+    "justifyContent": "center",
+  },
+  "primaryButtonDanger": {
+    "backgroundColor": "#b91c1c",
+  },
+  "primaryButtonDisabled": {
+    "backgroundColor": "#334155",
+  },
+  "primaryButtonOutline": {
+    "backgroundColor": "transparent",
+    "borderColor": "#3b82f6",
+    "borderWidth": 1,
+  },
+  "primaryButtonText": {
+    "color": "#f8fafc",
+    "fontSize": 15,
+    "fontWeight": "700",
+  },
+  "primaryButtonTextOutline": {
+    "color": "#93c5fd",
+  },
+  "secondaryButton": {
+    "borderColor": "#475569",
+    "borderRadius": 10,
+    "borderWidth": 1,
+    "paddingHorizontal": 14,
+    "paddingVertical": 8,
+  },
+  "secondaryButtonText": {
+    "color": "#cbd5e1",
+    "fontWeight": "600",
+  },
+  "settingsCardGap": {
+    "gap": 10,
+  },
+  "settingsNote": {
+    "color": "#9ca3af",
+    "fontSize": 13,
+  },
+  "settingsStatus": {
+    "color": "#cbd5e1",
+    "fontSize": 14,
+  },
+  "subtitle": {
+    "color": "#9ca3af",
+    "fontSize": 14,
+    "marginBottom": 8,
+  },
+}
+`;

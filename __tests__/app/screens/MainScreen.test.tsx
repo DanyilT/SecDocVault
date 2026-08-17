@@ -31,6 +31,8 @@ describe('MainScreen', () => {
     references: [{ source: 'local' as const, name: 'file.txt', size: 1024, type: 'text/plain' }],
   };
 
+  const pickMock = jest.fn();
+
   const defaultProps = {
     documents: [],
     incomingShareDecisions: {},
@@ -42,7 +44,8 @@ describe('MainScreen', () => {
     openPreview: jest.fn(),
     openShare: jest.fn(),
     onScanAndUpload: jest.fn(),
-    onPickAndUpload: jest.fn(),
+    onPickAndUpload: pickMock,
+    onPickFileAndUpload: pickMock,
     onReloadDocuments: jest.fn(async () => {}),
     onSaveOffline: jest.fn(),
     onSaveToFirebase: jest.fn(),
@@ -126,6 +129,6 @@ describe('MainScreen', () => {
     act(() => {
       uploadBtn.props.onPress();
     });
-    expect(defaultProps.onPickAndUpload).toHaveBeenCalled();
+    expect(pickMock).toHaveBeenCalled();
   });
 });
