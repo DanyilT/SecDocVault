@@ -430,17 +430,29 @@ export async function pickFileForUpload(): Promise<UploadableDocument> {
  * Encrypts a document and uploads it to Firebase Storage + Firestore.
  *
  * Flow:
- * 1) Generate random per-document AES key and file IV.
- * 2) Read local file as Base64 and encrypt with AES-CBC.
- * 3) Upload encrypted payload to Storage.
- * 4) Store raw doc key in Keychain (device-local convenience).
- * 5) Derive wrapping key via PBKDF2 and wrap doc key.
- * 6) Persist metadata and wrapped key envelope in Firestore.
+ * 1) Enforce the upload limits (`MAX_FILES_PER_DOCUMENT`, `MAX_UPLOAD_FILE_BYTES`,
+ *    `MAX_CLOUD_DOCUMENTS_PER_USER`).
+ * 2) Generate one random 32-byte AES key for the document. Every file is
+ *    encrypted under that same key with its own random 12-byte IV.
+ * 3) Read and encrypt each file with AES-256-GCM. Files at or above
+ *    `LARGE_FILE_THRESHOLD_BYTES` stream through a chunked cipher instead of
+ *    being buffered whole; up to `DEFAULT_CONCURRENCY_LIMIT` files in parallel.
+ * 4) Upload each encrypted payload to Storage as an `application/json` envelope
+ *    of `{version, algorithm, iv, cipher, authTag}`.
+ * 5) Cache the raw doc key in Keychain (device-local convenience).
+ * 6) Wrap the doc key — under the recovery passphrase when `recoverable`, else
+ *    under the device KDF material — and persist metadata plus the wrapped key
+ *    envelope in Firestore.
+ *
+ * On failure every uploaded Storage object and local copy is removed and the
+ * Keychain entry is reset, so a partial document is never left behind.
  *
  * @param userId - Current authenticated user id.
  * @param document - Upload target document.
- * @param options
- * @returns Minimal upload result for immediate UI rendering.
+ * @param options - `alsoSaveLocal` additionally writes an encrypted local copy;
+ *   `recoverable` selects the recovery wrap; `concurrencyLimit` overrides the
+ *   parallel file count; `onProgress` receives per-stage progress events.
+ * @returns Minimal upload result for immediate UI rendering, plus per-file timings.
  */
 export async function uploadDocumentToFirebase(
   userId: string,

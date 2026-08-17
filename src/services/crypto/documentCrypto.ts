@@ -379,13 +379,19 @@ export function sanitizeRecoveryPassphrase(passphrase: string): string {
 }
 
 /**
- * Encrypts a Base64\-encoded payload using AES\-256\-CBC with PKCS\#7 padding.
+ * Encrypts a Base64\-encoded payload using AES\-256\-GCM.
  *
+ * Generates a random 12\-byte IV per call and produces a 16\-byte authentication
+ * tag, so a tampered ciphertext fails to decrypt rather than returning garbage.
  * If `keyB64` is not provided, a new random 32\-byte key is generated.
+ *
+ * Envelopes produced here are tagged `algorithm: 'AES-256-GCM'`, `version: 2`.
+ * The legacy AES\-256\-CBC path is decrypt\-only — see {@link decryptBase64Payload}.
  *
  * @param base64Payload - Payload encoded as a Base64 string.
  * @param keyB64 - Optional Base64\-encoded 32\-byte AES key.
- * @returns Encryption result containing Base64 ciphertext, IV, and key.
+ * @returns Encryption result containing Base64 ciphertext, IV, key, auth tag,
+ *   algorithm and version.
  */
 export async function encryptBase64Payload(base64Payload: string, keyB64?: string) {
   const encrypted = await aesGcmEncryptUtf8(base64Payload, keyB64);
@@ -397,14 +403,22 @@ export async function encryptBase64Payload(base64Payload: string, keyB64?: strin
 }
 
 /**
- * Decrypts an AES\-256\-CBC encrypted Base64 payload.
+ * Decrypts a Base64 payload produced by {@link encryptBase64Payload}.
+ *
+ * Dispatches on `algorithm`: any value containing `GCM` takes the authenticated
+ * AES\-256\-GCM path and requires `authTagB64`; anything else falls through to the
+ * legacy unauthenticated AES\-256\-CBC / PKCS\#7 path retained so that documents
+ * written by earlier builds remain readable.
  *
  * @param cipherB64 - Base64\-encoded ciphertext.
  * @param ivB64 - Base64\-encoded IV used for encryption.
  * @param keyB64 - Base64\-encoded 32\-byte AES key.
- * @param algorithm
- * @param authTagB64
+ * @param algorithm - Algorithm recorded in the payload envelope. Defaults to
+ *   `'AES-256-CBC'` for payloads written before the GCM migration.
+ * @param authTagB64 - Base64\-encoded GCM authentication tag. Required on the
+ *   GCM path; ignored on the legacy CBC path.
  * @returns Decrypted payload as a UTF\-8 string.
+ * @throws {Error} On the GCM path if the auth tag is missing or verification fails.
  */
 export async function decryptBase64Payload(
   cipherB64: string,
@@ -423,14 +437,19 @@ export async function decryptBase64Payload(
 /**
  * Wraps a document key with a key derived from a passphrase and salt.
  *
- * Uses PBKDF2 with SHA-256 to derive an AES-256-CBC key, then encrypts the
- * document key using a random IV.
+ * Derives a 32-byte wrapping key with PBKDF2-HMAC-SHA256 (100000 iterations by
+ * default) over the supplied passphrase and salt, then seals the document key
+ * under AES-256-GCM with a fresh random IV.
  *
  * @param documentKeyB64 - Base64-encoded document key to wrap.
  * @param passphrase - Passphrase used for key derivation.
- * @param salt - Base64-encoded PBKDF2 salt.
- * @param options
- * @returns Metadata and ciphertext for the wrapped document key.
+ * @param salt - Base64-encoded PBKDF2 salt. A random 16-byte salt is generated
+ *   when omitted.
+ * @param options - `iterations` overrides the PBKDF2 cost; `wrapMode` records
+ *   whether the envelope is bound to this device (`'device'`, the default) or to
+ *   the portable recovery passphrase (`'recovery'`).
+ * @returns The wrapped-key envelope: ciphertext, IV, auth tag, salt, iteration
+ *   count, algorithm, KDF identifier and wrap mode.
  */
 export async function wrapDocumentKey(
   documentKeyB64: string,
@@ -461,18 +480,23 @@ export async function wrapDocumentKey(
 /**
  * Unwraps a previously wrapped document key using PBKDF2-derived AES key material.
  *
- * Derives an AES-256 key from the provided passphrase and Base64 salt using
- * PBKDF2-SHA256 with 100000 iterations, then decrypts the wrapped key with
- * AES-CBC and PKCS\#7 padding.
+ * Derives a 32-byte AES key from the provided passphrase and Base64 salt using
+ * PBKDF2-HMAC-SHA256, then decrypts the wrapped key. Dispatches on `algorithm`:
+ * any value containing `GCM` uses authenticated AES-256-GCM and requires
+ * `authTagB64`; anything else falls back to the legacy unauthenticated
+ * AES-256-CBC / PKCS\#7 path for envelopes written before the GCM migration.
  *
  * @param wrappedCipherB64 - Base64-encoded wrapped document key ciphertext.
  * @param wrappedIvB64 - Base64-encoded IV used during key wrapping.
  * @param passphrase - Passphrase used for PBKDF2 key derivation.
  * @param salt - Base64-encoded PBKDF2 salt.
- * @param algorithm
- * @param iterations
- * @param authTagB64
+ * @param algorithm - Algorithm recorded in the envelope. Defaults to
+ *   `'AES-256-CBC'` for envelopes written before the GCM migration.
+ * @param iterations - PBKDF2 iteration count recorded in the envelope.
+ * @param authTagB64 - Base64-encoded GCM authentication tag. Required on the
+ *   GCM path; ignored on the legacy CBC path.
  * @returns The original Base64 document key as a UTF-8 string.
+ * @throws {Error} On the GCM path if the auth tag is missing or verification fails.
  */
 export async function unwrapDocumentKey(
   wrappedCipherB64: string,
