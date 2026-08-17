@@ -392,9 +392,9 @@ important constants you should know when working on each feature.
 ## Getting started
 
 **Prerequisites**
-- Node.js (recommended 18, 20 or 22)
-- Yarn or npm
+- Node.js 20+ (includes npm)
 - Android Studio + SDK to run Android, Xcode for iOS
+- Java Development Kit (JDK) 21 (JDK 17+ also works)
 - For Firebase features: a Firebase project and platform config files
 
 **Install dependencies**
@@ -412,6 +412,19 @@ npm start
 npm run android
 npm run ios
 ```
+
+**Android prerequisite checks (especially on macOS)**
+```bash
+node -v
+npm -v
+java -version
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+$JAVA_HOME/bin/java -version
+```
+
+If you get:
+- `Unable to locate a Java Runtime` → install a JDK first, then re-run the checks above.
+- `command not found: npm` → install Node.js (which includes npm), restart your shell, and verify with `npm -v`.
 
 **Notes**
 - The project uses React Native Firebase modules (@react-native-firebase/*).
