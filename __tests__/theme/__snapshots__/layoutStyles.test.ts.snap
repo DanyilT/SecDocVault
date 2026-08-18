@@ -1,0 +1,41 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`layoutStyles should match snapshot 1`] = `
+{
+  "appShell": {
+    "backgroundColor": "#0b1220",
+    "flex": 1,
+  },
+  "container": {
+    "backgroundColor": "#0b1220",
+    "flex": 1,
+  },
+  "footerCopy": {
+    "color": "#9ca3af",
+    "fontSize": 12,
+    "marginTop": 8,
+    "paddingBottom": 12,
+    "textAlign": "center",
+  },
+  "footerView": {
+    "marginTop": "auto",
+  },
+  "loadingContainer": {
+    "alignItems": "center",
+    "flex": 1,
+    "gap": 12,
+    "justifyContent": "center",
+    "padding": 16,
+  },
+  "pageBody": {
+    "flex": 1,
+    "gap": 12,
+    "padding": 16,
+  },
+  "scrollContainer": {
+    "flexGrow": 1,
+    "gap": 12,
+    "padding": 16,
+  },
+}
+`;
